@@ -66,7 +66,12 @@ Material behavior/scope changes or removal/relaxation of obligations require
 approve_delivery_amendment: show the concrete original IDs, replacement and reason
 for explicit user confirmation. Apply its authenticated reference through
 contextUpdates.apply_amendment. The original text stays retained and replacement
-behavior becomes a new obligation requiring independent verification. Structural
+behavior becomes a new obligation requiring independent verification.
+Before an issue's first attempt there is no receipt to cite: call `approve_delivery_amendment` with `task`
+(`featureId`, `taskId`, `designRef`) instead of `previousAttempt`. The ids are the issue's current contract items
+(feature objective/criteria/constraints and the issue's own criteria/constraints); an unknown id lists the available ones.
+The approval is bound to that feature, design and issue and is applied on the first `execute_and_review` call through
+`contextUpdates.apply_amendment`. It is refused once the issue has an attempt, and a design change invalidates it. Structural
 prerequisite/decomposition changes still use the approved Design transition.
 
 Review context is assembled from persisted originals, revisions and all relevant
