@@ -5,7 +5,7 @@ description: Use when preparing a deterministic change set for the standalone ex
 
 # Executor — Prepare Change Operations
 
-This skill describes how to **prepare** input for the [executor](https://github.com/jared-two-foxes/executor) operation schema. Pi's Design workflow passes this exact input to the shared [Conductor](https://github.com/jared-two-foxes/conductor) CLI via the Pi-native `execute_and_review` tool. It is reusable by any agent that needs to author executor-compatible operations, not just the Design agent.
+This skill describes how to **prepare** input for the [executor](https://github.com/jared-two-foxes/executor) operation schema. Pi's Design workflow passes this exact input to the shared [Conductor](https://github.com/jared-two-foxes/conductor) CLI via the Pi-native `{{tool:execute_and_review}}` tool. It is reusable by any agent that needs to author executor-compatible operations, not just the Design agent.
 
 **The executor repository (its README and Rust input types) is the source of truth.** This skill documents the interface known at the time of writing. If a newer installed executor or repository version differs, consult its documentation rather than inventing an input format.
 
@@ -81,7 +81,7 @@ The `patch` operation has been removed, with no fallback. Never emit `patch` or 
 In Pi, prepare and retain complete JSON for the selected issue under the retained
 overall feature direction approval. Offer full operations on request; when requested,
 return the complete JSON. Do not display it by default or request a separate execution
-confirmation. Pass this exact JSON as input to execute_and_review. The adapter writes it to a
+confirmation. Pass this exact JSON as input to {{tool:execute_and_review}}. The adapter writes it to a
 retained file and constructs `executor apply <file>` as the first Conductor v2
 command; Executor is a separately installed CLI, not embedded in Conductor. Only a material
 departure from approved objectives, externally visible behaviour or constraints

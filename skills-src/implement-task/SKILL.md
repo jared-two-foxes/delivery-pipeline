@@ -9,7 +9,7 @@ description: >
 
 This is the task-scoped implementation and recovery workflow. Accept an existing
 Scaffold `featureId` and `taskId` with persisted design, criteria and authorized
-feature direction. The feature-level orchestrator (`/skill:feature-delivery`)
+feature direction. The feature-level orchestrator (`{{skill:feature-delivery}}`)
 selects eligible issues, orders dependencies and owns the overall approval, graph
 decomposition and final feature validation. This skill does not create a feature,
 approve direction, choose the next task or run the feature-wide final gate.
@@ -17,8 +17,8 @@ approve direction, choose the next task or run the feature-wide final gate.
 A direct invocation is valid for one already selected, approved, eligible issue.
 Fetch scoped issue state and retain exact task identity, baseline, branch and
 previous evidence. Where permission or an approved design is missing, return a
-clear blocker and direct the caller to `/skill:init-feature` for preparation; do not infer approval from a chat summary.
-Use `/skill:design` only for engineering design, not execution authority.
+clear blocker and direct the caller to `{{skill:init-feature}}` for preparation; do not infer approval from a chat summary.
+Use `{{skill:design}}` only for engineering design, not execution authority.
 The retained overall feature direction covers in-scope task implementation,
 checks, independent review, verified checkpoints and recovery across sessions.
 Do not request a second per-task confirmation. Stop and return control for
@@ -30,8 +30,8 @@ NEEDS_DESIGN or BLOCKED, diagnose evidence and either perform an allowed
 in-scope correction or return the authenticated blocking state to the feature
 orchestrator. Never silently expand the Scaffold graph.
 
-Before execute_and_review, inspect current source and the caller-selected issue's
-persisted design and prepare complete executor JSON using /skill:executor.
+Before {{tool:execute_and_review}}, inspect current source and the caller-selected issue's
+persisted design and prepare complete executor JSON using {{skill:executor}}.
 The removed `patch` variants are unsupported. Pass exact input, task identity,
 initial additional requirements and baseRef. Supply an explicit `checks` array
 on the first attempt. Continuations may omit `checks` to inherit the retained
@@ -39,7 +39,7 @@ verification plan. Prefer targeted regressions for leaves and scoped integration
 tests for intermediate parents; exclude the full repository/workspace test
 command whenever the runner supports meaningful selection. Retain exact commands
 and coverage in the issue design. Explain any unavoidable broader command.
-Reserve the full suite for final root verification through validate_feature
+Reserve the full suite for final root verification through {{tool:validate_feature}}
 after checkpoints; corrective issues use targeted checks before rerunning that
 final gate. Keep ordered checks fixed across corrections except for explicit
 command invocation repairs described below. On a first attempt, `requirements`
@@ -52,9 +52,9 @@ and repairs. Branch and design-reference mismatches require correcting the
 context, not reapproval. Named checks may include
 `successCondition: [program, ...args]` for a known tool-specific output
 contract. Omit it for ordinary Cargo compile/test commands so the adapter can
-apply its defaults. See /skill:conductor for the runner's evaluator protocol.
+apply its defaults. See {{skill:conductor}} for the runner's evaluator protocol.
 
-Supply operations, checks and review settings to `execute_and_review`. The
+Supply operations, checks and review settings to `{{tool:execute_and_review}}`. The
 adapter prepares the exact Executor and Review inputs and submits the ordered
 workflow to Conductor. Use the native delivery tool for this workflow. Review
 model and budget overrides become CLI flags; defaults are 180 seconds and 20 turns.
@@ -74,7 +74,7 @@ Conductor's generic FAILED is interpreted by the adapter. A failed application o
 check and a completed CHANGES_REQUESTED review mean NEEDS_DESIGN; unavailable,
 malformed, mismatched or INDETERMINATE review output means BLOCKED. A zero runner
 exit alone is insufficient. Complete stdout/stderr paths are retained outside the
-source tree; inspect full files or inspect_conductor_evidence when previews are
+source tree; inspect full files or {{tool:inspect_conductor_evidence}} when previews are
 truncated, especially for structured Review JSON. Do not parse truncated JSON or
 interpret an absent review as approval.
 
@@ -87,9 +87,9 @@ One call performs one attempt. If the attempt returns `NEEDS_DESIGN` or
 `BLOCKED`, inspect the retained evidence and read
 [Retry policy](references/retry-policy.md) before deciding whether to continue.
 For an allowed correction, prepare new operations against the current tree and
-call `execute_and_review` with the continuation reference.
+call `{{tool:execute_and_review}}` with the continuation reference.
 
-Inspect the returned receipt with `inspect_issue_attempt`; use its minimal `continuation`
+Inspect the returned receipt with `{{tool:inspect_issue_attempt}}`; use its minimal `continuation`
 receipt reference and supply new operations against the current source. The prior
 attempt's `after` snapshot includes successfully applied edits even when checks
 or Review failed. Keep `baseRef` at the original HEAD: the review covers the entire
@@ -112,28 +112,28 @@ Windows, `sh -c` only where installed). Preserve environment assignment/quoting 
 If Scaffold is blocked/failed, inspect its state, `retry` with the recovery reason,
 then `start` the same issue. Those transitions do not reset receipts or consumed
 attempts. A fresh context may discover the latest receipt through
-`prepare_issue_handoff`. Inspect the receipt details with `inspect_issue_attempt`
+`{{tool:prepare_issue_handoff}}`. Inspect the receipt details with `{{tool:inspect_issue_attempt}}`
 when diagnosing a correction. Pass the applicable saved context reference as
 `issueHandoffRef` to continue without copying the receipt hash. For stale context
-or receipt prechecks, use the returned `prepare_issue_handoff` recovery action
-and inspect the latest attempt before retrying. After `resume_issue` and the
+or receipt prechecks, use the returned `{{tool:prepare_issue_handoff}}` recovery action
+and inspect the latest attempt before retrying. After `{{tool:resume_issue}}` and the
 required `start`, pass its execution receipt `handoffRef` as `previousAttempt`.
 
 On `stage: COMMITTED`, completion and the local checkpoint are already recorded.
 Automatic finalization follows the receipt ending the active verification/correction loop.
 Use `nextBaseRef` for the next issue; do not repeat completion or commit commands.
 If `implementationStatus: PASSED` but finalization is BLOCKED, preserve its evidence
-and call checkpoint_verified_task with that receipt and matching feature/branch
+and call {{tool:checkpoint_verified_task}} with that receipt and matching feature/branch
 metadata. This resumes completion/commit only; never reapply operations or rerun
 review to recover a failed commit. Each parent needs its own original-criteria verification
-and commit after children, even if its commit is empty. Finish with validate_feature
+and commit after children, even if its commit is empty. Finish with {{tool:validate_feature}}
 against the original baseline. Inspect actual meaningful checks and final review;
 add in-scope corrective issues and revalidate without additional permission prompts.
 
 For missing prerequisites or oversized scope, retain the latest receipt and
 return NEEDS_DECOMPOSITION/NEEDS_DESIGN with a proposed prerequisite and
-reconciliation reference to feature-delivery. That orchestrator owns suspend_issue,
-graph redesign, dependency implementation and resume_issue. Do not create
+reconciliation reference to feature-delivery. That orchestrator owns {{tool:suspend_issue}},
+graph redesign, dependency implementation and {{tool:resume_issue}}. Do not create
 new Scaffold issues or silently change the approved task boundary.
 Conflicts block with saved work intact. Rebase recovery uses its separate native
 verification and handoff tools. The retained direction covers these actions without
@@ -169,7 +169,7 @@ missing evidence from looking like a new run. A missing or contradictory anchor,
 in-flight intent or receipt requires explicit recovery; no reset or reapproval.
 See extensions/execute-and-review/RECOVERY.md for runtime details and current limitations.
 
-Material contract amendments use approve_delivery_amendment with the latest receipt
+Material contract amendments use {{tool:approve_delivery_amendment}} with the latest receipt
 (or, before the issue's first attempt, its task identity instead of a receipt),
 concrete original criterion/finding/constraint IDs, replacement and reason. A recorded
 obligation that is wrong or stricter than the ticket must never leave the pipeline
@@ -186,10 +186,10 @@ and replacement behavior requires independent verification.
 ### Prepare executor handoff
 
 Before generating Executor input, inspect exact current source and load
-`/skill:executor`. Prepare and retain the complete executor input. Use `edit_file` for in-place text changes as documented there; never send unified diffs as operations.
+`{{skill:executor}}`. Prepare and retain the complete executor input. Use `edit_file` for in-place text changes as documented there; never send unified diffs as operations.
 Generate only the selected issue's complete operations, not a feature-wide operation
 set split afterwards. Pass exact JSON and meaningful verification commands as
-executable/argument arrays to `execute_and_review`, plus
+executable/argument arrays to `{{tool:execute_and_review}}`, plus
 `checkpoint: {defaultBranch, protectedBranches}` with known repository branch
 protection metadata. A successful review automatically records completion and
 creates a local commit of the exact reviewed tree. Retained feature direction
@@ -235,7 +235,7 @@ cannot select the needed tests, name the check in `broadCheckJustifications:
 record. Continuations inherit the retained plan and are not re-checked.
 
 Reserve the full test suite for the final root/feature verification through
-`validate_feature` after required issue checkpoints. The root's implementation
+`{{tool:validate_feature}}` after required issue checkpoints. The root's implementation
 attempt may use focused integration checks; the final gate supplies full-project
 build/test commands and independently reviews the complete result. Avoid duplicating
 that expensive suite across each issue or parent. If final review creates corrective
@@ -250,19 +250,19 @@ verification contracts require Design recovery retaining criteria, history and c
 
 Capture the current checkpoint HEAD once as the issue's baseRef and retain that
 baseline within its correction epoch. The adapter versions and assembles context. Preserve the check contract; explicit
-invocation repairs follow /skill:implement-task. Start the explicit
+invocation repairs follow {{skill:implement-task}}. Start the explicit
 Scaffold issue before execution. Supply task identity and the previousAttempt for
 corrections. Use `previousAttempt`, fresh `input` and structured `contextUpdates`; inspect
-`inspect_issue_attempt` for the authoritative context; inspect full logs
-through `inspect_conductor_evidence` only when needed. Do not hide Scaffold state in
+`{{tool:inspect_issue_attempt}}` for the authoritative context; inspect full logs
+through `{{tool:inspect_conductor_evidence}}` only when needed. Do not hide Scaffold state in
 the review diff: bookkeeping must be ignored and untracked.
 
 - PASSED: inspect authentic execution, meaningful check output, APPROVED independent
-  review and exact tree/task binding. Native `execute_and_review` automatically
+  review and exact tree/task binding. Native `{{tool:execute_and_review}}` automatically
   records Scaffold completion and runs the verified Git commit command. On
   `stage: COMMITTED`, use `nextBaseRef`; do not repeat completion or checkpointing.
   If implementation passed but commit finalization blocked, use
-  `checkpoint_verified_task` with the same successful receipt and matching scope.
+  `{{tool:checkpoint_verified_task}}` with the same successful receipt and matching scope.
   Never reapply operations or rerun review to recover a failed commit. Each resolved node gets its own
   commit, including an empty commit for parent verification. A parent remains incomplete
   after children finish until its original integrated criteria pass independently.
@@ -271,7 +271,7 @@ the review diff: bookkeeping must be ignored and untracked.
   exit hatch for additional issues. Never replay the original operations.
 - BLOCKED: stop the current command list, retain evidence and partial work, inspect
   the actual cause and continue an in-scope recoverable correction under the existing
-  approval. Follow /skill:implement-task's recovery procedure. An environment failure is
+  approval. Follow {{skill:implement-task}}'s recovery procedure. An environment failure is
   not a code defect. Keep the prior after-tree; a checks-only retry uses an empty
   operations array. Stop only for a concrete unresolved blocker or loop limit.
 - Oversized task: suspend and decompose only the remaining unverified responsibilities.
@@ -351,7 +351,7 @@ progress do not reset it. EVIDENCE_RECOVERY_REQUIRED means restore authoritative
 proof or report the exact blocker. Preserve files, index, original baseline, Git
 audit anchors and all receipts. Never reapprove unchanged direction to recover.
 
-Material contract amendments use approve_delivery_amendment with the latest receipt
+Material contract amendments use {{tool:approve_delivery_amendment}} with the latest receipt
 (or, before the issue's first attempt, its task identity instead of a receipt),
 concrete original criterion/finding/constraint IDs, replacement and reason. A recorded
 obligation that is wrong or stricter than the ticket must never leave the pipeline
