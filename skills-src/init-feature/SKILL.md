@@ -1,0 +1,185 @@
+---
+name: init-feature
+description: >
+  Prepare an existing Linear ticket or supplied feature requirements in Scaffold:
+  capture scope, obtain one direction approval, design/decompose the issue graph,
+  and finish Design without implementing source changes.
+---
+
+# Initialize a feature
+
+## Clean/reinitialization boundary
+
+A human may explicitly reset a feature using the separate administrative
+`scaffold clean` CLI. {{agent}} must **never** use that command automatically
+or offer it as a way to bypass blocked state or failed attempts. If the
+feature is missing after a clean, do not restore old approvals, task snapshots,
+execution receipts or checkpoint history from Git metadata. New Scaffold
+`scaffold init` generates a different `workflow.instance_id`, so previously
+retained approvals cannot authorize the new feature even with the same
+Linear ID, design, branch and original baseline. Re-run normal intake,
+inspect any surviving Git/source/evidence, present the direction and obtain
+a genuine new approval. Preserve unrelated work; cleaning never edits Git.
+
+
+
+Prepare a persistent Scaffold feature without initiating autonomous implementation.
+This skill is independently invocable (for example `{{skill:init-feature}} SA-585`)
+or called by `{{skill:feature-delivery}}` before its multi-task implementation loop.
+The source can be a Linear ticket or explicit user-supplied requirements.
+
+## 0. Load the source and reconcile existing state
+
+{{#pi}}
+For a Linear identifier, use the existing read-only `linear_get_ticket` tool to fetch
+the ticket; do not create, modify or close any Linear issues. Capture its identifier,
+{{/pi}}
+{{#claude}}
+For a Linear identifier, fetch the ticket with a configured read-only Linear integration
+(for example a Linear MCP server's issue-read tool). This plugin does not provide one. If none is
+available, ask the user to paste the ticket contents. Do not create, modify or close any Linear
+issues. Capture its identifier,
+{{/claude}}
+URL, title, full description, acceptance criteria and relevant constraints
+verbatim in the original feature context. Preserve the ticket as source material:
+do not invent criteria, silently discard constraints or treat Linear status as
+authorization to modify code. Derive a concise engineering objective and
+testable acceptance criteria; explicitly report important ambiguity before approval.
+
+Inspect the current Git repository root, full baseline commit, feature branch,
+working-tree/index status and repository-specific instructions. Verify the Linear
+ticket belongs to this repository; do not infer a repository from its identifier.
+Use a stable feature ID from the ticket identifier (for example `SA-585`) unless
+an existing mapping is already established. Store the source reference in the
+immutable feature context and use `origin: {kind:"ticket", reference:"SA-585"}`
+on any additional ticket-derived issues; the Scaffold root is created automatically
+by `init`. Preserve the original baseline/branch binding.
+
+**Before creating anything**, query `{{tool:scaffold_tasks}} summary` (and scoped `issue`
+when applicable) for that feature ID. If it already exists, verify the source
+identifier, original approved direction, design reference, repository, baseline,
+branch, status and any current attempt/checkpoint receipts. Reuse the existing
+feature and resume only its unfinished design phase when compatible. Never call
+`init` again to overwrite, rebase, or conceal a mismatch. If the ticket changed
+after the immutable design context was captured, report the delta and use the
+explicit feature-amendment/design recovery procedure where permitted; do not
+silently mutate original criteria or treat a new Linear revision as an approval.
+Do not start a replacement feature or reset attempt history on errors.
+
+## 1. Discover and approve the source requirements
+
+Inspect the actual repository, existing source, relevant tests, interfaces, Git
+branch/status and local instructions. Establish the ticket objective, acceptance
+criteria, boundaries, important interfaces, constraints and proposed approach.
+Discuss unresolved choices that affect the user's objectives, public behaviour,
+compatibility, cost or scope. Do not design every private detail up front.
+
+### Constraints and gates must come from the source
+
+Record the ticket's own requirements as stated; do not strengthen them. In particular,
+do not turn a ticket's stated dependency or ordering ("depends on SA-588") into a stricter
+gate of your own, such as a retained local receipt, a validation result or an approval, and
+do not record such a gate as a feature or issue constraint or in a design. Record the
+dependency as the ticket states it (a Scaffold dependency edge where one exists in this
+graph, otherwise plain context) and treat the stricter question as a delta to raise.
+
+If you believe an extra constraint, prerequisite or gate is genuinely needed, write it
+separately in the direction you present for approval under the heading **Agent-added
+constraints (not in the ticket)**, with the reason, and keep it out of the ticket-derived
+constraints until the user approves the direction that contains it. If the user has not
+seen it, it is not an approved constraint. When you later find that a blocker is an
+obligation you added yourself, say so and ask the user to override it with
+`{{tool:approve_delivery_amendment}}` rather than stopping.
+
+### Feature planning and the single approval
+
+Present a concise overall design direction, any **Agent-added constraints (not in the
+ticket)** and the intended local delivery scope:
+design/decomposition, implementation, relevant checks and independent review,
+verified local commits, final feature validation, and necessary issue/rebase recovery.
+Persist its exact text in feature context using `{{tool:scaffold_tasks}}` `init`, immutable
+`design_ref: "sha256:context"`, original full Git baseline and feature branch.
+Scaffold creates the root issue. State creation does not grant source authority.
+
+Review happens in the conversation, not in a dialog. After `init`, write the complete
+direction in your reply (objective, criteria, scope and non-goals, approach, decomposition
+outline, risks, verification) and end by asking the user to approve it or tell you what to
+change. Their free-text alterations are the main input to the design. When they ask for
+changes, apply them with `{{tool:scaffold_tasks}}` `design-revise` (full revised `context`, plus the
+full revised `title`, `objective`, `acceptance_criteria` and `constraints` whenever the
+alteration changes them, so a dropped criterion stops being required; it is refused once
+approved and yields a new `design_ref`), then present the revised design in
+full again. Repeat until the user says yes.
+
+Only after the user has said yes to the design you just presented, call native
+`{{tool:approve_feature_direction}}` with featureId and that design's exact `designRef`. It shows a
+short Yes/No confirmation bound to that reference and refuses if the stored design differs.
+Never call it before the user has read and accepted the presented design. On refusal or
+absent UI, stop before implementation. The tool retains scope-bound authority; existing
+matching approval is reused without prompting, including after a new session. Preserve its
+returned reference. Do not invent authority from a design note, transcript summary or issue status.
+
+An existing feature may use this tool to approve its retained overall direction
+once. Prior per-issue approvals alone do not imply this broader delivery grant.
+
+## 2. Design the issue graph downward
+
+Conversational memory is not authoritative; authenticate persisted state and evidence.
+Use `summary`, then `design-select` for
+one eligible issue. Inspect only that issue's scoped context, ancestor contracts,
+inherited dependencies and relevant source. Make detailed engineering decisions
+within the approved direction yourself. Share concise progress when useful;
+do not turn design previews into additional approval requests.
+
+### One bounded design pass
+
+Use `{{skill:design}}` to produce the issue's bounded engineering contract; persist
+that contract using the existing `design-record` operation. The design skill
+itself must not initialize Scaffold, authorize implementation or invoke execution.
+
+
+Define inputs, outputs, immediate responsibilities, interfaces, invariants,
+producers/consumers, ownership/lifecycle, failure behaviour and verification.
+Use focused `diff` blocks with changed portions marked when explaining decisions;
+these are illustrative design excerpts, not executor input. Keep the implementation
+preview proportional to the issue and cover acceptance criteria and edge cases.
+
+Mandatory decomposition applies when the issue cannot be understood, implemented
+and independently verified in one bounded scope. Add immediate children with
+`decompose`; defer their internal details to their own design passes. Preserve
+ancestor dependencies and completed descendants. Every child needs a stable ID,
+objective, criteria, context, constraints and explicit dependencies. Put
+`Verification:` strategy and edge cases in context; retain review/discovery origin.
+Definitions remain immutable. Small changes use the root itself as the leaf.
+
+Persist each agent-authored design with `design-record`:
+`{summary, verification, approval, disposition: "leaf"|"decomposed"}`.
+The existing `approval` field records delegated authority, for example:
+"Agent-designed under overall feature direction authorization <actual reference>;
+no separate user approval was requested for this issue."
+Never claim the user approved an individual issue if they did not. Add a parent's
+immediate children before recording its design. Reopened designs retain their
+history and invalidate affected unfinished designs, which {{agent}} redesigns autonomously.
+
+Continue downward until every issue has a complete design, then `design-finish`.
+No implementation may run before this entire graph design phase completes.
+Scaffold validates structure and association, not authority or verification truth.
+
+
+## 3. Stop at the prepared-feature boundary
+
+On successful `design-finish`, read `{{tool:scaffold_tasks}} summary` and verify the
+persisted graph is in Implement phase, every required issue has a recorded
+design, and the original feature approval is retained and applicable. Return
+the feature ID, Linear source, branch/baseline, approved direction reference,
+issue counts and any unresolved blockers. A single root leaf is valid for a
+small ticket. This skill **never** calls `implement-task`, `{{tool:execute_and_review}}`,
+`{{tool:validate_feature}}`, starts an issue, edits application source or creates a
+checkpoint. If approval is declined, design remains incomplete, or state
+authentication is inconclusive, stop and report the exact phase/blocker.
+
+Approval is explicitly scoped to the described feature direction and possible
+subsequent local implementation/checks/review/checkpoints. Initializing a feature
+does not itself grant publishing permission or initiate implementation. Retain
+the existing one-direction-approval semantics across sessions; do not ask the
+user to approve individual issue designs.
