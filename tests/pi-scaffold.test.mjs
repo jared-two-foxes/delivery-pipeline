@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtemp, writeFile, readFile, readdir, mkdir, rm, chmod, symlink, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { scaffoldTasks, checkStatePaths, buildCommand, OPERATIONS } from '../pi/agent/extensions/scaffold/adapter.mjs';
+import { scaffoldTasks, checkStatePaths, buildCommand, OPERATIONS } from '../agent/extensions/scaffold/adapter.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const context = 'Approved feature context';
@@ -258,9 +258,9 @@ test('clean is not an agent operation', () => {
 
 test('production adapter only invokes Git inspection and scaffold tasks, with no file writes', async () => {
   // The process runner lives in lib/scaffold/process.mjs so shared modules can reach Scaffold.
-  const adapter = await readFile(path.join(root, 'pi/agent/extensions/scaffold/adapter.mjs'), 'utf8') +
-    await readFile(path.join(root, 'pi/agent/lib/scaffold/process.mjs'), 'utf8');
-  const extension = await readFile(path.join(root, 'pi/agent/extensions/scaffold/tools.mjs'), 'utf8');
+  const adapter = await readFile(path.join(root, 'agent/extensions/scaffold/adapter.mjs'), 'utf8') +
+    await readFile(path.join(root, 'agent/lib/scaffold/process.mjs'), 'utf8');
+  const extension = await readFile(path.join(root, 'agent/extensions/scaffold/tools.mjs'), 'utf8');
   assert.doesNotMatch(adapter, /writeFile|mkdir|unlink|rename|executeAndReview|invokeConductor|push-ticket|next-step/i);
   assert.match(adapter, /shell: false/);
   assert.match(adapter, /child\.stdin\.end\(input\)/);
@@ -302,7 +302,7 @@ test('real Scaffold CLI lifecycle persists dependent tasks and resumes in a new 
   await call({ operation: 'direction-approve', feature_id: 'F1', payload: { scope_digest: scope } });
   await call(params('start'));
   // Fresh module instance, no previous conversation or adapter memory.
-  const fresh = await import('../pi/agent/extensions/scaffold/adapter.mjs?new-session');
+  const fresh = await import('../agent/extensions/scaffold/adapter.mjs?new-session');
   const resumed = await fresh.scaffoldTasks(params('list'), { directory: dir });
   assert.equal(resumed.ok, true);
   assert.equal(resumed.data.feature.tasks.T1.status, 'in_progress');
@@ -333,7 +333,7 @@ test('real Scaffold clean invalidates old feature state and reinit changes ident
   const dir = await fixture(t);
   const source = path.resolve(process.env.SCAFFOLD_SOURCE, 'src');
   const script = "import sys;sys.path.insert(0,sys.argv.pop(1));from scaffold_cli.cli import main;main()";
-  const { invoke } = await import('../pi/agent/extensions/scaffold/adapter.mjs');
+  const { invoke } = await import('../agent/extensions/scaffold/adapter.mjs');
   const invokeScaffold = (_program, args, options) =>
     invoke('python3', ['-c', script, source, ...args], options);
   const call = operation => scaffoldTasks(params(operation), {directory:dir}, {invokeScaffold});
@@ -359,23 +359,23 @@ test('real Scaffold clean invalidates old feature state and reinit changes ident
 });
 
 test('Pi policies allow only scoped state tracking and preserve separate execution gates', async () => {
-  for (const file of ['pi/agent/AGENTS.md', 'pi/agent/SYSTEM.md', 'pi/agent/skills/init-feature/SKILL.md']) {
+  for (const file of ['delivery-rules.md', 'agent/skills/init-feature/SKILL.md']) {
     const text = (await readFile(path.join(root, file), 'utf8')).replace(/\s+/g, ' ');
     assert.match(text, /scaffold_tasks/);
     assert.match(text, /overall (?:feature )?direction|overall feature/);
     assert.match(text, /Scaffold (?:validates structure and association|does not authenticate)/);
   }
-  const delivery = (await readFile(path.join(root, 'pi/agent/skills/feature-delivery/SKILL.md'), 'utf8')).replace(/\s+/g, ' ');
+  const delivery = (await readFile(path.join(root, 'agent/skills/feature-delivery/SKILL.md'), 'utf8')).replace(/\s+/g, ' ');
   assert.match(delivery, /scaffold_tasks/);
   assert.match(delivery, /\/skill:init-feature/);
   assert.match(delivery, /Only native `execute_and_review`/);
-  const skill = await readFile(path.join(root, 'pi/agent/skills/scaffold/SKILL.md'), 'utf8');
+  const skill = await readFile(path.join(root, 'agent/skills/scaffold/SKILL.md'), 'utf8');
   assert.match(skill, /select` returning null does not/);
   assert.match(skill, /not trusted Conductor verification/);
-  for (const file of ['pi/agent/skills/scaffold/SKILL.md',
-    'pi/agent/extensions/plan/index.ts', 'pi/agent/extensions/linear/index.ts']) {
+  for (const file of ['agent/skills/scaffold/SKILL.md',
+    'agent/extensions/plan/index.ts', 'agent/extensions/linear/index.ts']) {
     assert.doesNotMatch(await readFile(path.join(root, file), 'utf8'), /scaffold_run|push-ticket|next-step|\/skill:tdd/);
   }
-  const pkg = JSON.parse(await readFile(path.join(root, 'pi/agent/extensions/scaffold/package.json'), 'utf8'));
+  const pkg = JSON.parse(await readFile(path.join(root, 'agent/extensions/scaffold/package.json'), 'utf8'));
   assert.equal(pkg.peerDependencies.typebox, '*');
 });
