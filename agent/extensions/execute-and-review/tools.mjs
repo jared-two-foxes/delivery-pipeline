@@ -11,6 +11,7 @@ import { inspectEvidence } from "./inspect-evidence.mjs";
 import { scaffoldCliUsage, scaffoldCliUsageSince } from "../scaffold/adapter.mjs";
 import { combineScaffoldUsage } from "../../lib/verification/timings.mjs";
 import { approveDeliveryAmendment } from "./context-amendment.mjs";
+import { formatScope } from "../../lib/host/format-scope.mjs";
 import { defineTool, toolResult, withFailureReporting } from "../../lib/host/tool.mjs";
 
 export function createExecuteAndReviewTools(Type) {
@@ -38,7 +39,7 @@ export function createExecuteAndReviewTools(Type) {
             confirm: async (scope) =>
               host.confirm(
                 "Approve this material contract change?",
-                JSON.stringify(scope, null, 2) +
+                "\n" + formatScope(scope) + "\n" +
                   "\nOriginal obligations and all execution history remain retained. Only this concrete delta is authorized; independent verification is still required.",
               ),
           },
@@ -64,7 +65,7 @@ export function createExecuteAndReviewTools(Type) {
             confirm: async (scope) =>
               host.confirm(
                 "Approve overall design direction and implementation?",
-                JSON.stringify(scope, null, 2) +
+                "\n" + formatScope(scope) + "\n" +
                   "\nProceed with this feature through design, implementation, checks, independent review, local checkpoints and recovery without further routine confirmations? Stop for changes outside this approved direction. Publishing and merging are separate.",
               ),
           },
