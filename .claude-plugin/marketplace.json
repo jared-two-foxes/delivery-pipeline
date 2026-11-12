@@ -1,0 +1,16 @@
+{
+  "name": "delivery-pipeline",
+  "owner": {
+    "name": "jared-two-foxes"
+  },
+  "metadata": {
+    "description": "Marketplace for the delivery-pipeline Claude Code plugin."
+  },
+  "plugins": [
+    {
+      "name": "delivery-pipeline",
+      "source": "./",
+      "description": "Scaffold/execute_and_review delivery tools over MCP, plus a guard that blocks direct source edits and unsafe shell commands while a delivery is active."
+    }
+  ]
+}
