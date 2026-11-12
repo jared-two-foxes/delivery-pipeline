@@ -129,6 +129,14 @@ test('feature-delivery delegates exactly one task to implement-task without re-o
   assert.match(read('agent/extensions/execute-and-review/README.md'), /\/skill:implement-task/);
 });
 
+test('init-feature keeps agent-added constraints out of the ticket and shows them for approval', () => {
+  const init = read('agent/skills/init-feature/SKILL.md').replace(/\s+/g, ' ');
+  assert.match(init, /do not strengthen them/);
+  assert.match(init, /Agent-added constraints \(not in the ticket\)/);
+  assert.match(init, /If the user has not seen it, it is not an approved constraint/);
+  assert.match(init, /approve_delivery_amendment/);
+});
+
 test('init-feature supports independent Linear preparation and safe reuse', () => {
   const init = read('agent/skills/init-feature/SKILL.md');
   const delivery = read('agent/skills/feature-delivery/SKILL.md');

@@ -66,9 +66,27 @@ criteria, boundaries, important interfaces, constraints and proposed approach.
 Discuss unresolved choices that affect the user's objectives, public behaviour,
 compatibility, cost or scope. Do not design every private detail up front.
 
+### Constraints and gates must come from the source
+
+Record the ticket's own requirements as stated; do not strengthen them. In particular,
+do not turn a ticket's stated dependency or ordering ("depends on SA-588") into a stricter
+gate of your own, such as a retained local receipt, a validation result or an approval, and
+do not record such a gate as a feature or issue constraint or in a design. Record the
+dependency as the ticket states it (a Scaffold dependency edge where one exists in this
+graph, otherwise plain context) and treat the stricter question as a delta to raise.
+
+If you believe an extra constraint, prerequisite or gate is genuinely needed, write it
+separately in the direction you present for approval under the heading **Agent-added
+constraints (not in the ticket)**, with the reason, and keep it out of the ticket-derived
+constraints until the user approves the direction that contains it. If the user has not
+seen it, it is not an approved constraint. When you later find that a blocker is an
+obligation you added yourself, say so and ask the user to override it with
+`approve_delivery_amendment` rather than stopping.
+
 ### Feature planning and the single approval
 
-Present a concise overall design direction and the intended local delivery scope:
+Present a concise overall design direction, any **Agent-added constraints (not in the
+ticket)** and the intended local delivery scope:
 design/decomposition, implementation, relevant checks and independent review,
 verified local commits, final feature validation, and necessary issue/rebase recovery.
 Persist its exact text in feature context using `scaffold_tasks` `init`, immutable
