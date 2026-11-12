@@ -5,10 +5,10 @@ import { appendFile, mkdtemp, writeFile, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { executeAndReview } from "./helpers/conductor-v2.mjs";
-import { inspectEvidence } from "../pi/agent/extensions/execute-and-review/inspect-evidence.mjs";
-import { readEvidence, retainEvidence } from "../pi/agent/lib/evidence/store.mjs";
-import { authenticateTaskEvidence } from "../pi/agent/extensions/checkpoint/commit.mjs";
-import { verificationChecks } from "../pi/agent/lib/verification/checks.mjs";
+import { inspectEvidence } from "../agent/extensions/execute-and-review/inspect-evidence.mjs";
+import { readEvidence, retainEvidence } from "../agent/lib/evidence/store.mjs";
+import { authenticateTaskEvidence } from "../agent/extensions/checkpoint/commit.mjs";
+import { verificationChecks } from "../agent/lib/verification/checks.mjs";
 import { ledgerFeature } from "./helpers/ledger-feature.mjs";
 
 async function fixture(t) {

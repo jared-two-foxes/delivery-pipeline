@@ -5,18 +5,18 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
-import { git } from "../pi/agent/lib/git/tree.mjs";
-import { authenticateIssueMutation } from "../pi/agent/lib/verification/issue-mutation.mjs";
+import { git } from "../agent/lib/git/tree.mjs";
+import { authenticateIssueMutation } from "../agent/lib/verification/issue-mutation.mjs";
 import {
   prepareIssueHandoff,
   inspectIssueHandoff,
   readIssueHandoff,
-} from "../pi/agent/lib/verification/issue-handoff.mjs";
+} from "../agent/lib/verification/issue-handoff.mjs";
 import {
   assertDeliveryJournal,
   anchorDeliveryJournal,
   deliveryContractItems,
-} from "../pi/agent/lib/delivery-state/delivery-context.mjs";
+} from "../agent/lib/delivery-state/delivery-context.mjs";
 
 async function fixture(t) {
   const directory = await mkdtemp(path.join(tmpdir(), "pi-delivery-state-"));
@@ -40,8 +40,8 @@ async function fixture(t) {
 }
 
 test("delivery-state has no direct or transitive Scaffold runtime dependency", async () => {
-  const directory = fileURLToPath(new URL("../pi/agent/lib/delivery-state/", import.meta.url));
-  const scaffold = fileURLToPath(new URL("../pi/agent/lib/scaffold/", import.meta.url));
+  const directory = fileURLToPath(new URL("../agent/lib/delivery-state/", import.meta.url));
+  const scaffold = fileURLToPath(new URL("../agent/lib/scaffold/", import.meta.url));
   const visited = new Set();
   async function visit(file) {
     if (visited.has(file)) return;
@@ -54,7 +54,7 @@ test("delivery-state has no direct or transitive Scaffold runtime dependency", a
   }
   for (const name of await readdir(directory))
     if (name.endsWith(".mjs")) await visit(path.join(directory, name));
-  const issueState = await import("../pi/agent/lib/scaffold/contracts.mjs");
+  const issueState = await import("../agent/lib/scaffold/contracts.mjs");
   assert.equal(Object.hasOwn(issueState, "issueMutation"), false);
 });
 
@@ -162,14 +162,14 @@ test("Scaffold callers own reads, writes and post-save freshness checks", {
     "Requires --experimental-test-module-mocks for runtime boundary isolation",
 }, async (suite) => {
   let invoke;
-  suite.mock.module("../pi/agent/extensions/scaffold/adapter.mjs", {
+  suite.mock.module("../agent/extensions/scaffold/adapter.mjs", {
     namedExports: {
       scaffoldTasks: (...args) => invoke(...args),
       issueFeature: () => assert.fail("Unexpected full feature lookup"),
     },
   });
-  const runtime = await import("../pi/agent/extensions/execution-recovery/issue-context.mjs");
-  const journalRuntime = await import("../pi/agent/extensions/execute-and-review/delivery-context.mjs");
+  const runtime = await import("../agent/extensions/execution-recovery/issue-context.mjs");
+  const journalRuntime = await import("../agent/extensions/execute-and-review/delivery-context.mjs");
 
   await suite.test("handoff preparation fetches fresh data again after saving", async (t) => {
     const f = await fixture(t);
@@ -228,7 +228,7 @@ test("Scaffold callers own reads, writes and post-save freshness checks", {
     const feature = { id: "F", tasks: { T: { status: "completed" } } };
     const args = { task: { featureId: "F", taskId: "T", designRef: "approved-design" }, evidenceRef: "receipt" };
     let result = { ok: true, commit: "a".repeat(40), baseRef: "b".repeat(40), tree: "c".repeat(40) };
-    suite.mock.module("../pi/agent/extensions/checkpoint/commit.mjs", {
+    suite.mock.module("../agent/extensions/checkpoint/commit.mjs", {
       namedExports: {
         checkpointAuthorization: () => assert.fail("Unexpected authorization factory"),
         checkpointVerifiedTask: async (actualArgs, data, actualContext) => {
@@ -239,7 +239,7 @@ test("Scaffold callers own reads, writes and post-save freshness checks", {
         },
       },
     });
-    const { checkpointVerifiedTask } = await import("../pi/agent/extensions/checkpoint/scaffold.mjs");
+    const { checkpointVerifiedTask } = await import("../agent/extensions/checkpoint/scaffold.mjs");
     const calls = [];
     let recordFails = false;
     invoke = async (params, _context, options) => {

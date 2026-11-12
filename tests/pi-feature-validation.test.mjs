@@ -4,24 +4,24 @@ import { execFileSync } from "node:child_process";
 import { appendFile, readdir, mkdtemp, writeFile, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { git } from "../pi/agent/lib/git/tree.mjs";
-import { snapshot } from "../pi/agent/lib/git/snapshot.mjs";
-import { invoke } from "../pi/agent/lib/scaffold/process.mjs";
-import { readFeatureEvidence } from "../pi/agent/lib/evidence/store.mjs";
-import { approveFeatureDirection } from "../pi/agent/extensions/scaffold/feature-authorization.mjs";
-import { verifyHistory } from "../pi/agent/lib/verification/history.mjs";
+import { git } from "../agent/lib/git/tree.mjs";
+import { snapshot } from "../agent/lib/git/snapshot.mjs";
+import { invoke } from "../agent/lib/scaffold/process.mjs";
+import { readFeatureEvidence } from "../agent/lib/evidence/store.mjs";
+import { approveFeatureDirection } from "../agent/extensions/scaffold/feature-authorization.mjs";
+import { verifyHistory } from "../agent/lib/verification/history.mjs";
 import { spawnSync } from "node:child_process";
 import { executeAndReview as executeTaskAttempt } from "./helpers/conductor-v2.mjs";
-import { checkpointVerifiedTask } from "../pi/agent/extensions/checkpoint/scaffold.mjs";
-import { scaffoldTasks } from "../pi/agent/extensions/scaffold/adapter.mjs";
-import { designReference } from "../pi/agent/lib/scaffold/contracts.mjs";
-import { authenticateIssueMutation } from "../pi/agent/lib/verification/issue-mutation.mjs";
+import { checkpointVerifiedTask } from "../agent/extensions/checkpoint/scaffold.mjs";
+import { scaffoldTasks } from "../agent/extensions/scaffold/adapter.mjs";
+import { designReference } from "../agent/lib/scaffold/contracts.mjs";
+import { authenticateIssueMutation } from "../agent/lib/verification/issue-mutation.mjs";
 import {
   validateFeature,
   inspectFeatureValidation,
-} from "../pi/agent/extensions/feature-validation/feature.mjs";
-import { readEvidence } from "../pi/agent/lib/evidence/store.mjs";
-import { runCheck } from "../pi/agent/extensions/feature-validation/check-process.mjs";
+} from "../agent/extensions/feature-validation/feature.mjs";
+import { readEvidence } from "../agent/lib/evidence/store.mjs";
+import { runCheck } from "../agent/extensions/feature-validation/check-process.mjs";
 
 import { approveGraph, requirementsFor } from "./helpers/issue-plan.mjs";
 const fixtureScaffold = new Map();
@@ -682,7 +682,7 @@ test(
 );
 
 test("Git design references are rejected; context hashes are required", async () => {
-  const { approvedDesign } = await import("../pi/agent/lib/verification/feature.mjs");
+  const { approvedDesign } = await import("../agent/lib/verification/feature.mjs");
   assert.throws(() => approvedDesign("/unused", {
     context: "Original approved design", design_ref: "approved.md@" + "a".repeat(40),
   }), /design|context/i);

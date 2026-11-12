@@ -5,9 +5,9 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { canonicalPath, decide, deliveryRoot, guardActive, guardMode, posixShellVerdict, powershellVerdict, tokenize } from "../pi/agent/lib/guard/index.mjs";
-import { piGuardVerdict, resolvePiPath } from "../pi/agent/lib/guard/pi.mjs";
-import { createToolCallGuard } from "../pi/agent/lib/host/pi.mjs";
+import { canonicalPath, decide, deliveryRoot, guardActive, guardMode, posixShellVerdict, powershellVerdict, tokenize } from "../agent/lib/guard/index.mjs";
+import { piGuardVerdict, resolvePiPath } from "../agent/lib/guard/pi.mjs";
+import { createToolCallGuard } from "../agent/lib/host/pi.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -231,7 +231,7 @@ test("cwd falls back to CLAUDE_PROJECT_DIR, then the process directory", (t) => 
 
 /* ---------------------------------------------------------------------------------- the hook as Claude runs it */
 
-const hook = (event, env = {}) => spawnSync(process.execPath, [path.join(root, "pi/claude/guard.mjs")], {
+const hook = (event, env = {}) => spawnSync(process.execPath, [path.join(root, "claude/guard.mjs")], {
   input: typeof event === "string" ? event : JSON.stringify(event),
   encoding: "utf8", timeout: 30000, env: { ...process.env, PI_DELIVERY_GUARD: "", ...env },
 });
@@ -272,20 +272,20 @@ test("hook contract: unreadable input blocks, and the user override works", (t) 
 /* ------------------------------------------------------------------------------ the Claude Code plugin files */
 
 import { readFileSync, existsSync } from "node:fs";
-import { projectDirectory } from "../pi/agent/lib/host/mcp.mjs";
-import { deliveryMcpServerConfig } from "../pi/agent/lib/host/pi.mjs";
+import { projectDirectory } from "../agent/lib/host/mcp.mjs";
+import { deliveryMcpServerConfig } from "../agent/lib/host/pi.mjs";
 
 const json = (file) => JSON.parse(readFileSync(path.join(root, file), "utf8"));
-const inPlugin = (p) => path.join(root, "pi", p.replace("${CLAUDE_PLUGIN_ROOT}/", ""));
+const inPlugin = (p) => path.join(root, p.replace("${CLAUDE_PLUGIN_ROOT}/", ""));
 
 test("plugin manifest names the plugin and sits at the plugin root", () => {
-  const manifest = json("pi/.claude-plugin/plugin.json");
+  const manifest = json(".claude-plugin/plugin.json");
   assert.equal(manifest.name, "pi-delivery");
   assert.match(manifest.version, /^\d+\.\d+\.\d+$/);
 });
 
 test("the guard hook is registered so that it fails CLOSED and covers every way to change files", () => {
-  const entries = json("pi/hooks/hooks.json").hooks.PreToolUse;
+  const entries = json("hooks/hooks.json").hooks.PreToolUse;
   assert.equal(entries.length, 1);
   const [{ matcher, hooks }] = entries;
   const matched = matcher.split("|");
@@ -305,7 +305,7 @@ test("the guard hook is registered so that it fails CLOSED and covers every way 
 });
 
 test("the MCP entry launches the server from inside the plugin, so the plugin is self-contained", () => {
-  const { mcpServers } = json("pi/.mcp.json");
+  const { mcpServers } = json(".mcp.json");
   assert.deepEqual(Object.keys(mcpServers), ["pidelivery"]);
   const server = mcpServers.pidelivery;
   assert.equal(server.command, "node");
@@ -437,7 +437,7 @@ test("Pi handler: PI_DELIVERY_GUARD=off disables it, and a typo does not", async
 });
 
 test("the Pi extension is just the handler, registered for tool_call", () => {
-  const source = readFileSync(path.join(root, "pi/agent/extensions/delivery-guard/index.ts"), "utf8");
+  const source = readFileSync(path.join(root, "agent/extensions/delivery-guard/index.ts"), "utf8");
   assert.match(source, /pi\.on\("tool_call", createToolCallGuard\(\)\)/);
   assert.equal((source.match(/pi\.on\(/g) ?? []).length, 1, "one handler, nothing else");
   assert.doesNotMatch(source, /block: false|return undefined|setActiveTools/, "no logic here that could widen what the guard allows");

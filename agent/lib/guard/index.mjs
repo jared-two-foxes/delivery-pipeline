@@ -1,4 +1,4 @@
-// Delivery guard policy: host-neutral, no SDK imports. A host adapter (pi/claude/guard.mjs for Claude Code)
+// Delivery guard policy: host-neutral, no SDK imports. A host adapter (claude/guard.mjs for Claude Code)
 // feeds it a tool call and acts on the verdict. It only restricts; it never grants permission.
 //
 // Active only in a repository with a Scaffold delivery in progress (`.scaffold/features/<feature>.<id>/`),

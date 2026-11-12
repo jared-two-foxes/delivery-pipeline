@@ -4,19 +4,19 @@ import { execFileSync } from "node:child_process";
 import { appendFile, mkdtemp, writeFile, readFile, rm, chmod } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
-import { executeAndReview } from "../pi/agent/extensions/execute-and-review/adapter.mjs";
-import { authenticateTaskEvidence } from "../pi/agent/lib/verification/task-evidence.mjs";
-import { readEvidence, retainEvidence } from "../pi/agent/lib/evidence/store.mjs";
-import { snapshot } from "../pi/agent/lib/git/snapshot.mjs";
+import { executeAndReview } from "../agent/extensions/execute-and-review/adapter.mjs";
+import { authenticateTaskEvidence } from "../agent/lib/verification/task-evidence.mjs";
+import { readEvidence, retainEvidence } from "../agent/lib/evidence/store.mjs";
+import { snapshot } from "../agent/lib/git/snapshot.mjs";
 import { ledgerFeature } from "./helpers/ledger-feature.mjs";
-import { executionSummary } from "../pi/agent/extensions/execute-and-review/workflow.mjs";
+import { executionSummary } from "../agent/extensions/execute-and-review/workflow.mjs";
 
 import { conductorFixture, executorFixture, reviewFixture } from "./helpers/conductor-executables.mjs";
 
 test("standalone Conductor extension registers and runs a user command", {
   skip: process.platform === "win32" ? "Executable Node fixture uses a POSIX shebang" : false,
 }, async t => {
-  const { default: register } = await import("../pi/agent/extensions/conductor/index.ts");
+  const { default: register } = await import("../agent/extensions/conductor/index.ts");
   const directory = await mkdtemp(path.join(tmpdir(), "pi-standalone-conductor-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const bin = path.join(directory, "conductor.mjs");

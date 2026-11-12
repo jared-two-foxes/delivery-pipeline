@@ -5,13 +5,13 @@ import {
   stallDecision,
   infrastructureDecision,
   failureObservation,
-} from '../pi/agent/extensions/execute-and-review/retry-policy.mjs';
+} from '../agent/extensions/execute-and-review/retry-policy.mjs';
 import {
   updateContext,
   renderContext,
   validContextContinuation,
-} from '../pi/agent/lib/delivery-state/delivery-context.mjs';
-import { obligationsVerified } from '../pi/agent/lib/verification/obligations.mjs';
+} from '../agent/lib/delivery-state/delivery-context.mjs';
+import { obligationsVerified } from '../agent/lib/verification/obligations.mjs';
 const checks = [{ name: 'regression', command: ['cargo', 'test', 'status'], successCondition: ['validate-results'] }];
 const context = () => ({ schema: 'pi.delivery-context/v1', original: 'Reject invalid statuses', design: { reference: 'design', summary: 'Validate imports', verification: 'Regression', approval: 'direction' }, updates: [], obligations: [] });
 const record = (category, n, diagnostic = 'same error', tree = 'a') => ({ startedReference: 'intent-' + n,
@@ -75,7 +75,7 @@ test('recognized Cargo test selection requires positive completed tests, includi
   t.after(() => rm(dir, { recursive: true, force: true }));
   const out = path.join(dir, 'stdout'), err = path.join(dir, 'stderr'); await writeFile(err, '');
   const { fileURLToPath } = await import('node:url');
-  const validator = new URL('../pi/agent/lib/verification/meaningful-test-condition.mjs', import.meta.url);
+  const validator = new URL('../agent/lib/verification/meaningful-test-condition.mjs', import.meta.url);
   for (const [output, expected] of [['test result: ok. 0 passed; 0 failed', 1],
     ['running 2 tests', 1], ['test result: ok. 2 passed; 0 failed\ntest result: ok. 0 passed', 0]]) {
     await writeFile(out, output);

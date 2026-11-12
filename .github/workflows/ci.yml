@@ -31,7 +31,7 @@ jobs:
       - name: Verify administrative clean end to end (Linux)
         run: python -m pytest -q tests/test_scaffold_clean_e2e.py
       - name: Install MCP server dependencies
-        run: npm ci --prefix pi/mcp
+        run: npm ci --prefix mcp
       - name: Run Pi and real-Scaffold integration tests
         run: node --test tests/*.test.mjs
         env:

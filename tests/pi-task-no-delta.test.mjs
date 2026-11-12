@@ -5,8 +5,8 @@ import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { taskHasNoDelta, NO_DELTA_REVIEW_NOTE } from "../pi/agent/lib/verification/no-delta.mjs";
-import { reviewHandoff, taskReviewHandoff } from "../pi/agent/lib/verification/review-evidence.mjs";
+import { taskHasNoDelta, NO_DELTA_REVIEW_NOTE } from "../agent/lib/verification/no-delta.mjs";
+import { reviewHandoff, taskReviewHandoff } from "../agent/lib/verification/review-evidence.mjs";
 
 const git = (cwd, ...args) => execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", ...args], { cwd, encoding: "utf8" }).trim();
 

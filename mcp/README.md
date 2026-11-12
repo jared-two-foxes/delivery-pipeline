@@ -2,21 +2,21 @@
 
 `server.mjs` serves the same 17 delivery tools Pi registers (`scaffold_tasks`, `execute_and_review`,
 `checkpoint_verified_task`, `validate_feature`, the recovery tools, `review_changes`, ...) to any MCP host.
-It loads the host-neutral definitions in `pi/agent/extensions/*/tools.mjs`; nothing is duplicated.
-The adapter logic is `pi/agent/lib/host/mcp.mjs` (dependency-free and unit-tested); this directory only
+It loads the host-neutral definitions in `agent/extensions/*/tools.mjs`; nothing is duplicated.
+The adapter logic is `agent/lib/host/mcp.mjs` (dependency-free and unit-tested); this directory only
 wires in the MCP SDK, TypeBox and a JSON Schema validator.
 
 Only `package.json` and `package-lock.json` are committed; the dependencies are downloaded at setup:
 
 ```sh
-npm ci --prefix pi/mcp          # the Windows installers run this via install/mcp.ps1
-node pi/mcp/start.mjs           # stdio; runs in the current directory, which must be the target repository
+npm ci --prefix mcp          # the Windows installers run this via install/mcp.ps1
+node mcp/start.mjs           # stdio; runs in the current directory, which must be the target repository
 ```
 
 `start.mjs` is the entry point to give a host. If the dependencies are missing it prints the one-line fix on
 stderr and exits 1, rather than failing with a module-resolution stack trace.
 
-Claude Code: `claude mcp add pi-delivery -- node /absolute/path/to/pi/mcp/start.mjs`, run from the repository
+Claude Code: `claude mcp add pi-delivery -- node /absolute/path/to/mcp/start.mjs`, run from the repository
 you are delivering in. VS Code: add the same command to `.vscode/mcp.json` (`"type": "stdio"`).
 The external CLIs (`scaffold`, Conductor, Executor, Review) must be on `PATH`, as they are for Pi.
 
@@ -35,7 +35,7 @@ PI_DELIVERY_TRANSPORT=mcp pi
   dependencies (including ones the direct packages need), a Node too old for the SDK, or no `node` on `PATH`
   therefore all fall back to the native tools with a warning that names the cause. The result is cached, so
   one Pi session spawns one check. `PI_DELIVERY_MCP_SERVER` points at `start.mjs` for non-standard layouts.
-  Both registration paths use `deliveryTransport()` in `pi/agent/lib/host/pi.mjs`, so they always agree.
+  Both registration paths use `deliveryTransport()` in `agent/lib/host/pi.mjs`, so they always agree.
   **Not covered:** a server that starts fine and dies later in a session. Pi shows it as disconnected and
   reconnects on the next call; the native tools are not restored mid-session (Pi exposes no connection state
   to extensions, only each server's config).

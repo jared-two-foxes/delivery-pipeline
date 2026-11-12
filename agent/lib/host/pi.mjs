@@ -38,7 +38,7 @@ function startupProblem(serverPath, env) {
 
 /**
  * Where Pi gets the delivery tools. `PI_DELIVERY_TRANSPORT=mcp` opts in to serving them over MCP
- * (pi/mcp); anything else, or an MCP server that cannot start, is the native in-process registration.
+ * (mcp); anything else, or an MCP server that cannot start, is the native in-process registration.
  * Both registration paths call this, so they always agree. MCP is chosen only if the server was actually
  * started (`start.mjs --check`), so a server that cannot start never suppresses the native tools. A server that
  * dies later, mid-session, is not covered: Pi shows it disconnected and reconnects on the next call.

@@ -10,7 +10,7 @@ A Claude Code plugin, rooted at `pi/` (`.claude-plugin/plugin.json`), that does 
 ## Use it
 
 ```sh
-npm ci --prefix pi/mcp                      # once; the plugin must contain its own dependencies
+npm ci --prefix mcp                      # once; the plugin must contain its own dependencies
 claude --plugin-dir /absolute/path/to/dotfiles/pi
 ```
 

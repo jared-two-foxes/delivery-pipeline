@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Claude Code PreToolUse hook: applies the delivery guard policy (pi/agent/lib/guard) to a tool call.
+// Claude Code PreToolUse hook: applies the delivery guard policy (agent/lib/guard) to a tool call.
 //
 //   deny  -> exit 2 with the reason on stderr (Claude sees it as the denial)
 //   ask   -> exit 0 with a PreToolUse `ask` decision, so the human confirms

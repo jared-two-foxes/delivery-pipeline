@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { describe, implementNext, parseArgs, taskPrompt } from '../pi/agent/extensions/implement-next/loop.mjs';
+import { describe, implementNext, parseArgs, taskPrompt } from '../agent/extensions/implement-next/loop.mjs';
 
 const task = id => ({ featureId: 'f', taskId: id, designRef: 'sha256:' + 'a'.repeat(64) });
 

@@ -1,9 +1,9 @@
 // Gives a fixture repository a real Scaffold feature (schema 3): designed issue graph, approved
 // direction and, optionally, one started task. Receipts, attempts and checkpoints all belong to a
 // feature's ledger, so tests that run the delivery pipeline need one.
-import { git } from "../../pi/agent/lib/git/tree.mjs";
-import { scaffoldTasks } from "../../pi/agent/extensions/scaffold/adapter.mjs";
-import { approveFeatureDirection } from "../../pi/agent/extensions/scaffold/feature-authorization.mjs";
+import { git } from "../../agent/lib/git/tree.mjs";
+import { scaffoldTasks } from "../../agent/extensions/scaffold/adapter.mjs";
+import { approveFeatureDirection } from "../../agent/extensions/scaffold/feature-authorization.mjs";
 import { requirementsFor } from "./issue-plan.mjs";
 
 export async function ledgerFeature(dir, {

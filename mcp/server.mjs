@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // MCP server for the Pi delivery tools. Serves the same host-neutral definitions Pi registers
-// (pi/agent/extensions/*/tools.mjs) over MCP stdio, so Claude Code and VS Code can use them.
+// (agent/extensions/*/tools.mjs) over MCP stdio, so Claude Code and VS Code can use them.
 //
-//   node pi/mcp/server.mjs            runs in the current directory (the repository to deliver in)
+//   node mcp/server.mjs            runs in the current directory (the repository to deliver in)
 //
 // Approvals (`approve_feature_direction`, `approve_delivery_amendment`, `adopt_foreign_commits`) are asked
 // through MCP elicitation, which the host shows to the human. A client without elicitation cannot approve:

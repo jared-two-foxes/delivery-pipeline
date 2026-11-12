@@ -2,7 +2,7 @@
 // wire protocol. Emit current Conductor v2 receipts with retained logs.
 // Wire-contract tests import the production adapters directly.
 function assertV2(request) { if (request.schema !== 'conductor.request/v2') throw new Error('Fixture requires a current v2 command list'); }
-import { executeAndReview as pi } from '../../pi/agent/extensions/execute-and-review/adapter.mjs';
+import { executeAndReview as pi } from '../../agent/extensions/execute-and-review/adapter.mjs';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';

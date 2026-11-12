@@ -1,7 +1,7 @@
 // MCP adapter: presents host-neutral tools (./tool.mjs) as Model Context Protocol tools.
 //
 // Dependency-free on purpose: it neither imports the MCP SDK nor a JSON Schema validator. The server
-// (pi/mcp/server.mjs) injects both, so this logic is unit-testable and the neutrality guard still holds.
+// (mcp/server.mjs) injects both, so this logic is unit-testable and the neutrality guard still holds.
 //
 // Two things Pi did for tools that an MCP server must do itself:
 //   1. Validate arguments against the tool's schema before `execute`. The MCP SDK's low-level server

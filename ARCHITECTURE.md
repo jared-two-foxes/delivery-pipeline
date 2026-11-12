@@ -1,6 +1,6 @@
 # Pi delivery pipeline: component map
 
-**Status: describes the system after the Scaffold-ledger port (pi/LEDGER_DESIGN.md); the port has merged (#89). Derived from reading the code.** Items marked *(unverified)* were
+**Status: describes the system after the Scaffold-ledger port (LEDGER_DESIGN.md); the port has merged (#89). Derived from reading the code.** Items marked *(unverified)* were
 inferred, not traced. [`../workflow-overview.md`](../workflow-overview.md) describes
 the *process*; this file describes the *parts*, where state lives, and what guards what.
 [`agent/lib/README.md`](agent/lib/README.md) describes library boundaries in more depth.
@@ -156,7 +156,7 @@ Scaffold data and pass it in; libraries validate it.
 approves, when no human can be asked. No `.mjs` module may import a host SDK or touch `ctx.ui`; a test
 enforces this, so a second host (for example an MCP server) can load `tools.mjs` unchanged and write only
 its own adapter beside `lib/host/pi.mjs`. That second adapter now exists: `lib/host/mcp.mjs` plus the server in
-`pi/mcp/` (see its README, including what it does not yet enforce). Pi can opt in to using that server for 14 of the 17
+`mcp/` (see its README, including what it does not yet enforce). Pi can opt in to using that server for 14 of the 17
 tools (`PI_DELIVERY_TRANSPORT=mcp`); the three approval tools stay native because Pi's MCP client cannot elicit. Schemas are built with an injected TypeBox-style `Type`.
 **Enforcement versus detection.** Three layers keep the orchestrator honest, and they differ in kind:
 instructions (`SYSTEM.md`, skills: no enforcement), a guard that *prevents* (`lib/guard/`, applied in Pi by the

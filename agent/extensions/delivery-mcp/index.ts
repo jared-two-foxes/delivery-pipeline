@@ -1,5 +1,5 @@
 /**
- * Opt-in: serve the delivery tools to Pi through the MCP server (pi/mcp) instead of registering them
+ * Opt-in: serve the delivery tools to Pi through the MCP server (mcp) instead of registering them
  * in-process. Enable with PI_DELIVERY_TRANSPORT=mcp. Off, or when the server cannot start, Pi keeps the
  * native tools. The approval tools always stay native (Pi's MCP client cannot elicit); see lib/host/pi.mjs.
  */

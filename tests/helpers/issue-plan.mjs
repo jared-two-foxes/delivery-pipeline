@@ -1,5 +1,5 @@
 // Real design/lifecycle API setup shared by integration scenarios.
-import { issueDesignRequirements } from '../../pi/agent/lib/scaffold/contracts.mjs';
+import { issueDesignRequirements } from '../../agent/lib/scaffold/contracts.mjs';
 export async function approveGraph(call) {
   if ((await call('list')).feature.workflow.phase !== 'design') return;
   for (;;) {

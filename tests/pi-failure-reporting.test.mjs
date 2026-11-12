@@ -7,12 +7,12 @@ import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, readdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { git } from "../pi/agent/lib/git/tree.mjs";
-import { FAILURE_CODES, NOT_FAILURE_CODES, describeCode } from "../pi/agent/lib/failure/codes.mjs";
-import { exceptionEnvelope, failureEnvelope, isFailure, recordFailure } from "../pi/agent/lib/failure/report.mjs";
-import { reportFailures } from "../pi/agent/lib/failure/tool.mjs";
-import { retainEvidence } from "../pi/agent/lib/evidence/store.mjs";
-import { workDirectory } from "../pi/agent/lib/git/workspace.mjs";
+import { git } from "../agent/lib/git/tree.mjs";
+import { FAILURE_CODES, NOT_FAILURE_CODES, describeCode } from "../agent/lib/failure/codes.mjs";
+import { exceptionEnvelope, failureEnvelope, isFailure, recordFailure } from "../agent/lib/failure/report.mjs";
+import { reportFailures } from "../agent/lib/failure/tool.mjs";
+import { retainEvidence } from "../agent/lib/evidence/store.mjs";
+import { workDirectory } from "../agent/lib/git/workspace.mjs";
 import { ledgerFeature } from "./helpers/ledger-feature.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
@@ -34,7 +34,7 @@ test("every failure code the pipeline can emit has an owner and a remedy", async
   // Any UPPER_SNAKE string in the source could be a code, however it is emitted (a literal argument, a constant,
   // a helper call, a conditional). Each must be in the table, or deliberately listed as not a code.
   const found = new Map();
-  for (const file of [...(await sources(path.join(root, "pi/agent/lib"))), ...(await sources(path.join(root, "pi/agent/extensions")))]) {
+  for (const file of [...(await sources(path.join(root, "agent/lib"))), ...(await sources(path.join(root, "agent/extensions")))]) {
     if (file.includes("/lib/failure/")) continue;
     for (const m of (await readFile(file, "utf8")).matchAll(/["']([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)["']/g)) found.set(m[1], file);
   }

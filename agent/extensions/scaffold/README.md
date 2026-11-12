@@ -1,6 +1,6 @@
 # Pi Scaffold task adapter
 
-`index.ts` registers one `scaffold_tasks` tool. `pi/agent/extensions/scaffold/adapter.mjs` validates requests,
+`index.ts` registers one `scaffold_tasks` tool. `agent/extensions/scaffold/adapter.mjs` validates requests,
 resolves Pi's current Git repository root, and invokes the requested
 `scaffold OPERATION` command with explicit arguments and JSON stdin. Install
 Scaffold with the schema-3 ledger API on Pi's PATH.
@@ -47,7 +47,7 @@ design, recording a checkpoint, or resuming an issue. The tool and internal
 delivery callers call `scaffoldTasks` directly with the
 `authenticateIssueMutation` callback, which authenticates the evidence.
 The extension formats the acknowledgement shown to Pi.
-For copy-based installs, include the repository's `pi/agent/lib/` tree under
+For copy-based installs, include the repository's `agent/lib/` tree under
 the agent home's `lib/` directory.
 
 `lib/scaffold/` contains shared types and structural contracts. It exposes no

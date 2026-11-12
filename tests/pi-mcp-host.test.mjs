@@ -5,8 +5,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { createMcpCaller, mcpToolList } from "../pi/agent/lib/host/mcp.mjs";
-import { defineTool, toolResult } from "../pi/agent/lib/host/tool.mjs";
+import { createMcpCaller, mcpToolList } from "../agent/lib/host/mcp.mjs";
+import { defineTool, toolResult } from "../agent/lib/host/tool.mjs";
 
 const schema = { type: "object", properties: { n: { type: "integer" } }, required: ["n"], additionalProperties: false };
 const ok = () => true;
@@ -84,12 +84,12 @@ test("confirm fails closed: no channel, a throwing channel and any non-true answ
   assert.equal(await approved(async () => true), true);
 });
 
-// ---- Protocol-level tests against the real server and SDK; skipped if `npm ci --prefix pi/mcp` has not run.
-const installed = existsSync(new URL("../pi/mcp/node_modules/@modelcontextprotocol/sdk", import.meta.url));
-const sdk = (p) => import(new URL(`../pi/mcp/node_modules/@modelcontextprotocol/sdk/dist/esm/${p}`, import.meta.url));
+// ---- Protocol-level tests against the real server and SDK; skipped if `npm ci --prefix mcp` has not run.
+const installed = existsSync(new URL("../mcp/node_modules/@modelcontextprotocol/sdk", import.meta.url));
+const sdk = (p) => import(new URL(`../mcp/node_modules/@modelcontextprotocol/sdk/dist/esm/${p}`, import.meta.url));
 
 async function connect(tools, { elicit } = {}) {
-  const { createDeliveryServer } = await import("../pi/mcp/server.mjs");
+  const { createDeliveryServer } = await import("../mcp/server.mjs");
   const { Client } = await sdk("client/index.js");
   const { InMemoryTransport } = await sdk("inMemory.js");
   const { ElicitRequestSchema } = await sdk("types.js");
@@ -108,8 +108,8 @@ const approvalTool = () => defineTool({
 });
 const approvedBy = async (r) => JSON.parse(r.content[0].text).approved;
 
-test("server lists all 17 delivery tools with real TypeBox schemas", { skip: !installed && "pi/mcp dependencies not installed" }, async (t) => {
-  const { deliveryTools } = await import("../pi/mcp/server.mjs");
+test("server lists all 17 delivery tools with real TypeBox schemas", { skip: !installed && "mcp dependencies not installed" }, async (t) => {
+  const { deliveryTools } = await import("../mcp/server.mjs");
   const { client, close } = await connect(deliveryTools());
   t.after(close);
   const { tools } = await client.listTools();
@@ -119,8 +119,8 @@ test("server lists all 17 delivery tools with real TypeBox schemas", { skip: !in
   assert.ok(tools.some((x) => x.name === "approve_feature_direction"));
 });
 
-test("server validates arguments against the schema before any tool runs", { skip: !installed && "pi/mcp dependencies not installed" }, async (t) => {
-  const { deliveryTools } = await import("../pi/mcp/server.mjs");
+test("server validates arguments against the schema before any tool runs", { skip: !installed && "mcp dependencies not installed" }, async (t) => {
+  const { deliveryTools } = await import("../mcp/server.mjs");
   const { client, close } = await connect(deliveryTools());
   t.after(close);
   const extra = await client.callTool({ name: "scaffold_tasks", arguments: { operation: "summary", feature_id: "F", extra: 1 } });
@@ -132,7 +132,7 @@ test("server validates arguments against the schema before any tool runs", { ski
   assert.match(unknown.content[0].text, /Unknown tool/);
 });
 
-test("approval is asked through elicitation and only an explicit accept with approve=true counts", { skip: !installed && "pi/mcp dependencies not installed" }, async (t) => {
+test("approval is asked through elicitation and only an explicit accept with approve=true counts", { skip: !installed && "mcp dependencies not installed" }, async (t) => {
   for (const [reply, expected] of [
     [{ action: "accept", content: { approve: true } }, true],
     [{ action: "accept", content: { approve: false } }, false],
@@ -148,7 +148,7 @@ test("approval is asked through elicitation and only an explicit accept with app
   }
 });
 
-test("a client that cannot elicit can never approve", { skip: !installed && "pi/mcp dependencies not installed" }, async (t) => {
+test("a client that cannot elicit can never approve", { skip: !installed && "mcp dependencies not installed" }, async (t) => {
   const { client, close } = await connect([approvalTool()]);
   t.after(close);
   assert.equal(await approvedBy(await client.callTool({ name: "approve", arguments: {} })), false);
@@ -156,14 +156,14 @@ test("a client that cannot elicit can never approve", { skip: !installed && "pi/
 
 // ---- Launcher (start.mjs): the entry point hosts run.
 test("launcher without dependencies exits 1 with a one-line fix on stderr and nothing on stdout", (t) => {
-  // Reproduce the repo layout without node_modules: pi/mcp/{start.mjs,package.json} and the shared checker.
+  // Reproduce the repo layout without node_modules: mcp/{start.mjs,package.json} and the shared checker.
   const root = mkdtempSync(path.join(tmpdir(), "pi-mcp-nodeps-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
-  mkdirSync(path.join(root, "pi/mcp"), { recursive: true });
-  mkdirSync(path.join(root, "pi/agent/lib/host"), { recursive: true });
-  for (const file of ["start.mjs", "package.json"]) copyFileSync(new URL(`../pi/mcp/${file}`, import.meta.url), path.join(root, "pi/mcp", file));
-  copyFileSync(new URL("../pi/agent/lib/host/dependencies.mjs", import.meta.url), path.join(root, "pi/agent/lib/host/dependencies.mjs"));
-  const run = spawnSync(process.execPath, [path.join(root, "pi/mcp/start.mjs")], { encoding: "utf8", timeout: 30000 });
+  mkdirSync(path.join(root, "mcp"), { recursive: true });
+  mkdirSync(path.join(root, "agent/lib/host"), { recursive: true });
+  for (const file of ["start.mjs", "package.json"]) copyFileSync(new URL(`../mcp/${file}`, import.meta.url), path.join(root, "mcp", file));
+  copyFileSync(new URL("../agent/lib/host/dependencies.mjs", import.meta.url), path.join(root, "agent/lib/host/dependencies.mjs"));
+  const run = spawnSync(process.execPath, [path.join(root, "mcp/start.mjs")], { encoding: "utf8", timeout: 30000 });
   assert.equal(run.status, 1);
   assert.equal(run.stdout, "", "stdout is the MCP protocol channel and must stay clean");
   assert.match(run.stderr, /dependencies are not installed \(missing: @modelcontextprotocol\/sdk, ajv, typebox\)/);
@@ -171,10 +171,10 @@ test("launcher without dependencies exits 1 with a one-line fix on stderr and no
   assert.doesNotMatch(run.stderr, /ERR_MODULE_NOT_FOUND|node:internal/, "no raw module-resolution stack trace");
 });
 
-test("launcher serves all 17 tools over real stdio", { skip: !installed && "pi/mcp dependencies not installed" }, async (t) => {
+test("launcher serves all 17 tools over real stdio", { skip: !installed && "mcp dependencies not installed" }, async (t) => {
   const { Client } = await sdk("client/index.js");
   const { StdioClientTransport } = await sdk("client/stdio.js");
-  const transport = new StdioClientTransport({ command: process.execPath, args: [fileURLToPath(new URL("../pi/mcp/start.mjs", import.meta.url))], cwd: process.cwd() });
+  const transport = new StdioClientTransport({ command: process.execPath, args: [fileURLToPath(new URL("../mcp/start.mjs", import.meta.url))], cwd: process.cwd() });
   const client = new Client({ name: "test", version: "0" }, { capabilities: {} });
   t.after(() => client.close());
   await client.connect(transport);
@@ -217,8 +217,8 @@ test("heartbeat stops when the tool throws", async () => {
   assert.equal(seen.length, after);
 });
 
-test("server relays heartbeats as MCP progress notifications when the client asks for progress", { skip: !installed && "pi/mcp dependencies not installed" }, async (t) => {
-  const { createDeliveryServer } = await import("../pi/mcp/server.mjs");
+test("server relays heartbeats as MCP progress notifications when the client asks for progress", { skip: !installed && "mcp dependencies not installed" }, async (t) => {
+  const { createDeliveryServer } = await import("../mcp/server.mjs");
   const { Client } = await sdk("client/index.js");
   const { InMemoryTransport } = await sdk("inMemory.js");
   const [a, b] = InMemoryTransport.createLinkedPair();
@@ -236,8 +236,8 @@ test("server relays heartbeats as MCP progress notifications when the client ask
 });
 
 // ---- Interactive (approval) tools: stay native in Pi, are omitted from the Pi-facing MCP server.
-test("exactly the three approval tools are marked interactive and MCP listings do not leak the flag", { skip: !installed && "pi/mcp dependencies not installed" }, async () => {
-  const { deliveryTools } = await import("../pi/mcp/server.mjs");
+test("exactly the three approval tools are marked interactive and MCP listings do not leak the flag", { skip: !installed && "mcp dependencies not installed" }, async () => {
+  const { deliveryTools } = await import("../mcp/server.mjs");
   const all = deliveryTools();
   assert.deepEqual(all.filter((t) => t.interactive).map((t) => t.name).sort(),
     ["adopt_foreign_commits", "approve_delivery_amendment", "approve_feature_direction"]);
@@ -247,7 +247,7 @@ test("exactly the three approval tools are marked interactive and MCP listings d
   for (const entry of mcpToolList(all)) assert.equal("interactive" in entry, false, entry.name);
 });
 
-test("PI_DELIVERY_MCP_OMIT_INTERACTIVE=1 makes the served server omit the approval tools", { skip: !installed && "pi/mcp dependencies not installed" }, async (t) => {
+test("PI_DELIVERY_MCP_OMIT_INTERACTIVE=1 makes the served server omit the approval tools", { skip: !installed && "mcp dependencies not installed" }, async (t) => {
   const { Client } = await sdk("client/index.js");
   const { StdioClientTransport } = await sdk("client/stdio.js");
   for (const [omit, expected] of [["1", 14], [undefined, 17]]) {
@@ -255,7 +255,7 @@ test("PI_DELIVERY_MCP_OMIT_INTERACTIVE=1 makes the served server omit the approv
     if (!omit) delete env.PI_DELIVERY_MCP_OMIT_INTERACTIVE;
     const client = new Client({ name: "test", version: "0" }, { capabilities: {} });
     t.after(() => client.close());
-    await client.connect(new StdioClientTransport({ command: process.execPath, args: [fileURLToPath(new URL("../pi/mcp/start.mjs", import.meta.url))], env, cwd: process.cwd() }));
+    await client.connect(new StdioClientTransport({ command: process.execPath, args: [fileURLToPath(new URL("../mcp/start.mjs", import.meta.url))], env, cwd: process.cwd() }));
     const names = (await client.listTools()).tools.map((x) => x.name);
     assert.equal(names.length, expected, `omit=${omit}`);
     assert.equal(names.includes("approve_feature_direction"), !omit);
@@ -263,8 +263,8 @@ test("PI_DELIVERY_MCP_OMIT_INTERACTIVE=1 makes the served server omit the approv
 });
 
 // ---- start.mjs --check: lets Pi learn whether the server can start before it gives up its native tools.
-test("start.mjs --check exits 0 quietly, without serving, when the server can start", { skip: !installed && "pi/mcp dependencies not installed" }, () => {
-  const run = spawnSync(process.execPath, [fileURLToPath(new URL("../pi/mcp/start.mjs", import.meta.url)), "--check"], { encoding: "utf8", timeout: 30000 });
+test("start.mjs --check exits 0 quietly, without serving, when the server can start", { skip: !installed && "mcp dependencies not installed" }, () => {
+  const run = spawnSync(process.execPath, [fileURLToPath(new URL("../mcp/start.mjs", import.meta.url)), "--check"], { encoding: "utf8", timeout: 30000 });
   assert.equal(run.status, 0, run.stderr);
   assert.equal(run.stdout, "", "no protocol bytes: --check must not start serving");
   assert.equal(run.signal, null, "must exit by itself, not be killed after hanging");
@@ -273,11 +273,11 @@ test("start.mjs --check exits 0 quietly, without serving, when the server can st
 test("start.mjs --check fails with the same one-line fix when dependencies are missing", (t) => {
   const root = mkdtempSync(path.join(tmpdir(), "pi-mcp-check-nodeps-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
-  mkdirSync(path.join(root, "pi/mcp"), { recursive: true });
-  mkdirSync(path.join(root, "pi/agent/lib/host"), { recursive: true });
-  for (const file of ["start.mjs", "package.json"]) copyFileSync(new URL(`../pi/mcp/${file}`, import.meta.url), path.join(root, "pi/mcp", file));
-  copyFileSync(new URL("../pi/agent/lib/host/dependencies.mjs", import.meta.url), path.join(root, "pi/agent/lib/host/dependencies.mjs"));
-  const run = spawnSync(process.execPath, [path.join(root, "pi/mcp/start.mjs"), "--check"], { encoding: "utf8", timeout: 30000 });
+  mkdirSync(path.join(root, "mcp"), { recursive: true });
+  mkdirSync(path.join(root, "agent/lib/host"), { recursive: true });
+  for (const file of ["start.mjs", "package.json"]) copyFileSync(new URL(`../mcp/${file}`, import.meta.url), path.join(root, "mcp", file));
+  copyFileSync(new URL("../agent/lib/host/dependencies.mjs", import.meta.url), path.join(root, "agent/lib/host/dependencies.mjs"));
+  const run = spawnSync(process.execPath, [path.join(root, "mcp/start.mjs"), "--check"], { encoding: "utf8", timeout: 30000 });
   assert.equal(run.status, 1);
   assert.match(run.stderr, /dependencies are not installed/);
 });

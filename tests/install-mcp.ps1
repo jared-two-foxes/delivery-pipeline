@@ -25,7 +25,7 @@ try {
 
     & $installer -Force
     Assert-True ($global:McpMockCalls.Count -eq 1) 'Forced install did not invoke npm exactly once'
-    $server = Join-Path (Split-Path -Parent $PSScriptRoot) 'pi/mcp'
+    $server = Join-Path (Split-Path -Parent $PSScriptRoot) 'mcp'
     $actual = $global:McpMockCalls[0] -join ' '
     Assert-True ($actual -eq "ci --prefix $server --no-audit --no-fund") "Unexpected npm arguments: $actual"
 

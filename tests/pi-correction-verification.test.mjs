@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
-import { correctionVerification, meaningfulTestEvaluator } from '../pi/agent/lib/verification/checks.mjs';
+import { correctionVerification, meaningfulTestEvaluator } from '../agent/lib/verification/checks.mjs';
 
 test('explicit invocation repair retains names/order and semantic conditions for every check', () => {
   const checks = [{ name: 'compile', command: ['cargo', 'check'] },
@@ -42,7 +42,7 @@ test('evaluator repair requires a redesigned issue handoff and the canonical val
   for (const extension of ['conductor', 'execute-and-review']) {
     const legacy = structuredClone(repaired);
     legacy.checks[0].successCondition[1] = fileURLToPath(
-      new URL(`../pi/agent/extensions/${extension}/meaningful-test-condition.mjs`, import.meta.url),
+      new URL(`../agent/extensions/${extension}/meaningful-test-condition.mjs`, import.meta.url),
     );
     assert.equal(correctionVerification(previous, legacy), false);
   }

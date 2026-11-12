@@ -5,11 +5,11 @@ import { cp, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { snapshot } from "../pi/agent/lib/git/snapshot.mjs";
-import { prepareWorkflow } from "../pi/agent/extensions/execute-and-review/workflow.mjs";
-import { authenticateWorkflow } from "../pi/agent/lib/verification/workflow.mjs";
+import { snapshot } from "../agent/lib/git/snapshot.mjs";
+import { prepareWorkflow } from "../agent/extensions/execute-and-review/workflow.mjs";
+import { authenticateWorkflow } from "../agent/lib/verification/workflow.mjs";
 
-const agent = fileURLToPath(new URL("../pi/agent/", import.meta.url));
+const agent = fileURLToPath(new URL("../agent/", import.meta.url));
 
 async function fixture(t) {
   const directory = await mkdtemp(path.join(tmpdir(), "pi-library-boundary-"));

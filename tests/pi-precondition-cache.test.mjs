@@ -4,8 +4,8 @@ import {
   createPreconditionCache,
   memoizePreconditions,
   preconditionCacheStats,
-} from "../pi/agent/lib/verification/precondition-cache.mjs";
-import { featureTimings } from "../pi/agent/lib/verification/timings.mjs";
+} from "../agent/lib/verification/precondition-cache.mjs";
+import { featureTimings } from "../agent/lib/verification/timings.mjs";
 
 // The cache key holds the feature state, which includes every recorded attempt, checkpoint and
 // history entry. The ledger's artifacts are content-addressed and immutable, so no evidence

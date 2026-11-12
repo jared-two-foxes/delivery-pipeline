@@ -5,15 +5,15 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { defineTool, toolResult, withFailureReporting } from "../pi/agent/lib/host/tool.mjs";
-import { MCP_SERVER_NAME, deliveryMcpServerConfig, deliveryTransport, piHost, registerPiTools, toPiTool } from "../pi/agent/lib/host/pi.mjs";
-import { missingDependencies } from "../pi/agent/lib/host/dependencies.mjs";
-import { createCheckpointTools } from "../pi/agent/extensions/checkpoint/tools.mjs";
-import { createFeatureValidationTools } from "../pi/agent/extensions/feature-validation/tools.mjs";
-import { createScaffoldTools } from "../pi/agent/extensions/scaffold/tools.mjs";
-import { createReviewTool } from "../pi/agent/extensions/review/tool.mjs";
+import { defineTool, toolResult, withFailureReporting } from "../agent/lib/host/tool.mjs";
+import { MCP_SERVER_NAME, deliveryMcpServerConfig, deliveryTransport, piHost, registerPiTools, toPiTool } from "../agent/lib/host/pi.mjs";
+import { missingDependencies } from "../agent/lib/host/dependencies.mjs";
+import { createCheckpointTools } from "../agent/extensions/checkpoint/tools.mjs";
+import { createFeatureValidationTools } from "../agent/extensions/feature-validation/tools.mjs";
+import { createScaffoldTools } from "../agent/extensions/scaffold/tools.mjs";
+import { createReviewTool } from "../agent/extensions/review/tool.mjs";
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "pi", "agent");
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "agent");
 
 // Minimal TypeBox-shaped builder: enough to prove definitions only need an injected `Type`.
 const Type = new Proxy({}, {
@@ -131,8 +131,8 @@ test("Pi host confirm fails closed without a UI and passes the answer through wi
 });
 
 test("the tool inventory is stable across hosts", async () => {
-  const { createExecuteAndReviewTools } = await import("../pi/agent/extensions/execute-and-review/tools.mjs");
-  const { createExecutionRecoveryTools } = await import("../pi/agent/extensions/execution-recovery/tools.mjs");
+  const { createExecuteAndReviewTools } = await import("../agent/extensions/execute-and-review/tools.mjs");
+  const { createExecutionRecoveryTools } = await import("../agent/extensions/execution-recovery/tools.mjs");
   const all = [
     ...createExecuteAndReviewTools(Type), ...createExecutionRecoveryTools(Type), ...createCheckpointTools(Type),
     ...createFeatureValidationTools(Type), ...createScaffoldTools(Type), createReviewTool(Type),
@@ -199,13 +199,13 @@ test("PI_DELIVERY_MCP_SERVER overrides where the server is looked for", (t) => {
   const ready = fakeServer(t, { installed: true });
   const choice = deliveryTransport({ env: { PI_DELIVERY_TRANSPORT: "mcp", PI_DELIVERY_MCP_SERVER: ready } });
   assert.deepEqual([choice.transport, choice.serverPath], ["mcp", ready]);
-  // The default location is pi/mcp/start.mjs beside pi/agent.
+  // The default location is mcp/start.mjs beside agent.
   assert.match(deliveryTransport({ env: {} }).serverPath.replaceAll("\\", "/"), /\/pi\/mcp\/start\.mjs$/);
 });
 
 test("the Pi server entry sets direct exposure, a long timeout, session cwd and omits the approval tools", () => {
-  const config = deliveryMcpServerConfig("/x/pi/mcp/start.mjs");
-  assert.deepEqual([config.command, config.args, config.cwd], ["node", ["/x/pi/mcp/start.mjs"], "."]);
+  const config = deliveryMcpServerConfig("/x/mcp/start.mjs");
+  assert.deepEqual([config.command, config.args, config.cwd], ["node", ["/x/mcp/start.mjs"], "."]);
   assert.equal(config.exposure, "direct", "Pi's default (codemode) would hide the tools from the model");
   assert.ok(config.timeout >= 1800, "Pi's 60 s default would cut off a 30-minute workflow");
   assert.equal(config.env.PI_DELIVERY_MCP_OMIT_INTERACTIVE, "1");

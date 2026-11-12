@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { obligationsToAssess, featureObligationsVerified } from "../pi/agent/lib/verification/feature.mjs";
+import { obligationsToAssess, featureObligationsVerified } from "../agent/lib/verification/feature.mjs";
 
 const task = (obligations, amendments = []) => ({ delivery: { context: { obligations, amendments } } });
 

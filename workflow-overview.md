@@ -79,8 +79,8 @@ are **retired**, not alternate work-tracking interfaces. Historical
 migrated or deleted automatically. Do not manually edit persistent state or
 introduce compatibility paths for the former stack model.
 
-See `pi/agent/skills/init-feature/SKILL.md`,
-`pi/agent/skills/design/SKILL.md`,
-`pi/agent/skills/implement-task/SKILL.md`,
-`pi/agent/skills/feature-delivery/SKILL.md` and
-`pi/agent/extensions/scaffold/README.md` for exact workflow contracts.
+See `agent/skills/init-feature/SKILL.md`,
+`agent/skills/design/SKILL.md`,
+`agent/skills/implement-task/SKILL.md`,
+`agent/skills/feature-delivery/SKILL.md` and
+`agent/extensions/scaffold/README.md` for exact workflow contracts.

@@ -39,7 +39,7 @@ Obsolete helper identities and receipt producers are rejected, without rewriting
 
 ## Native Pi installation
 
-Copy `pi/agent/lib/` into the Pi agent home's `lib/` directory. It contains
+Copy `agent/lib/` into the Pi agent home's `lib/` directory. It contains
 shared contracts and the Conductor, Executor, and Review CLI integrations.
 Install the Pi entry points under `extensions/`.
 
@@ -666,7 +666,7 @@ Receipts written before this existed remain valid and report no timings.
   with each part shown; `complete: false` means the commit process's share is
   unknown, as when finalization was blocked. The model-facing text is unchanged.
 - `inspect_conductor_evidence` returns `timingSummary`. To list every receipt in a
-  checkout: `node pi/agent/extensions/execute-and-review/timing-summary.mjs [repo]`.
+  checkout: `node agent/extensions/execute-and-review/timing-summary.mjs [repo]`.
 
 ## Final-validation precondition cache
 
