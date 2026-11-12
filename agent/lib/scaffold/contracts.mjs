@@ -22,6 +22,7 @@ export const OPERATIONS = [
   "design-select",
   "delivery-record",
   "direction-approve",
+  "design-revise",
   "attempt-record",
   "history-foreign",
   "history-rewrite",
@@ -44,6 +45,7 @@ const taskActions = new Set([
   "issue-resume",
 ]);
 const inputActions = new Set([
+  "design-revise",
   "failure-record",
   "direction-approve",
   "attempt-record",
@@ -155,6 +157,20 @@ export function validateRequest(params) {
   // Store the exact approved design in Scaffold itself; no second design store.
   if (operation === "init" && payload?.design_ref === "sha256:context") {
     requireValue(text(payload.context), "Approved design context is required");
+    payload = { ...payload, design_ref: designReference(payload.context) };
+  }
+  // Pre-approval revision of the feature design; Scaffold refuses it once the direction is approved.
+  if (operation === "design-revise") {
+    requireValue(object(payload) && text(payload.context), "design-revise requires the full revised design context");
+    // Requirements travel with the context so a criterion dropped from the design stops being mandatory.
+    fields(payload, ["context", "design_ref", "title", "objective", "acceptance_criteria", "constraints"]);
+    for (const field of ["title", "objective"])
+      requireValue(payload[field] === undefined || text(payload[field]), field + " must be a nonempty string");
+    requireValue(
+      payload.acceptance_criteria === undefined || (strings(payload.acceptance_criteria) && payload.acceptance_criteria.length > 0),
+      "acceptance_criteria must be a nonempty string array",
+    );
+    requireValue(payload.constraints === undefined || strings(payload.constraints), "constraints must be a string array");
     payload = { ...payload, design_ref: designReference(payload.context) };
   }
   requireValue(OPERATIONS.includes(operation), "Unsupported operation");
@@ -388,6 +404,7 @@ export function validateResponse(data, params) {
     "design-record",
     "design-finish",
     "design-reopen",
+    "design-revise",
     "checkpoint-record",
     "issue-resume",
     "direction-approve",

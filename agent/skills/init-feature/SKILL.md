@@ -93,12 +93,23 @@ Persist its exact text in feature context using `scaffold_tasks` `init`, immutab
 `design_ref: "sha256:context"`, original full Git baseline and feature branch.
 Scaffold creates the root issue. State creation does not grant source authority.
 
-Call native `approve_feature_direction` with featureId. Its UI confirmation is the
-single approval: present the direction, then invoke this tool without a separate
-conversational yes/no question. On refusal or absent UI, stop before implementation.
-The tool retains scope-bound authority; existing matching approval is reused without
-prompting, including after a new session. Preserve its returned reference.
-Do not invent authority from a design note, transcript summary or issue status.
+Review happens in the conversation, not in a dialog. After `init`, write the complete
+direction in your reply (objective, criteria, scope and non-goals, approach, decomposition
+outline, risks, verification) and end by asking the user to approve it or tell you what to
+change. Their free-text alterations are the main input to the design. When they ask for
+changes, apply them with `scaffold_tasks` `design-revise` (full revised `context`, plus the
+full revised `title`, `objective`, `acceptance_criteria` and `constraints` whenever the
+alteration changes them, so a dropped criterion stops being required; it is refused once
+approved and yields a new `design_ref`), then present the revised design in
+full again. Repeat until the user says yes.
+
+Only after the user has said yes to the design you just presented, call native
+`approve_feature_direction` with featureId and that design's exact `designRef`. It shows a
+short Yes/No confirmation bound to that reference and refuses if the stored design differs.
+Never call it before the user has read and accepted the presented design. On refusal or
+absent UI, stop before implementation. The tool retains scope-bound authority; existing
+matching approval is reused without prompting, including after a new session. Preserve its
+returned reference. Do not invent authority from a design note, transcript summary or issue status.
 
 An existing feature may use this tool to approve its retained overall direction
 once. Prior per-issue approvals alone do not imply this broader delivery grant.

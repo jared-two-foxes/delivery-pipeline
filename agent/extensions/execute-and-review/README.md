@@ -579,8 +579,9 @@ are retained intact rather than silently truncating criteria or decisions.
 ## One overall feature direction approval
 
 Pi's native entry points now use `approve_feature_direction` as the sole user
-confirmation for local delivery. Present the direction, initialize its feature,
-then call this tool without a separate conversational yes/no. It stores a
+confirmation for local delivery. Initialize the feature, present the full direction in chat and apply the user's
+alterations with `scaffold_tasks design-revise` until they accept; then call this tool with
+the accepted `designRef` for a short Yes/No confirmation bound to that reference. It stores a
 content-addressed feature authorization binding repository, feature/design,
 branch, original baseline, objective, criteria, constraints and local capabilities.
 An existing matching grant is reused across sessions; missing UI, declined approval,
