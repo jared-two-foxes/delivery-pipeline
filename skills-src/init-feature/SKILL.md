@@ -30,8 +30,16 @@ The source can be a Linear ticket or explicit user-supplied requirements.
 
 ## 0. Load the source and reconcile existing state
 
+{{#pi}}
 For a Linear identifier, use the existing read-only `linear_get_ticket` tool to fetch
 the ticket; do not create, modify or close any Linear issues. Capture its identifier,
+{{/pi}}
+{{#claude}}
+For a Linear identifier, fetch the ticket with a configured read-only Linear integration
+(for example a Linear MCP server's issue-read tool). This plugin does not provide one. If none is
+available, ask the user to paste the ticket contents. Do not create, modify or close any Linear
+issues. Capture its identifier,
+{{/claude}}
 URL, title, full description, acceptance criteria and relevant constraints
 verbatim in the original feature context. Preserve the ticket as source material:
 do not invent criteria, silently discard constraints or treat Linear status as

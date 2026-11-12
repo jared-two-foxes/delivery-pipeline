@@ -88,8 +88,10 @@ export function diff(hostName) {
 
 export function write(hostName) {
   const dir = path.join(root, HOSTS[hostName].outDir);
+  // Render and validate everything first, so a bad source edit throws before the old variant is touched.
+  const files = build(hostName);
   rmSync(dir, { recursive: true, force: true });
-  for (const [rel, data] of build(hostName)) {
+  for (const [rel, data] of files) {
     mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true });
     writeFileSync(path.join(dir, rel), data);
   }

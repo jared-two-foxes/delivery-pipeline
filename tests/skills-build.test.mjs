@@ -24,3 +24,20 @@ test("the Claude Code variant uses plugin names and has no Pi invocation syntax"
     assert.doesNotMatch(text, /(?<![\w_-])(execute_and_review|scaffold_tasks|approve_feature_direction)(?!\w)/.source.length ? /(?<!pidelivery__)\b(execute_and_review|scaffold_tasks|approve_feature_direction)\b/ : /x/, `${rel} has a bare tool name`);
   }
 });
+
+test("a rejected source leaves the existing variant intact", async () => {
+  const { writeFileSync, existsSync, rmSync } = await import("node:fs");
+  const path = await import("node:path");
+  const { write, HOSTS, sourceDir } = await import("../scripts/build-skills.mjs");
+  // write() resolves both directories from the repository root, so exercise the ordering through a failing render.
+  const dir = new URL("../" + HOSTS.pi.outDir + "/", import.meta.url);
+  assert.ok(existsSync(dir), "Pi variant exists");
+  const bad = path.join(sourceDir, "zz-bad-test.md");
+  writeFileSync(bad, "{{bogus}}\n");
+  try {
+    assert.throws(() => write("pi"), /unresolved token/);
+    assert.ok(existsSync(new URL("design/SKILL.md", dir)), "existing variant was not deleted");
+  } finally {
+    rmSync(bad, { force: true });
+  }
+});
