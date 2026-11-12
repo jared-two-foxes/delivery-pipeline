@@ -162,8 +162,16 @@ export function validateRequest(params) {
   // Pre-approval revision of the feature design; Scaffold refuses it once the direction is approved.
   if (operation === "design-revise") {
     requireValue(object(payload) && text(payload.context), "design-revise requires the full revised design context");
-    fields(payload, ["context", "design_ref"]);
-    payload = { context: payload.context, design_ref: designReference(payload.context) };
+    // Requirements travel with the context so a criterion dropped from the design stops being mandatory.
+    fields(payload, ["context", "design_ref", "title", "objective", "acceptance_criteria", "constraints"]);
+    for (const field of ["title", "objective"])
+      requireValue(payload[field] === undefined || text(payload[field]), field + " must be a nonempty string");
+    requireValue(
+      payload.acceptance_criteria === undefined || (strings(payload.acceptance_criteria) && payload.acceptance_criteria.length > 0),
+      "acceptance_criteria must be a nonempty string array",
+    );
+    requireValue(payload.constraints === undefined || strings(payload.constraints), "constraints must be a string array");
+    payload = { ...payload, design_ref: designReference(payload.context) };
   }
   requireValue(OPERATIONS.includes(operation), "Unsupported operation");
   requireValue(text(feature_id), "feature_id is required");

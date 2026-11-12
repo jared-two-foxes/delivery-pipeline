@@ -30,7 +30,7 @@ export function createScaffoldTools(Type) {
     task_id: Type.Optional(text()),
     payload: Type.Optional(Type.Union([feature, Type.Array(task, { minItems: 1 }), evidence,
       Type.Object({ summary: text(), verification: text(), approval: text(), disposition: Type.Union([Type.Literal("leaf"), Type.Literal("decomposed")]) }, { additionalProperties: false }),
-      Type.Object({ context: text() }, { additionalProperties: false }),
+      Type.Object({ context: text(), title: Type.Optional(text()), objective: Type.Optional(text()), acceptance_criteria: Type.Optional(Type.Array(text(), { minItems: 1 })), constraints: Type.Optional(Type.Array(text())) }, { additionalProperties: false }),
       Type.Object({ reason: text(), reference: Type.Optional(text()) }, { additionalProperties: false }),
       Type.Object({ commit: text(), parent: text(), tree: text(), reference: text() }, { additionalProperties: false }),
       Type.Object({ reference: text(), handoff: text() }, { additionalProperties: false })])),

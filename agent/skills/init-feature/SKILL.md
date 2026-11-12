@@ -79,8 +79,10 @@ Review happens in the conversation, not in a dialog. After `init`, write the com
 direction in your reply (objective, criteria, scope and non-goals, approach, decomposition
 outline, risks, verification) and end by asking the user to approve it or tell you what to
 change. Their free-text alterations are the main input to the design. When they ask for
-changes, apply them with `scaffold_tasks` `design-revise` (full revised `context`; it is
-refused once approved and yields a new `design_ref`), then present the revised design in
+changes, apply them with `scaffold_tasks` `design-revise` (full revised `context`, plus the
+full revised `title`, `objective`, `acceptance_criteria` and `constraints` whenever the
+alteration changes them, so a dropped criterion stops being required; it is refused once
+approved and yields a new `design_ref`), then present the revised design in
 full again. Repeat until the user says yes.
 
 Only after the user has said yes to the design you just presented, call native

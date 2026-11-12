@@ -31,3 +31,23 @@ test('design-revise recomputes the design reference from the revised context', (
   assert.match(payload.design_ref, /^sha256:[a-f0-9]{64}$/);
   assert.throws(() => validateRequest({ operation: 'design-revise', feature_id: 'F1', payload: { context: ' ' } }));
 });
+
+test('only design/instance references are abbreviated; amendment text is verbatim', () => {
+  const sha = 'a'.repeat(64);
+  const other = 'a'.repeat(63) + 'b';
+  const out = (replacement) => formatScope({ designRef: 'sha256:' + sha, replacement, original: [{ id: 'C1', text: sha }] });
+  assert.match(out(sha), /Design reference: sha256:a{12}…/);
+  assert.ok(out(sha).includes('Replacement: ' + sha));
+  assert.notEqual(out(sha), out(other), 'distinct replacements must not look identical');
+  assert.ok(out(sha).includes('Text: ' + sha));
+});
+
+test('design-revise carries revised requirements and validates them', () => {
+  const ok = validateRequest({ operation: 'design-revise', feature_id: 'F1', payload: {
+    context: 'v2', objective: 'New', acceptance_criteria: ['Only this'], constraints: [] } }).payload;
+  assert.equal(ok.objective, 'New');
+  assert.deepEqual(ok.acceptance_criteria, ['Only this']);
+  assert.match(ok.design_ref, /^sha256:/);
+  for (const bad of [{ acceptance_criteria: [] }, { objective: ' ' }, { constraints: [1] }, { extra: 1 }])
+    assert.throws(() => validateRequest({ operation: 'design-revise', feature_id: 'F1', payload: { context: 'v2', ...bad } }));
+});
