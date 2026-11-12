@@ -6,29 +6,94 @@ import { snapshot } from "../../lib/git/snapshot.mjs";
 import { readEvidence, retainFeatureEvidence } from "../../lib/evidence/store.mjs";
 import { requireFeatureAuthorization } from "../scaffold/feature-authorization.mjs";
 import { assertLatestAttempt } from "../../lib/verification/attempt-chain.mjs";
+import { validateBinding } from "../../lib/delivery-state/binding.mjs";
+import { deliveryContractItems } from "../../lib/delivery-state/delivery-context.mjs";
+import { hash } from "../../lib/delivery-state/context-digest.mjs";
+import { taskReceipts } from "../../lib/evidence/attempts.mjs";
+import { issueFeature } from "../scaffold/adapter.mjs";
 const requireValue = (ok, message) => {
   if (!ok) throw new Error(message);
 };
+
+// The retained attempt an amendment is made against, or, before any attempt exists, the issue's current
+// contract read from Scaffold. Either way the user confirms a concrete delta against original obligations.
+async function amendmentBasis(repository, args, options) {
+  if (args.previousAttempt !== undefined) {
+    requireValue(args.task === undefined, "Supply previousAttempt or task, not both");
+    const previous = await readEvidence(repository, args.previousAttempt),
+      task = previous.task;
+    await assertLatestAttempt(repository, args.previousAttempt, task, previous.attempt);
+    requireValue(
+      previous.result.status !== "PASSED" &&
+        equal(await snapshot(repository), previous.after),
+      "Amend the latest unfinished issue against its unchanged source/index",
+    );
+    return {
+      task,
+      source: previous.after,
+      items: (previous.args.deliveryContext?.contractItems ?? []).concat(
+        previous.args.deliveryContext?.obligations ?? [],
+      ),
+      recheck: () => assertLatestAttempt(repository, args.previousAttempt, task, previous.attempt),
+    };
+  }
+  // Pre-execution: no attempt receipt exists, so the contract comes from the recorded issue itself.
+  validateBinding(args.task);
+  const task = args.task;
+  // "Before the first attempt" means no terminal attempt AND no delivery-journal activity: an attempt
+  // that is running, or was interrupted with a retained in-flight intent, has already started.
+  const unstarted = async () => {
+    requireValue(
+      (await taskReceipts(repository, task, options)).length === 0,
+      "This issue already has attempts; amend against its latest receipt with previousAttempt",
+    );
+    const feature = await issueFeature(repository, task, options);
+    const issue = feature?.tasks?.[task.taskId];
+    requireValue(feature && issue, "Unknown issue or design reference for this amendment");
+    const delivery = issue.delivery;
+    requireValue(
+      !delivery || (!delivery.inflight && !delivery.sequence),
+      "An attempt has started or is in flight for this issue; amend against its latest receipt with previousAttempt",
+    );
+    return { feature, issue };
+  };
+  const { feature, issue } = await unstarted();
+  return {
+    task,
+    source: await snapshot(repository),
+    items: deliveryContractItems(feature, issue, task),
+    // Bound to the issue's current approved design as well as the feature: a redesign invalidates it.
+    designDigest: hash(issue.designs?.at(-1) ?? null),
+    // Re-checked after the confirmation. Retention cannot be atomic with an attempt starting, so applying
+    // a pre-attempt approval is also refused once any attempt exists (see assertPreAttemptAmendmentApplies).
+    recheck: async () => { await unstarted(); },
+  };
+}
+
+/** A pre-attempt approval applies only to the issue's first attempt and only under the design it was shown. */
+export function assertPreAttemptAmendmentApplies(amendment, { issue, previous }) {
+  requireValue(
+    !previous || previous.kind === "issue-zero-handoff",
+    "A pre-attempt amendment applies only to the first attempt; approve a new amendment against the latest receipt with previousAttempt",
+  );
+  requireValue(
+    amendment.designDigest === hash(issue.designs?.at(-1) ?? null),
+    "The issue's design changed after this amendment was approved; request a new approval",
+  );
+}
 
 export async function approveDeliveryAmendment(args, context, options = {}) {
   try {
     const repository = path.resolve(
       git(context.directory, ["rev-parse", "--show-toplevel"]),
     );
-    const previous = await readEvidence(repository, args.previousAttempt),
-      task = previous.task;
-    await requireFeatureAuthorization({ task }, context, options);
-    await assertLatestAttempt(
-      repository,
-      args.previousAttempt,
-      task,
-      previous.attempt,
-    );
     requireValue(
-      previous.result.status !== "PASSED" &&
-        equal(await snapshot(repository), previous.after),
-      "Amend the latest unfinished issue against its unchanged source/index",
+      (args.previousAttempt === undefined) !== (args.task === undefined),
+      "Supply exactly one of previousAttempt (after an attempt) or task (before the first attempt)",
     );
+    const basis = await amendmentBasis(repository, args, options),
+      task = basis.task;
+    await requireFeatureAuthorization({ task }, context, options);
     requireValue(
       Array.isArray(args.ids) &&
         args.ids.length > 0 &&
@@ -38,17 +103,17 @@ export async function approveDeliveryAmendment(args, context, options = {}) {
         ),
       "Explicit delta, IDs and reason required",
     );
-    const items = (previous.args.deliveryContext?.contractItems ?? []).concat(
-      previous.args.deliveryContext?.obligations ?? [],
-    );
+    const items = basis.items;
     requireValue(
       args.ids.every((id) => items.some((i) => i.id === id)),
-      "Unknown original criterion/finding identity",
+      "Unknown original criterion/finding identity; available: " +
+        items.map((i) => i.id + " (" + String(i.text).slice(0, 60) + ")").join("; "),
     );
     const scope = {
       task,
-      previousAttempt: args.previousAttempt,
-      source: previous.after,
+      previousAttempt: args.previousAttempt ?? null,
+      ...(basis.designDigest ? { designDigest: basis.designDigest } : {}),
+      source: basis.source,
       ids: args.ids,
       original: items.filter((i) => args.ids.includes(i.id)),
       replacement: args.replacement,
@@ -64,12 +129,7 @@ export async function approveDeliveryAmendment(args, context, options = {}) {
       equal(await snapshot(repository), scope.source),
       "Source changed during amendment approval",
     );
-    await assertLatestAttempt(
-      repository,
-      args.previousAttempt,
-      task,
-      previous.attempt,
-    );
+    await basis.recheck();
     const reference = await retainFeatureEvidence(repository, {
       kind: "delivery-amendment",
       featureId: task.featureId,

@@ -6,6 +6,7 @@ import { authenticateAttemptChain } from "../../lib/verification/attempt-chain.m
 import { verificationChecks, correctionVerification } from "../../lib/verification/checks.mjs";
 import { issueRequirements } from "../../lib/scaffold/contracts.mjs";
 import { authenticateAmendment } from "../../lib/authorization/amendment.mjs";
+import { assertPreAttemptAmendmentApplies } from "./context-amendment.mjs";
 import {
   assertDeliveryJournal,
   anchorDeliveryJournal,
@@ -146,8 +147,20 @@ export async function prepareDelivery(repository, feature, issue, args, options 
     "Evaluator repair requires an authenticated issue handoff after approved redesign");
   const approved = new Map();
   for (const u of updates)
-    if (u.kind === "apply_amendment")
-      approved.set(u.reference, await authenticateAmendment(repository, u.reference, args.task));
+    if (u.kind === "apply_amendment") {
+      const amendment = await authenticateAmendment(repository, u.reference, args.task);
+      if (amendment.previousAttempt === null) {
+        assertPreAttemptAmendmentApplies(amendment, { issue, previous });
+        // Approved before any attempt: the originals must be exactly the issue's current contract items.
+        const known = context.contractItems.concat(context.obligations);
+        requireValue(
+          amendment.original.every((o) => known.some((k) => equal(k, o))) &&
+            amendment.ids.every((id) => known.some((k) => k.id === id)),
+          "Amendment originals do not match this issue's current contract; request a new approval",
+        );
+      }
+      approved.set(u.reference, amendment);
+    }
   const revised = updateContext(
     context, updates,
     args.callerPlan ? verificationChecks(args) : (context.verification ?? verificationChecks(args)),

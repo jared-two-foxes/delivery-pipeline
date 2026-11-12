@@ -1523,6 +1523,81 @@ test(
 );
 
 test(
+  "a user can override a recorded obligation before the issue's first attempt",
+  integration,
+  async (t) => {
+    const { approveDeliveryAmendment } =
+      await import("../agent/extensions/execute-and-review/context-amendment.mjs");
+    const { deliveryContractItems } =
+      await import("../agent/lib/delivery-state/delivery-context.mjs");
+    const f = await fixture(t);
+    await f.approve("F");
+    await f.call("design-finish");
+    await f.call("start", { task_id: "F" });
+    const authority = await approveFeatureDirection(
+      { featureId: "F" },
+      { directory: f.dir },
+      { ...f.options, confirm: async () => true },
+    );
+    assert.equal(authority.ok, true, JSON.stringify(authority));
+    const args = await f.args("F");
+    const feature = (await f.call("list")).feature;
+    const items = deliveryContractItems(feature, feature.tasks.F, args.task);
+    const request = {
+      task: args.task,
+      ids: [items[1].id],
+      replacement: "Behavior works; the ticket's own dependency evidence is sufficient",
+      reason: "The recorded gate was added by the agent and is not in the ticket",
+    };
+    // No attempt exists, so there is no receipt to name; the identity of the issue is used instead.
+    const both = await approveDeliveryAmendment(
+      { ...request, previousAttempt: "sha256:" + "0".repeat(64) },
+      { directory: f.dir },
+      { ...f.options, confirm: async () => true },
+    );
+    assert.match(both.message, /exactly one of previousAttempt/);
+    const unknown = await approveDeliveryAmendment(
+      { ...request, ids: ["no-such-obligation"] },
+      { directory: f.dir },
+      { ...f.options, confirm: async () => true },
+    );
+    assert.match(unknown.message, /Unknown original.*available: /);
+    const shown = [];
+    const denied = await approveDeliveryAmendment(
+      request,
+      { directory: f.dir },
+      { ...f.options, confirm: async () => false },
+    );
+    assert.match(denied.message, /requires user approval/);
+    const granted = await approveDeliveryAmendment(
+      request,
+      { directory: f.dir },
+      { ...f.options, confirm: async (scope) => (shown.push(scope), true) },
+    );
+    assert.equal(granted.ok, true, JSON.stringify(granted));
+    assert.equal(shown[0].previousAttempt, null);
+    assert.deepEqual(shown[0].original.map((o) => o.id), [items[1].id]);
+    const result = await f.run({
+      ...args,
+      contextUpdates: [{ kind: "apply_amendment", reference: granted.reference, reason: request.reason }],
+    });
+    assert.equal(result.status, "PASSED", JSON.stringify(result));
+    const record = await readEvidence(f.dir, result.evidence.reference);
+    assert.equal(record.args.deliveryContext.amendments[0].reference, granted.reference);
+    assert.ok(record.args.deliveryContext.obligations.some((o) => o.source === granted.reference));
+    // The original stays retained; only the user's explicit delta supersedes it.
+    assert.ok(record.args.deliveryContext.contractItems.some((o) => o.id === items[1].id));
+    // Once an attempt exists, the pre-execution form is no longer available.
+    const late = await approveDeliveryAmendment(
+      { ...request, ids: [items[2]?.id ?? items[0].id] },
+      { directory: f.dir },
+      { ...f.options, confirm: async () => true },
+    );
+    assert.equal(late.ok, false);
+  },
+);
+
+test(
   "obsolete fixed-context continuations are rejected without changing long retained chains",
   integration,
   async (t) => {
