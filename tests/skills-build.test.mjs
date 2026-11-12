@@ -15,3 +15,12 @@ test("render rejects unknown host blocks and unresolved tokens", () => {
   assert.throws(() => render("{{#vscode}}\nx\n{{/vscode}}\n", "pi"), /unknown host block/);
   assert.throws(() => render("{{bogus}}", "pi"), /unresolved token/);
 });
+
+test("the Claude Code variant uses plugin names and has no Pi invocation syntax", async () => {
+  const { build } = await import("../scripts/build-skills.mjs");
+  for (const [rel, data] of build("claude")) {
+    const text = data.toString("utf8");
+    assert.doesNotMatch(text, /\/skill:/, `${rel} still uses Pi skill syntax`);
+    assert.doesNotMatch(text, /(?<![\w_-])(execute_and_review|scaffold_tasks|approve_feature_direction)(?!\w)/.source.length ? /(?<!pidelivery__)\b(execute_and_review|scaffold_tasks|approve_feature_direction)\b/ : /x/, `${rel} has a bare tool name`);
+  }
+});
