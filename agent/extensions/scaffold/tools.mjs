@@ -25,11 +25,12 @@ export function createScaffoldTools(Type) {
   // Keep the tool schema an object for Pi/provider function-tool compatibility.
   // The adapter enforces operation-specific required/forbidden fields as well.
   const parameters = Type.Object({
-    operation: Type.Union((["init", "add", "list", "start", "complete", "block", "fail", "retry", "decompose", "design-record", "design-finish", "design-reopen", "checkpoint-record", "issue-resume", "summary", "issue", "select", "design-select"]).map(value => Type.Literal(value))),
+    operation: Type.Union((["init", "add", "list", "start", "complete", "block", "fail", "retry", "decompose", "design-record", "design-finish", "design-reopen", "design-revise", "checkpoint-record", "issue-resume", "summary", "issue", "select", "design-select"]).map(value => Type.Literal(value))),
     feature_id: text(),
     task_id: Type.Optional(text()),
     payload: Type.Optional(Type.Union([feature, Type.Array(task, { minItems: 1 }), evidence,
       Type.Object({ summary: text(), verification: text(), approval: text(), disposition: Type.Union([Type.Literal("leaf"), Type.Literal("decomposed")]) }, { additionalProperties: false }),
+      Type.Object({ context: text() }, { additionalProperties: false }),
       Type.Object({ reason: text(), reference: Type.Optional(text()) }, { additionalProperties: false }),
       Type.Object({ commit: text(), parent: text(), tree: text(), reference: text() }, { additionalProperties: false }),
       Type.Object({ reference: text(), handoff: text() }, { additionalProperties: false })])),

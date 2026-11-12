@@ -22,6 +22,7 @@ export const OPERATIONS = [
   "design-select",
   "delivery-record",
   "direction-approve",
+  "design-revise",
   "attempt-record",
   "history-foreign",
   "history-rewrite",
@@ -44,6 +45,7 @@ const taskActions = new Set([
   "issue-resume",
 ]);
 const inputActions = new Set([
+  "design-revise",
   "failure-record",
   "direction-approve",
   "attempt-record",
@@ -156,6 +158,12 @@ export function validateRequest(params) {
   if (operation === "init" && payload?.design_ref === "sha256:context") {
     requireValue(text(payload.context), "Approved design context is required");
     payload = { ...payload, design_ref: designReference(payload.context) };
+  }
+  // Pre-approval revision of the feature design; Scaffold refuses it once the direction is approved.
+  if (operation === "design-revise") {
+    requireValue(object(payload) && text(payload.context), "design-revise requires the full revised design context");
+    fields(payload, ["context", "design_ref"]);
+    payload = { context: payload.context, design_ref: designReference(payload.context) };
   }
   requireValue(OPERATIONS.includes(operation), "Unsupported operation");
   requireValue(text(feature_id), "feature_id is required");
@@ -388,6 +396,7 @@ export function validateResponse(data, params) {
     "design-record",
     "design-finish",
     "design-reopen",
+    "design-revise",
     "checkpoint-record",
     "issue-resume",
     "direction-approve",

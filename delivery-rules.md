@@ -13,8 +13,8 @@ issue decomposition and design-finish to /skill:init-feature. An explicit
 preparation request must stop after design-finish without applying source edits.
 /skill:feature-delivery first authenticates or prepares the feature, then drives
 the multi-task implementation loop. /skill:implement-task requires one existing,
-approved and eligible issue. Use approve_feature_direction for the single user confirmation. Do not ask a separate conversational yes/no before
-the native confirmation. Its durable receipt binds repository, feature/design,
+approved and eligible issue. Present the full design in chat and take the user's alterations (scaffold_tasks design-revise) until they say yes; then call
+approve_feature_direction with that designRef for the single short Yes/No confirmation. Its durable receipt binds repository, feature/design,
 branch, baseline, objectives and constraints and survives context/session changes.
 
 Within that scope, /skill:init-feature designs/decomposes all issues and persists
