@@ -317,7 +317,7 @@ arguments, preserving its output and exit code. A successful test captures the
 full Git tree/fingerprint immediately before Conductor starts independent review.
 A missing boundary or any final source/index mismatch blocks PASSED and checkpoints.
 The receipt retains both boundary and final snapshots, plus the actual request.
-This is a narrow Pi adapter addition; Conductor still performs one attempt and
+This is a narrow {{pi:Pi }}adapter addition; Conductor still performs one attempt and
 never commits. Checkpoint scope comes from actual Git state and the full review
 baseline, not Executor paths. Concurrent external writers remain unsupported:
 endpoint fingerprints cannot detect transient changes restored during review.

@@ -19,16 +19,27 @@ claude --plugin-dir /absolute/path/to/delivery-pipeline
 
 Tool names come from Claude Code's plugin naming rule, `mcp__plugin_<plugin>_<server>__<tool>`, so
 `execute_and_review` is `mcp__plugin_delivery-pipeline_pidelivery__execute_and_review`. Pi's names differ
-(`mcp__pidelivery__...`); the skills do not yet account for either.
+(`mcp__pidelivery__...`). The skills are generated per host, so the Claude Code variant in `skills/` uses the
+plugin names and `/delivery-pipeline:<skill>` invocation; see "Skills" below.
 
 Approvals (`approve_feature_direction` and the other two) appear as an MCP elicitation dialog in an
 interactive session. In a non-interactive (`-p`) run Claude Code cancels the request, so they fail closed.
+
+## Skills
+
+The skills are written once in `../skills-src/` and rendered per host by `../scripts/build-skills.mjs`:
+`../agent/skills/` for Pi and `../skills/` for this plugin (Claude Code loads `skills/` at the plugin root). Both
+outputs are committed, and a test fails if either differs from its source. Edit `skills-src/`, then run
+`node scripts/build-skills.mjs`. The tokens and host blocks are documented at the top of the script.
+
+Not ported: `delivery-rules.md`. Pi injects it into the system prompt through the `delivery-prompt` extension and
+this plugin has no equivalent yet. The ported skills have **not** been exercised in a live Claude Code session.
 
 ## The trust model, honestly
 
 | Layer | What it is | Pi today | Claude Code with this plugin |
 |---|---|---|---|
-| Instructions | the delivery rules and the skills tell the agent not to edit directly | yes | partly (skills not ported yet) |
+| Instructions | the delivery rules and the skills tell the agent not to edit directly | yes | partly (skills ported; `delivery-rules.md` is not injected, see below) |
 | **Prevention** | A hook refuses the edit or command before it runs | yes (`delivery-guard` extension) | yes (this guard) |
 | Detection | The ledger and `checkpointHistory()` flag any commit that is not an authenticated checkpoint | yes | yes (same shared tools) |
 

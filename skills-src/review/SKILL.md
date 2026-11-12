@@ -22,7 +22,7 @@ structured JSON result contract.
 
 The binary is installed via `cargo install` and invoked as `review-cli run`.
 
-## Pi standalone review
+## {{agent}} standalone review
 
 Use the native `{{tool:review_changes}}` tool in Research mode when the user asks to
 review existing changes. Loading this skill does not enter Design mode or

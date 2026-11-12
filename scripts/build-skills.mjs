@@ -7,6 +7,8 @@
 // Source syntax, in any .md file under skills-src/:
 //   {{skill:NAME}}                     how the host invokes skill NAME
 //   {{tool:NAME}}                      how the host names delivery tool NAME
+//   {{agent}}                          the host's agent name (Pi, Claude)
+//   {{pi:text}} / {{claude:text}}      inline text kept only for that host
 //   {{#pi}} ... {{/pi}}                kept only in the Pi variant   (markers on their own lines)
 //   {{#claude}} ... {{/claude}}        kept only in the Claude Code variant
 // Other files are copied unchanged. An unknown token or host block is an error, never passed through.
@@ -23,6 +25,14 @@ export const HOSTS = {
     outDir: "agent/skills",
     skill: (name) => `/skill:${name}`,
     tool: (name) => name,
+    agent: "Pi",
+  },
+  claude: {
+    outDir: "skills",
+    skill: (name) => `/delivery-pipeline:${name}`,
+    // Claude Code names plugin MCP tools mcp__plugin_<plugin>_<server>__<tool>.
+    tool: (name) => `mcp__plugin_delivery-pipeline_pidelivery__${name}`,
+    agent: "Claude",
   },
 };
 
@@ -34,6 +44,8 @@ export function render(text, hostName, file = "<text>") {
     if (!["pi", "claude"].includes(name)) throw new Error(`${file}: unknown host block {{#${name}}}`);
     return name === hostName ? body : "";
   });
+  out = out.replace(/\{\{(pi|claude):([^}]*)\}\}/g, (_, name, body) => (name === hostName ? body : ""));
+  out = out.replace(/\{\{agent\}\}/g, host.agent);
   out = out.replace(/\{\{(skill|tool):([\w-]+)\}\}/g, (_, kind, name) => host[kind](name));
   const left = out.match(/\{\{[#/]?\w*:?[^}]*\}\}/);
   if (left) throw new Error(`${file}: unresolved token ${left[0]}`);

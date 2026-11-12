@@ -10,7 +10,7 @@ description: >
 ## Cleaned or recreated feature state
 
 `scaffold clean` is a human-only administrative action, not a recovery step,
-Pi tool or implicit initialization fallback. If the current Scaffold feature
+{{pi:Pi }}tool or implicit initialization fallback. If the current Scaffold feature
 is missing after a reset or its `workflow.instance_id` differs from retained
 handoff/receipt authority, stop delivery. Do not reuse old attempts or approvals.
 Preserve Git commits, source changes and external evidence; ask for explicit
@@ -21,7 +21,7 @@ direction approval before any new work on the recreated instance.
 
 This skill orchestrates multi-task delivery of a prepared feature.
 Use `{{skill:init-feature}}` to create or finish the approved Scaffold graph and
-`{{skill:design}}` for a standalone engineering contract. Here Pi owns task
+`{{skill:design}}` for a standalone engineering contract. Here {{agent}} owns task
 selection, prerequisite recovery, correction graph decisions and final validation;
 `{{skill:implement-task}}` owns each task's execution and checkpoint loop.
 
@@ -100,7 +100,7 @@ is discovered. Do not fabricate revised evidence or replace an active feature.
 
 After `design-finish`, select the next eligible issue through Scaffold and
 load `{{skill:implement-task}}` with the exact `featureId`, `taskId`,
-approved design and current context. Pi remains the sole orchestrator: the
+approved design and current context. {{agent}} remains the sole orchestrator: the
 task skill owns implementation operations, targeted check selection, bounded
 Conductor attempts, in-scope corrections, evidence inspection and verified
 checkpoint completion for **one issue only**. Its native execution mechanism

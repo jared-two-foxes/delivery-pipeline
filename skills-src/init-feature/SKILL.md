@@ -11,7 +11,7 @@ description: >
 ## Clean/reinitialization boundary
 
 A human may explicitly reset a feature using the separate administrative
-`scaffold clean` CLI. Pi must **never** use that command automatically
+`scaffold clean` CLI. {{agent}} must **never** use that command automatically
 or offer it as a way to bypass blocked state or failed attempts. If the
 feature is missing after a clean, do not restore old approvals, task snapshots,
 execution receipts or checkpoint history from Git metadata. New Scaffold
@@ -151,7 +151,7 @@ The existing `approval` field records delegated authority, for example:
 no separate user approval was requested for this issue."
 Never claim the user approved an individual issue if they did not. Add a parent's
 immediate children before recording its design. Reopened designs retain their
-history and invalidate affected unfinished designs, which Pi redesigns autonomously.
+history and invalidate affected unfinished designs, which {{agent}} redesigns autonomously.
 
 Continue downward until every issue has a complete design, then `design-finish`.
 No implementation may run before this entire graph design phase completes.

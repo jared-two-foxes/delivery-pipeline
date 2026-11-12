@@ -1,15 +1,15 @@
 ---
 name: scaffold
 description: >
-  Persist Pi's recursive issue graph, approved designs, dependencies, phase
+  Persist {{agent}}'s recursive issue graph, approved designs, dependencies, phase
   transitions and verified lifecycle using native {{tool:scaffold_tasks}}. Scaffold stores
-  state; Pi designs and sequences; Conductor executes and verifies.
+  state; {{agent}} designs and sequences; Conductor executes and verifies.
 ---
 
 # Persistent issue graph
 
 Use native **`{{tool:scaffold_tasks}}`**, backed by the installed `scaffold` executable.
-Pi owns reasoning, approvals, decomposition and sequencing. Scaffold owns its
+{{agent}} owns reasoning, approvals, decomposition and sequencing. Scaffold owns its
 task state as an append-only, hash-chained ledger per feature (`.scaffold/features/<feature>.<instance>/ledger.jsonl`, with receipts as artifacts beside it), protected by `.scaffold/.tasks.lock`, with dependencies and lifecycle history.
 Never edit state files directly.
 
@@ -21,7 +21,7 @@ contract. Never invoke it autonomously, to recover blocked work, to bypass a
 checkpoint/review, or to clear execution attempts. Only an operator may run it
 after dry-run/confirmation or with their own explicit `--yes`. It only appends a
 `feature-close` entry to the selected feature's ledger: nothing is deleted, and the lock,
-Git work, source files and retained receipts are left intact. Cleaning invalidates active Pi workflow authority, so stop stale
+Git work, source files and retained receipts are left intact. Cleaning invalidates active {{agent}} workflow authority, so stop stale
 sessions/handoffs. A new `scaffold init` gets a distinct feature instance ID even
 if the ticket, design and Git baseline are identical; complete
 `{{skill:init-feature}}` and obtain *fresh* direction approval before work.
@@ -34,7 +34,7 @@ feature/task graph (a ledger per feature). The former LIFO criteria stack is ret
 alternate state source. Historical stack files are not migrated or deleted.
 The task-only CLI supports `scaffold summary --feature ID`,
 `scaffold issue --feature ID --task ID`, `scaffold design-select
---feature ID`, and `scaffold select --feature ID`. Inside Pi, use the
+--feature ID`, and `scaffold select --feature ID`. Inside {{agent}}, use the
 matching native `{{tool:scaffold_tasks}}` operations rather than shelling out.
  Native tools never automatically select the next
 issue, generate code, retry implementation or claim verification from bookkeeping.
@@ -51,7 +51,7 @@ came from the ticket, design, review or an implementation discovery.
 ## Initialize and design downward
 
 Every call supplies `operation` and explicit `feature_id`. Repository scope is
-Pi's current Git root; there is no arbitrary repo path or implicit current issue.
+{{agent}}'s current Git root; there is no arbitrary repo path or implicit current issue.
 
 For a new feature initialize from the agreed ticket scope:
 
@@ -182,7 +182,7 @@ initialize a replacement feature to hide failures.
 ## Supported contract
 
 Require the recursive issue graph and the schema-3 ledger. Older state is ignored and CLI
-operations it does not know are rejected without modification. Install Scaffold and Pi together;
+operations it does not know are rejected without modification. {{pi:Install Scaffold and Pi together;}}{{claude:Install Scaffold and the delivery-pipeline plugin together;}}
 there is no legacy-stack or task-state migration path in this workflow.
 
 ## Scoped context and persisted issue handoff
@@ -192,7 +192,7 @@ for the next design issue; `select` for the next implementable issue; and `issue
 with explicit task_id to fetch one issue. Scoped context includes its approved
 design, ancestor contracts, inherited prerequisite contracts and immediate children.
 It omits lifecycle transcripts, sibling bodies and old executor inputs. Selection
-is read-only and null never proves completion. The native Pi tool accepts only `select` and `design-select` and returns compact
+is read-only and null never proves completion. The native{{pi: Pi}} tool accepts only `select` and `design-select` and returns compact
 mutation acknowledgements. Full `list` remains an explicit diagnostic operation; native
 verification continues to inspect complete state and receipts internally.
 

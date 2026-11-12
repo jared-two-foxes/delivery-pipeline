@@ -38,5 +38,5 @@ Use the returned evidence to report a blocker if the diagnosis remains unresolve
 Stop for unavailable prerequisites or credentials and unresolved source or
 index drift. Preserve the tree and use the applicable recovery action from the
 tool. Report the blocker with retained evidence. Retry decisions happen in
-Pi's delivery loop without a background scheduler. Only successful execution,
+{{agent}}'s delivery loop without a background scheduler. Only successful execution,
 checks, and an approved independent review satisfy the verification gate.
