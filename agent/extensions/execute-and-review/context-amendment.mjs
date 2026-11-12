@@ -8,6 +8,7 @@ import { requireFeatureAuthorization } from "../scaffold/feature-authorization.m
 import { assertLatestAttempt } from "../../lib/verification/attempt-chain.mjs";
 import { validateBinding } from "../../lib/delivery-state/binding.mjs";
 import { deliveryContractItems } from "../../lib/delivery-state/delivery-context.mjs";
+import { hash } from "../../lib/delivery-state/context-digest.mjs";
 import { taskReceipts } from "../../lib/evidence/attempts.mjs";
 import { issueFeature } from "../scaffold/adapter.mjs";
 const requireValue = (ok, message) => {
@@ -39,23 +40,46 @@ async function amendmentBasis(repository, args, options) {
   // Pre-execution: no attempt receipt exists, so the contract comes from the recorded issue itself.
   validateBinding(args.task);
   const task = args.task;
-  requireValue(
-    (await taskReceipts(repository, task, options)).length === 0,
-    "This issue already has attempts; amend against its latest receipt with previousAttempt",
-  );
-  const feature = await issueFeature(repository, task, options);
-  const issue = feature?.tasks?.[task.taskId];
-  requireValue(feature && issue, "Unknown issue or design reference for this amendment");
+  // "Before the first attempt" means no terminal attempt AND no delivery-journal activity: an attempt
+  // that is running, or was interrupted with a retained in-flight intent, has already started.
+  const unstarted = async () => {
+    requireValue(
+      (await taskReceipts(repository, task, options)).length === 0,
+      "This issue already has attempts; amend against its latest receipt with previousAttempt",
+    );
+    const feature = await issueFeature(repository, task, options);
+    const issue = feature?.tasks?.[task.taskId];
+    requireValue(feature && issue, "Unknown issue or design reference for this amendment");
+    const delivery = issue.delivery;
+    requireValue(
+      !delivery || (!delivery.inflight && !delivery.sequence),
+      "An attempt has started or is in flight for this issue; amend against its latest receipt with previousAttempt",
+    );
+    return { feature, issue };
+  };
+  const { feature, issue } = await unstarted();
   return {
     task,
     source: await snapshot(repository),
     items: deliveryContractItems(feature, issue, task),
-    recheck: async () =>
-      requireValue(
-        (await taskReceipts(repository, task, options)).length === 0,
-        "An attempt was recorded during amendment approval",
-      ),
+    // Bound to the issue's current approved design as well as the feature: a redesign invalidates it.
+    designDigest: hash(issue.designs?.at(-1) ?? null),
+    // Re-checked after the confirmation. Retention cannot be atomic with an attempt starting, so applying
+    // a pre-attempt approval is also refused once any attempt exists (see assertPreAttemptAmendmentApplies).
+    recheck: async () => { await unstarted(); },
   };
+}
+
+/** A pre-attempt approval applies only to the issue's first attempt and only under the design it was shown. */
+export function assertPreAttemptAmendmentApplies(amendment, { issue, previous }) {
+  requireValue(
+    !previous || previous.kind === "issue-zero-handoff",
+    "A pre-attempt amendment applies only to the first attempt; approve a new amendment against the latest receipt with previousAttempt",
+  );
+  requireValue(
+    amendment.designDigest === hash(issue.designs?.at(-1) ?? null),
+    "The issue's design changed after this amendment was approved; request a new approval",
+  );
 }
 
 export async function approveDeliveryAmendment(args, context, options = {}) {
@@ -88,6 +112,7 @@ export async function approveDeliveryAmendment(args, context, options = {}) {
     const scope = {
       task,
       previousAttempt: args.previousAttempt ?? null,
+      ...(basis.designDigest ? { designDigest: basis.designDigest } : {}),
       source: basis.source,
       ids: args.ids,
       original: items.filter((i) => args.ids.includes(i.id)),

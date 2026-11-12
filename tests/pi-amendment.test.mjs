@@ -22,11 +22,13 @@ test("a user can override a recorded constraint before the first attempt", { ski
   const task = { featureId: "F", taskId: "T", designRef: "d" };
   const artifacts = new Map();
   let attempts = [];
+  let delivery;
+  let design = { summary: "Design A" };
   const feature = () => ({
     objective: "Ship it",
     acceptance_criteria: ["Works"],
     constraints: [],
-    tasks: { T: { acceptance_criteria: ["Issue works"], constraints: ["Resolve SA-588 final validation first"], attempts } },
+    tasks: { T: { acceptance_criteria: ["Issue works"], constraints: ["Resolve SA-588 final validation first"], attempts, delivery, designs: [design] } },
   });
   suite.mock.module("../agent/lib/scaffold/client.mjs", {
     namedExports: {
@@ -49,7 +51,7 @@ test("a user can override a recorded constraint before the first attempt", { ski
   suite.mock.module("../agent/extensions/scaffold/feature-authorization.mjs", {
     namedExports: { requireFeatureAuthorization: async () => true },
   });
-  const { approveDeliveryAmendment } = await import("../agent/extensions/execute-and-review/context-amendment.mjs");
+  const { approveDeliveryAmendment, assertPreAttemptAmendmentApplies } = await import("../agent/extensions/execute-and-review/context-amendment.mjs");
   const { authenticateAmendment } = await import("../agent/lib/authorization/amendment.mjs");
   const { deliveryContractItems } = await import("../agent/lib/delivery-state/delivery-context.mjs");
 
@@ -96,6 +98,36 @@ test("a user can override a recorded constraint before the first attempt", { ski
     await assert.rejects(authenticateAmendment(dir, reference, { ...task, designRef: "other" }), /matching feature authority/);
     await assert.rejects(authenticateAmendment(dir, reference, { ...task, featureId: "G" }), /matching feature authority/);
     await assert.rejects(authenticateAmendment(dir, reference, { ...task, taskId: "U" }), /no retained originating/);
+  });
+
+  await suite.test("an interrupted or running first attempt (in-flight intent) is not 'before the first attempt'", async () => {
+    delivery = { inflight: "sha256:" + "2".repeat(64), sequence: 0, revision: 3 };
+    assert.match((await approveDeliveryAmendment(request, context, yes)).message, /started or is in flight/);
+    delivery = { inflight: null, sequence: 1, revision: 4 };
+    assert.match((await approveDeliveryAmendment(request, context, yes)).message, /started or is in flight/);
+    delivery = undefined;
+  });
+
+  await suite.test("an attempt starting during the confirmation is caught by the re-check", async () => {
+    const result = await approveDeliveryAmendment(request, context, {
+      confirm: async () => ((delivery = { inflight: "sha256:" + "3".repeat(64), sequence: 0 }), true),
+    });
+    assert.match(result.message, /started or is in flight/);
+    delivery = undefined;
+  });
+
+  await suite.test("applying: only the first attempt, and only under the design it was approved with", async () => {
+    const amendment = await authenticateAmendment(dir, reference, task);
+    assert.equal(typeof amendment.designDigest, "string");
+    const issue = feature().tasks.T;
+    assertPreAttemptAmendmentApplies(amendment, { issue, previous: undefined });
+    assertPreAttemptAmendmentApplies(amendment, { issue, previous: { kind: "issue-zero-handoff" } });
+    assert.throws(() => assertPreAttemptAmendmentApplies(amendment, { issue, previous: { kind: "task-attempt" } }),
+      /only to the first attempt/);
+    design = { summary: "Design B" };
+    assert.throws(() => assertPreAttemptAmendmentApplies(amendment, { issue: feature().tasks.T, previous: undefined }),
+      /design changed/);
+    design = { summary: "Design A" };
   });
 
   await suite.test("once an attempt exists the pre-execution form is refused", async () => {

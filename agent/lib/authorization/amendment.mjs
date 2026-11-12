@@ -21,6 +21,7 @@ export async function authenticateAmendment(repository, reference, task) {
     requireValue(
       equal(record.scope.task.taskId, task.taskId) &&
         Array.isArray(record.scope.ids) && record.scope.ids.length > 0 &&
+        typeof record.scope.designDigest === "string" &&
         record.scope.ids.every((id) => record.scope.original?.some((o) => o.id === id)),
       "Amendment has no retained originating obligations",
     );

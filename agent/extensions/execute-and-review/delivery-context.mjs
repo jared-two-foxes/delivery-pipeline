@@ -6,6 +6,7 @@ import { authenticateAttemptChain } from "../../lib/verification/attempt-chain.m
 import { verificationChecks, correctionVerification } from "../../lib/verification/checks.mjs";
 import { issueRequirements } from "../../lib/scaffold/contracts.mjs";
 import { authenticateAmendment } from "../../lib/authorization/amendment.mjs";
+import { assertPreAttemptAmendmentApplies } from "./context-amendment.mjs";
 import {
   assertDeliveryJournal,
   anchorDeliveryJournal,
@@ -149,6 +150,7 @@ export async function prepareDelivery(repository, feature, issue, args, options 
     if (u.kind === "apply_amendment") {
       const amendment = await authenticateAmendment(repository, u.reference, args.task);
       if (amendment.previousAttempt === null) {
+        assertPreAttemptAmendmentApplies(amendment, { issue, previous });
         // Approved before any attempt: the originals must be exactly the issue's current contract items.
         const known = context.contractItems.concat(context.obligations);
         requireValue(

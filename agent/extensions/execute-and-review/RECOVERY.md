@@ -71,7 +71,9 @@ Before an issue's first attempt there is no receipt to cite: call `approve_deliv
 (`featureId`, `taskId`, `designRef`) instead of `previousAttempt`. The ids are the issue's current contract items
 (feature objective/criteria/constraints and the issue's own criteria/constraints); an unknown id lists the available ones.
 The approval is bound to that feature, design and issue and is applied on the first `execute_and_review` call through
-`contextUpdates.apply_amendment`. It is refused once the issue has an attempt, and a design change invalidates it. Structural
+`contextUpdates.apply_amendment`. It is refused once the issue has a terminal attempt or a started/in-flight one in its delivery journal, and it applies
+only to the first attempt (or a zero-attempt recovery handoff). It is bound to the issue's approved design as well as the
+feature, so a redesign invalidates it and needs a new approval. Structural
 prerequisite/decomposition changes still use the approved Design transition.
 
 Review context is assembled from persisted originals, revisions and all relevant
