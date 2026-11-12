@@ -20,10 +20,18 @@ export function createExecuteAndReviewTools(Type) {
       interactive: true,
       label: "Approve material contract amendment",
       description:
-        "Explicit user approval of a concrete material scope/criterion/finding delta. Retains original obligations, source, authorization and all execution history. Routine corrections do not use this tool. Apply the returned reference through contextUpdates.apply_amendment; approval never establishes verification.",
+        "Explicit user approval of a concrete material scope/criterion/finding/constraint delta, including before an issue's first attempt (supply task instead of previousAttempt), so an incorrect recorded obligation can be overridden by the user. Retains original obligations, source, authorization and all execution history. Routine corrections do not use this tool. Apply the returned reference through contextUpdates.apply_amendment; approval never establishes verification.",
       parameters: Type.Object(
         {
-          previousAttempt: Type.String(),
+          previousAttempt: Type.Optional(
+            Type.String({ description: "Latest unfinished attempt receipt. Omit only before the issue's first attempt." }),
+          ),
+          task: Type.Optional(
+            Type.Object(
+              { featureId: Type.String(), taskId: Type.String(), designRef: Type.String() },
+              { additionalProperties: false, description: "Scaffold task identity; supply instead of previousAttempt before the first attempt" },
+            ),
+          ),
           ids: Type.Array(Type.String(), { minItems: 1 }),
           replacement: Type.String({ minLength: 1 }),
           reason: Type.String({ minLength: 1 }),

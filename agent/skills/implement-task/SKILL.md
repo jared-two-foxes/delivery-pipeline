@@ -169,8 +169,13 @@ missing evidence from looking like a new run. A missing or contradictory anchor,
 in-flight intent or receipt requires explicit recovery; no reset or reapproval.
 See extensions/execute-and-review/RECOVERY.md for runtime details and current limitations.
 
-Material contract amendments use approve_delivery_amendment with the latest receipt,
-concrete original criterion/finding IDs, replacement and reason. Only that exceptional
+Material contract amendments use approve_delivery_amendment with the latest receipt
+(or, before the issue's first attempt, its task identity instead of a receipt),
+concrete original criterion/finding/constraint IDs, replacement and reason. A recorded
+obligation that is wrong or stricter than the ticket must never leave the pipeline
+blocked: ask the user to approve overriding it this way, rather than stopping because
+no attempt exists. When a blocker comes from an obligation the agent itself recorded
+(not from the ticket or from Scaffold state), say so. Only that exceptional
 delta requests user confirmation. Apply its returned reference through
 contextUpdates.apply_amendment; originals and invocation history remain retained,
 and replacement behavior requires independent verification.
@@ -346,8 +351,13 @@ progress do not reset it. EVIDENCE_RECOVERY_REQUIRED means restore authoritative
 proof or report the exact blocker. Preserve files, index, original baseline, Git
 audit anchors and all receipts. Never reapprove unchanged direction to recover.
 
-Material contract amendments use approve_delivery_amendment with the latest receipt,
-concrete original criterion/finding IDs, replacement and reason. Only that exceptional
+Material contract amendments use approve_delivery_amendment with the latest receipt
+(or, before the issue's first attempt, its task identity instead of a receipt),
+concrete original criterion/finding/constraint IDs, replacement and reason. A recorded
+obligation that is wrong or stricter than the ticket must never leave the pipeline
+blocked: ask the user to approve overriding it this way, rather than stopping because
+no attempt exists. When a blocker comes from an obligation the agent itself recorded
+(not from the ticket or from Scaffold state), say so. Only that exceptional
 delta requests user confirmation. Apply its returned reference through
 contextUpdates.apply_amendment; originals and invocation history remain retained,
 and replacement behavior requires independent verification. For environment-only
