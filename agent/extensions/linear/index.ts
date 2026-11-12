@@ -43,7 +43,7 @@
  *   2. ~/.pi/agent/auth.json  ->  "linear" entry (pi's native auth store)
  *   3. ~/.secrets/linear-key  ->  plain-text file (ticket-pipeline's location)
  *
- * Note: pi's SYSTEM.md describes the companion agent as read-only by
+ * Note: the delivery rules describe the companion agent as read-only by
  * default. linear_update_ticket and linear_create_ticket are opt-in write
  * paths the user must explicitly invoke; they do not change the read-only
  * posture of the get/list tools.

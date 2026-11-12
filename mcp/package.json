@@ -1,10 +1,10 @@
 {
-  "name": "pi-delivery-mcp",
+  "name": "delivery-pipeline-mcp",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "MCP server exposing the Pi delivery tools (scaffold, execute_and_review, checkpoint, validation, recovery, review) to any MCP host.",
-  "bin": { "pi-delivery-mcp": "./start.mjs" },
+  "bin": { "delivery-pipeline-mcp": "./start.mjs" },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.2",
     "ajv": "8.20.0",

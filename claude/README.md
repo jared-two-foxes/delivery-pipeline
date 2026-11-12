@@ -1,6 +1,6 @@
-# Pi delivery for Claude Code
+# Delivery pipeline for Claude Code
 
-A Claude Code plugin, rooted at `pi/` (`.claude-plugin/plugin.json`), that does two things:
+A Claude Code plugin, rooted at the repository root (`.claude-plugin/plugin.json`), that does two things:
 
 1. **Serves the delivery tools** (`scaffold_tasks`, `execute_and_review`, checkpoints, validation, recovery,
    review) through the MCP server in `../mcp`, using `.mcp.json`.
@@ -10,15 +10,15 @@ A Claude Code plugin, rooted at `pi/` (`.claude-plugin/plugin.json`), that does 
 ## Use it
 
 ```sh
-npm ci --prefix mcp                      # once; the plugin must contain its own dependencies
-claude --plugin-dir /absolute/path/to/dotfiles/pi
+npm ci                                   # once, at the repository root; the plugin must contain its own dependencies
+claude --plugin-dir /absolute/path/to/delivery-pipeline
 ```
 
 `--plugin-dir` loads the plugin in place. Requires Claude Code 2.1.295 or later (the hook uses
-`onFailure: "block"`). Validate it with `claude plugin validate pi`.
+`onFailure: "block"`). Validate it with `claude plugin validate .`.
 
 Tool names come from Claude Code's plugin naming rule, `mcp__plugin_<plugin>_<server>__<tool>`, so
-`execute_and_review` is `mcp__plugin_pi-delivery_pidelivery__execute_and_review`. Pi's names differ
+`execute_and_review` is `mcp__plugin_delivery-pipeline_pidelivery__execute_and_review`. Pi's names differ
 (`mcp__pidelivery__...`); the skills do not yet account for either.
 
 Approvals (`approve_feature_direction` and the other two) appear as an MCP elicitation dialog in an
@@ -28,7 +28,7 @@ interactive session. In a non-interactive (`-p`) run Claude Code cancels the req
 
 | Layer | What it is | Pi today | Claude Code with this plugin |
 |---|---|---|---|
-| Instructions | `SYSTEM.md` and the skills tell the agent not to edit directly | yes | partly (skills not ported yet) |
+| Instructions | the delivery rules and the skills tell the agent not to edit directly | yes | partly (skills not ported yet) |
 | **Prevention** | A hook refuses the edit or command before it runs | yes (`delivery-guard` extension) | yes (this guard) |
 | Detection | The ledger and `checkpointHistory()` flag any commit that is not an authenticated checkpoint | yes | yes (same shared tools) |
 
@@ -46,7 +46,7 @@ found by walking up to the repository root). Elsewhere it does nothing, so ordin
 |---|---|
 | `Edit`, `Write`, `NotebookEdit`, `MultiEdit` | **Denied.** Use `execute_and_review`. |
 | `Bash`, `PowerShell` (incl. Monitor commands) | **Default-deny allowlist.** Read-only commands pass; everything not provably read-only is denied. |
-| `git add/commit/push/fetch`, `git checkout -b`, `git restore --staged`, `gh pr create/edit` | **Ask:** a human confirms each one (the publishing exception in `SYSTEM.md`, now enforced). |
+| `git add/commit/push/fetch`, `git checkout -b`, `git restore --staged`, `gh pr create/edit` | **Ask:** a human confirms each one (the publishing exception, now enforced). |
 | Merges, `--force`/`--delete`/`--all` pushes, pushes to `main`/`master`, `git reset/stash/clean/rebase/merge`, `gh pr merge`, running `scaffold`/`executor`/`review-cli`/`conductor` directly | **Denied.** |
 | Everything else (`Read`, `Grep`, MCP tools, ...) | Not touched. |
 

@@ -1,6 +1,6 @@
 # delivery-guard
 
-Enforces `SYSTEM.md`'s "never edit source directly" rule in Pi. Until now that rule was only text; nothing stopped
+Enforces the delivery rules' "never edit source directly" rule in Pi. Until now that rule was only text; nothing stopped
 the model calling `write`. The extension is one `tool_call` handler over the policy in `../../lib/guard/`.
 
 ## What it does
@@ -42,7 +42,7 @@ The guard only restricts: it never grants permission, and an unexpected error bl
 - Commands you type yourself (for example `!cmd` in the TUI) are the user's, not the model's, and are not guarded.
 - Closing a feature does not deactivate it: any entry under `.scaffold/features/` keeps the guard on until removed
   or `PI_DELIVERY_GUARD=off`.
-- `SYSTEM.md` is unchanged; the model learns of a block from its reason.
+- `delivery-rules.md` is unchanged; the model learns of a block from its reason.
 
 ## Verified
 

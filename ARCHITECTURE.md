@@ -23,7 +23,7 @@ Almost everything below either *produces* the evidence for that invariant, *chec
 | Actor | What it is | Owns | Trust |
 |---|---|---|---|
 | **User** | A human | The one direction approval; adoption approval; merging/publishing | Source of authority. Only a real UI confirmation counts. |
-| **Pi** | The LLM orchestrator, driven by `SYSTEM.md` and skills | Reasoning, designs, choosing the next task | **Not trusted.** `SYSTEM.md` tells it to change source only through the native tools; the `delivery-guard` extension enforces that while a delivery is active, and the ledger detects anything that slips past (section 6). |
+| **Pi** | The LLM orchestrator, driven by `delivery-rules.md` and skills | Reasoning, designs, choosing the next task | **Not trusted.** `delivery-rules.md` tells it to change source only through the native tools; the `delivery-guard` extension enforces that while a delivery is active, and the ledger detects anything that slips past (section 6). |
 | **Scaffold** | External CLI that owns the per-feature ledger (`.scaffold/features/…`, gitignored) | Feature + issue graph, designs, task status, `original_baseline`, `workflow.instance_id`, delivery journal | Validates structure and association, **not** evidence authenticity. |
 | **Conductor** | External generic command runner | Runs a list of commands with conditions | Neutral runner. |
 | **Executor** | External CLI | Applies a set of file operations | Makes the edits. |
@@ -136,7 +136,7 @@ appending a forged entry, and it cannot detect removal of the newest whole entri
 ## 5. Code layers
 
 ```
-skills/ + SYSTEM.md          guidance for Pi (text; no enforcement)
+skills/ + delivery-rules.md         guidance for Pi (text; no enforcement)
 extensions/*/index.ts        Pi registration only: registerPiTools(pi, createXTools(Type))
 lib/host/pi.mjs              the one Pi adapter: Pi's execute(...) shape <-> the neutral host
 extensions/*/tools.mjs       host-neutral tool definitions: schema + execute(params, host)
@@ -159,7 +159,7 @@ its own adapter beside `lib/host/pi.mjs`. That second adapter now exists: `lib/h
 `mcp/` (see its README, including what it does not yet enforce). Pi can opt in to using that server for 14 of the 17
 tools (`PI_DELIVERY_TRANSPORT=mcp`); the three approval tools stay native because Pi's MCP client cannot elicit. Schemas are built with an injected TypeBox-style `Type`.
 **Enforcement versus detection.** Three layers keep the orchestrator honest, and they differ in kind:
-instructions (`SYSTEM.md`, skills: no enforcement), a guard that *prevents* (`lib/guard/`, applied in Pi by the
+instructions (`delivery-rules.md`, skills: no enforcement), a guard that *prevents* (`lib/guard/`, applied in Pi by the
 `delivery-guard` extension's `tool_call` handler and in Claude Code by the plugin's `PreToolUse` hook), and the ledger
 that *detects* (every host, section 6).
 Pi-only by design: `/conductor` and `/implement-next` (slash commands that drive the UI or replace the

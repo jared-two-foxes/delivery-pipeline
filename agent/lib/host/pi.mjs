@@ -64,7 +64,7 @@ export function deliveryTransport({
     return { transport: "native", serverPath, warning: `PI_DELIVERY_TRANSPORT=mcp but the MCP server could not be checked (${error.message}); using native delivery tools.` };
   }
   if (missing.length) {
-    return { transport: "native", serverPath, warning: `PI_DELIVERY_TRANSPORT=mcp but the MCP server's dependencies are not installed (${missing.join(", ")}); using native delivery tools. Run: npm ci --prefix "${path.dirname(serverPath)}"` };
+    return { transport: "native", serverPath, warning: `PI_DELIVERY_TRANSPORT=mcp but the MCP server's dependencies are not installed (${missing.join(", ")}); using native delivery tools. Run: npm ci --prefix "${path.dirname(path.dirname(serverPath))}"` };
   }
   const problem = startupProblem(serverPath, env);
   if (problem) {

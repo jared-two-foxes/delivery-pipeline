@@ -1,5 +1,5 @@
 /**
- * Enforces SYSTEM.md's "never edit source directly" rule instead of only asking for it.
+ * Enforces the delivery rules' "never edit source directly" rule instead of only asking for it.
  *
  * While a Scaffold delivery is active in the repository (a `.scaffold/features/<feature>.<id>/` directory), Pi's
  * `edit` and `write` are blocked and `bash`/`powershell` are limited to read-only commands; git/gh publishing asks

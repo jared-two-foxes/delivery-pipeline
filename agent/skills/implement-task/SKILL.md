@@ -140,7 +140,7 @@ verification and handoff tools. The retained direction covers these actions with
 new confirmations; it does not authorize doing a rebase or arbitrary history changes.
 
 See extensions/execute-and-review/README.md for complete protocol/verification contracts.
-Git/GitHub publishing follows SYSTEM.md and requires a user request. Never merge PRs.
+Git/GitHub publishing follows the Git and GitHub publishing policy and requires a user request. Never merge PRs.
 
 ### Structured context and resumption
 

@@ -11,7 +11,5 @@ runner responses, and reads retained command output. The sibling
 client and registers the agent-facing delivery tools. Use those tools for
 Scaffold-bound work that requires independent review and a verified checkpoint.
 
-For copy-based installs, include `agent/lib/conductor/` under the agent
-home's `lib/` directory.
 
 Test evaluators use `lib/verification/meaningful-test-condition.mjs` exclusively.

@@ -1,4 +1,4 @@
-# Pi delivery tools over MCP
+# Delivery tools over MCP
 
 `server.mjs` serves the same 17 delivery tools Pi registers (`scaffold_tasks`, `execute_and_review`,
 `checkpoint_verified_task`, `validate_feature`, the recovery tools, `review_changes`, ...) to any MCP host.
@@ -6,17 +6,17 @@ It loads the host-neutral definitions in `agent/extensions/*/tools.mjs`; nothing
 The adapter logic is `agent/lib/host/mcp.mjs` (dependency-free and unit-tested); this directory only
 wires in the MCP SDK, TypeBox and a JSON Schema validator.
 
-Only `package.json` and `package-lock.json` are committed; the dependencies are downloaded at setup:
+Dependencies are an npm workspace of the repository root and are downloaded at setup:
 
 ```sh
-npm ci --prefix mcp          # the Windows installers run this via install/mcp.ps1
+npm ci                       # at the repository root
 node mcp/start.mjs           # stdio; runs in the current directory, which must be the target repository
 ```
 
 `start.mjs` is the entry point to give a host. If the dependencies are missing it prints the one-line fix on
 stderr and exits 1, rather than failing with a module-resolution stack trace.
 
-Claude Code: `claude mcp add pi-delivery -- node /absolute/path/to/mcp/start.mjs`, run from the repository
+Claude Code: `claude mcp add delivery-pipeline -- node /absolute/path/to/mcp/start.mjs`, run from the repository
 you are delivering in. VS Code: add the same command to `.vscode/mcp.json` (`"type": "stdio"`).
 The external CLIs (`scaffold`, Conductor, Executor, Review) must be on `PATH`, as they are for Pi.
 
@@ -49,7 +49,7 @@ PI_DELIVERY_TRANSPORT=mcp pi
   against Pi's session directory, i.e. the repository being delivered). The server also sends a progress
   heartbeat every 15 s to clients that ask for progress; Pi resets its timeout on progress.
 - **Tool names differ.** MCP tools reach the model as `mcp__pidelivery__<tool>` (for example
-  `mcp__pidelivery__execute_and_review`), while the approval tools keep their bare names. `SYSTEM.md` and the
+  `mcp__pidelivery__execute_and_review`), while the approval tools keep their bare names. `delivery-rules.md` and the
   skills still say `execute_and_review`; whether a model maps that reliably is untested, which is why this is
   opt-in. Do not rewrite the skills until it has run end to end in a real session.
 
@@ -75,7 +75,7 @@ client (needs a model), and approvals and long runs in a live session.
 agent using the host's own edit tools instead of `execute_and_review`. Prevention comes from a guard
 (`../agent/lib/guard/`) applied per host: Claude Code's plugin hook (`../claude/README.md`) and Pi's
 `delivery-guard` extension (`../agent/extensions/delivery-guard/README.md`). Before the Pi extension existed, Pi's
-"never edit directly" rule was only text in `SYSTEM.md`, backed by the ledger's detection
+"never edit directly" rule was only text in `delivery-rules.md`, backed by the ledger's detection
 (`checkpointHistory()` flags any commit that is not an authenticated checkpoint).
 
 Also unverified: behaviour under a real Claude Code or VS Code session (the tests use the SDK's own

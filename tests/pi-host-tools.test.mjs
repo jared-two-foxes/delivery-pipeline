@@ -200,7 +200,7 @@ test("PI_DELIVERY_MCP_SERVER overrides where the server is looked for", (t) => {
   const choice = deliveryTransport({ env: { PI_DELIVERY_TRANSPORT: "mcp", PI_DELIVERY_MCP_SERVER: ready } });
   assert.deepEqual([choice.transport, choice.serverPath], ["mcp", ready]);
   // The default location is mcp/start.mjs beside agent.
-  assert.match(deliveryTransport({ env: {} }).serverPath.replaceAll("\\", "/"), /\/pi\/mcp\/start\.mjs$/);
+  assert.match(deliveryTransport({ env: {} }).serverPath.replaceAll("\\", "/"), /\/mcp\/start\.mjs$/);
 });
 
 test("the Pi server entry sets direct exposure, a long timeout, session cwd and omits the approval tools", () => {
@@ -220,6 +220,18 @@ test("over MCP only the interactive tools register natively; natively everything
   const names = (transport) => { const out = []; registerPiTools({ registerTool: (t) => out.push(t.name) }, tools, { transport }); return out; };
   assert.deepEqual(names("native"), ["plain", "approve"]);
   assert.deepEqual(names("mcp"), ["approve"]);
+});
+
+test("dependencies hoisted into a parent node_modules (npm workspaces) count as installed", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "pi-hoist-"));
+  try {
+    mkdirSync(path.join(root, "mcp"), { recursive: true });
+    writeFileSync(path.join(root, "mcp", "package.json"), JSON.stringify({ dependencies: { "@scope/pkg": "1", plain: "1" } }));
+    assert.deepEqual(missingDependencies(path.join(root, "mcp")), ["@scope/pkg", "plain"]);
+    mkdirSync(path.join(root, "node_modules", "@scope", "pkg"), { recursive: true });
+    writeFileSync(path.join(root, "node_modules", "@scope", "pkg", "package.json"), "{}");
+    assert.deepEqual(missingDependencies(path.join(root, "mcp")), ["plain"]);
+  } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
 test("a server whose direct dependencies exist but which cannot start falls back to native", (t) => {

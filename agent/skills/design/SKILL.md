@@ -47,4 +47,4 @@ review, checkpointing, recovery and final validation.
 Do not mark a design as user-approved unless user approval actually occurred.
 Design alone does not grant permission to edit source files, execute checks,
 commit, publish, or advance Scaffold state. Those actions are governed by
-the invoking workflow and `SYSTEM.md`.
+the invoking workflow and the delivery rules.

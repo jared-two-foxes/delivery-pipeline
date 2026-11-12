@@ -47,8 +47,6 @@ design, recording a checkpoint, or resuming an issue. The tool and internal
 delivery callers call `scaffoldTasks` directly with the
 `authenticateIssueMutation` callback, which authenticates the evidence.
 The extension formats the acknowledgement shown to Pi.
-For copy-based installs, include the repository's `agent/lib/` tree under
-the agent home's `lib/` directory.
 
 `lib/scaffold/` contains shared types and structural contracts. It exposes no
 CLI, subprocess, or state-file access. The adapter consumes these validators.
@@ -64,7 +62,7 @@ The tool schema has an object root for provider compatibility; operation-specifi
 required and forbidden arguments are validated again before launching Scaffold.
 
 Run the mocked adapter tests and existing Conductor/Design regression tests from
-the dotfiles repository root:
+the repository root:
 
 ```sh
 node --test tests/pi-scaffold.test.mjs tests/pi-delivery-state.test.mjs tests/pi-conductor.test.mjs tests/pi-design.test.mjs

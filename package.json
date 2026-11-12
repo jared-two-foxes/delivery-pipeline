@@ -1,0 +1,36 @@
+{
+  "name": "delivery-pipeline",
+  "version": "0.1.0",
+  "description": "A Scaffold-backed feature delivery pipeline for coding agents: Pi package, MCP server and Claude Code plugin with a guard that blocks direct source edits.",
+  "keywords": [
+    "pi-package"
+  ],
+  "type": "module",
+  "private": true,
+  "pi": {
+    "extensions": [
+      "./agent/extensions/*/index.ts"
+    ],
+    "skills": [
+      "./agent/skills"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
+  },
+  "workspaces": [
+    "mcp"
+  ],
+  "scripts": {
+    "test": "node --test tests/*.test.mjs"
+  },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    },
+    "typebox": {
+      "optional": true
+    }
+  }
+}

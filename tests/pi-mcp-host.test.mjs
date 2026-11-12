@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { missingDependencies } from "../agent/lib/host/dependencies.mjs";
 import { createMcpCaller, mcpToolList } from "../agent/lib/host/mcp.mjs";
 import { defineTool, toolResult } from "../agent/lib/host/tool.mjs";
 
@@ -85,8 +86,8 @@ test("confirm fails closed: no channel, a throwing channel and any non-true answ
 });
 
 // ---- Protocol-level tests against the real server and SDK; skipped if `npm ci --prefix mcp` has not run.
-const installed = existsSync(new URL("../mcp/node_modules/@modelcontextprotocol/sdk", import.meta.url));
-const sdk = (p) => import(new URL(`../mcp/node_modules/@modelcontextprotocol/sdk/dist/esm/${p}`, import.meta.url));
+const installed = missingDependencies(fileURLToPath(new URL("../mcp", import.meta.url))).length === 0;
+const sdk = (p) => import(`@modelcontextprotocol/sdk/${p}`);
 
 async function connect(tools, { elicit } = {}) {
   const { createDeliveryServer } = await import("../mcp/server.mjs");

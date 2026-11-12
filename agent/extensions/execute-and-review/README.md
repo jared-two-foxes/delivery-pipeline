@@ -39,51 +39,11 @@ Obsolete helper identities and receipt producers are rejected, without rewriting
 
 ## Native Pi installation
 
-Copy `agent/lib/` into the Pi agent home's `lib/` directory. It contains
-shared contracts and the Conductor, Executor, and Review CLI integrations.
-Install the Pi entry points under `extensions/`.
+Install the repository as a Pi package (see the root `README.md`); it loads every extension and skill
+together with the shared `agent/lib/` tree, so there is nothing to copy.
 
-```
-~/.pi/agent/extensions/conductor/
-~/.pi/agent/lib/
-~/.pi/agent/lib/delivery-state/
-~/.pi/agent/extensions/execute-and-review/
-~/.pi/agent/extensions/execution-recovery/
-~/.pi/agent/extensions/checkpoint/
-~/.pi/agent/extensions/feature-validation/
-~/.pi/agent/extensions/review/
-~/.pi/agent/extensions/scaffold/
-```
-
-For a dotfiles checkout on Windows, a copy-based installation is:
-
-```powershell
-Copy-Item -Recurse -Force .\pi\agent\extensions\conductor "$HOME\.pi\agent\extensions"
-New-Item -ItemType Directory -Force "$HOME\.pi\agent\lib" | Out-Null
-Copy-Item -Recurse -Force .\pi\agent\lib\* "$HOME\.pi\agent\lib"
-Copy-Item -Recurse -Force .\pi\agent\extensions\execute-and-review "$HOME\.pi\agent\extensions"
-Copy-Item -Recurse -Force .\pi\agent\extensions\execution-recovery "$HOME\.pi\agent\extensions"
-Copy-Item -Recurse -Force .\pi\agent\extensions\checkpoint "$HOME\.pi\agent\extensions"
-Copy-Item -Recurse -Force .\pi\agent\extensions\feature-validation "$HOME\.pi\agent\extensions"
-Copy-Item -Recurse -Force .\pi\agent\extensions\scaffold "$HOME\.pi\agent\extensions"
-Copy-Item -Recurse -Force .\pi\agent\extensions\review "$HOME\.pi\agent\extensions"
-Copy-Item -Recurse -Force .\pi\agent\skills\conductor "$HOME\.pi\agent\skills\conductor"
-Copy-Item -Recurse -Force .\pi\agent\skills\execute-and-review "$HOME\.pi\agent\skills\execute-and-review"
-Copy-Item -Recurse -Force .\pi\agent\skills\design "$HOME\.pi\agent\skills\design"
-Copy-Item -Recurse -Force .\pi\agent\skills\executor "$HOME\.pi\agent\skills\executor"
-# If previously installed, remove the retired TDD skill:
-Remove-Item -Recurse -Force "$HOME\.pi\agent\skills\tdd" -ErrorAction SilentlyContinue
-```
-
-If Pi already uses this dotfiles directory as its agent home, no copy is
-necessary. When upgrading a copy-based installation, stop Pi and replace the old
-`extensions/conductor` copy with the directories above before restarting.
-Replace obsolete installed helper copies as well; old layouts are unsupported.
-
-Install `conductor` on PATH (the dotfiles Windows installer already handles
-it), or set `CONDUCTOR_BIN` to its executable path. Install `executor` and
+Install `conductor` on PATH or set `CONDUCTOR_BIN` to its executable path. Install `executor` and
 `review-cli` separately on PATH, or set `EXECUTOR_BIN` and `REVIEW_CLI_BIN`.
-The Windows installers provision all three; use `-Force` to upgrade existing binaries.
 Conductor must support v2 with retained-output/output_directory support;
 v1 runner responses are rejected without fallback. Pi loads `/skill:init-feature` for Linear/requirements preparation without implementation,
 or `/skill:feature-delivery` when autonomous feature implementation is requested, or you can

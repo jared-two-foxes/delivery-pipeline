@@ -9,14 +9,9 @@ is not evidence of passing tests and cannot replace Conductor verification.
 `agent/lib/review/client.mjs` provides the request, command, and verdict contract used by both
 `review_changes` and the review stage in `execute_and_review`.
 
-## Native installation
+## Installation
 
-Place the entire `review` directory (including all `.mjs` files and
-`package.json`) in `~/.pi/agent/extensions/review/`. Copy
-`agent/lib/review/` to `~/.pi/agent/lib/review/` as well.
-If the active agent home is this checkout, no copy is needed.
-Reload Pi or restart it after deployment. Also deploy the updated `SYSTEM.md`,
-`AGENTS.md` and review skill to a copy-based agent installation.
+Installed with the rest of the package (see the root `README.md`).
 
 Install the standalone binary separately:
 

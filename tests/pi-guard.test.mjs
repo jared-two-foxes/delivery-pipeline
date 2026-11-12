@@ -280,7 +280,7 @@ const inPlugin = (p) => path.join(root, p.replace("${CLAUDE_PLUGIN_ROOT}/", ""))
 
 test("plugin manifest names the plugin and sits at the plugin root", () => {
   const manifest = json(".claude-plugin/plugin.json");
-  assert.equal(manifest.name, "pi-delivery");
+  assert.equal(manifest.name, "delivery-pipeline");
   assert.match(manifest.version, /^\d+\.\d+\.\d+$/);
 });
 

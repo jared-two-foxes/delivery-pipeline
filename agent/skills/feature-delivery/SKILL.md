@@ -36,7 +36,7 @@ Never directly modify the repository for implementation. Only native
 Native checkpoints, verification and recovery retain their own deterministic
 preconditions and use the same retained feature authorization. Do not substitute
 Bash source edits, executor/review-cli calls, stash/reset or history rewrites.
-For Git/GitHub publishing follow SYSTEM.md: publication needs a user request;
+For Git/GitHub publishing follow the Git and GitHub publishing policy: publication needs a user request;
 Never merge PRs. Finish or suspend the active verification/correction loop before
 publishing. Offer full operations on request, not by default.
 

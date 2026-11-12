@@ -16,7 +16,7 @@ let event;
 try {
   event = JSON.parse(raw);
 } catch {
-  process.stderr.write("pi-delivery guard: could not read the hook input; blocking the call.\n");
+  process.stderr.write("delivery-pipeline guard: could not read the hook input; blocking the call.\n");
   process.exit(2);
 }
 

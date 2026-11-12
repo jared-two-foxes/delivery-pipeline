@@ -47,7 +47,5 @@ and exact source fingerprint bytes. Historical guard and evaluator paths remain
 supported by forwarding entry points and authentication of their original command
 identities. New requests use the verification library's evaluator paths.
 
-For copy-based installations, install the complete `lib/` tree and the
-`checkpoint`, `execution-recovery`, `execute-and-review`, `feature-validation`,
-and `scaffold` extension directories together. Replace stale copies when
-upgrading so retired library implementations cannot shadow the current layout.
+The package installs `lib/` and the extensions together, so retired library implementations cannot
+shadow the current layout.

@@ -3,6 +3,7 @@
 // server.mjs has static imports and would otherwise die with an unreadable module-resolution stack trace.
 // Messages go to stderr: stdout belongs to the MCP protocol.
 // `node start.mjs --check` exits 0 if the server could start, without serving.
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { missingDependencies } from "../agent/lib/host/dependencies.mjs";
 
@@ -11,9 +12,8 @@ const missing = missingDependencies(here);
 
 if (missing.length) {
   process.stderr.write(
-    `pi-delivery-mcp: dependencies are not installed (missing: ${missing.join(", ")}).\n` +
-      `Run once:  npm ci --prefix "${here.replace(/[\\/]$/, "")}"\n` +
-      `(or run install/mcp.ps1, which the Windows installers call).\n`,
+    `delivery-pipeline MCP server: dependencies are not installed (missing: ${missing.join(", ")}).\n` +
+      `Run once:  npm ci --prefix "${path.resolve(here, "..")}"\n`,
   );
   process.exit(1);
 }
