@@ -44,3 +44,7 @@ npm test
 
 Tests that drive the real Scaffold CLI need it installed (CI checks out `jared-two-foxes/scaffold`; set
 `SCAFFOLD_SOURCE` to a checkout). Without it those tests fail or skip; the rest run standalone.
+
+## Licence
+
+MIT; see [`LICENSE`](LICENSE).
