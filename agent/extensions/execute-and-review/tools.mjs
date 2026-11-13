@@ -8,6 +8,7 @@ import { executeAndCheckpoint } from "./delivery.mjs";
 import { executionSummary } from "./workflow.mjs";
 import { approveFeatureDirection } from "../scaffold/feature-authorization.mjs";
 import { inspectEvidence } from "./inspect-evidence.mjs";
+import { abandonInflightAttempt } from "./abandon-attempt.mjs";
 import { scaffoldCliUsage, scaffoldCliUsageSince } from "../scaffold/adapter.mjs";
 import { combineScaffoldUsage } from "../../lib/verification/timings.mjs";
 import { approveDeliveryAmendment } from "./context-amendment.mjs";
@@ -397,6 +398,32 @@ export function createExecuteAndReviewTools(Type) {
           },
           { isError: result.status === "BLOCKED", text: executionSummary(result) },
         );
+      },
+    })),
+    withFailureReporting(defineTool({
+      name: "abandon_inflight_attempt",
+      label: "Close an interrupted invocation",
+      description:
+        "Escape hatch for INVOCATION_RECOVERY_REQUIRED when the original process died (killed session, lost connection) and no terminal receipt exists. Writes an authenticated INTERRUPTED terminal receipt for the in-flight attempt: the attempt stays consumed, the applied source and history are retained, nothing is verified and no operations are replayed. Returns the receipt to use as previousAttempt with empty operations. Refused while the invocation may still be running unless force is set, which asks the user to confirm its process tree is gone.",
+      parameters: Type.Object(
+        {
+          task: Type.Object(
+            { featureId: Type.String(), taskId: Type.String(), designRef: Type.String() },
+            { additionalProperties: false },
+          ),
+          reason: Type.String({ minLength: 1, description: "Why the invocation is believed dead, e.g. observed connection loss" }),
+          force: Type.Optional(Type.Boolean({ description: "Skip the liveness allowance after the user confirms no process is running" })),
+        },
+        { additionalProperties: false },
+      ),
+      async execute(params, host) {
+        if (params.force &&
+            !(await host.confirm("Close the in-flight attempt now?",
+              "Confirm no delivery, Conductor, cargo or review process for " + params.task.taskId +
+              " is still running. The attempt is recorded as interrupted and consumed; nothing is marked verified.")))
+          return toolResult({ status: "BLOCKED", reason: "CANCELLED", message: "Not confirmed; nothing changed." });
+        const result = await abandonInflightAttempt(params, { directory: host.cwd, abort: host.signal });
+        return toolResult(result, { isError: result.status === "BLOCKED" && !result.evidence });
       },
     })),
     withFailureReporting(defineTool({
