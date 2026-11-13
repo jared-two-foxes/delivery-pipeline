@@ -9,6 +9,7 @@ import { executionSummary } from "./workflow.mjs";
 import { approveFeatureDirection } from "../scaffold/feature-authorization.mjs";
 import { inspectEvidence } from "./inspect-evidence.mjs";
 import { abandonInflightAttempt } from "./abandon-attempt.mjs";
+import { reconcileExternalChanges } from "./reconcile-attempt.mjs";
 import { scaffoldCliUsage, scaffoldCliUsageSince } from "../scaffold/adapter.mjs";
 import { combineScaffoldUsage } from "../../lib/verification/timings.mjs";
 import { approveDeliveryAmendment } from "./context-amendment.mjs";
@@ -425,6 +426,28 @@ export function createExecuteAndReviewTools(Type) {
               "The attempt is recorded as interrupted and consumed; nothing is marked verified.")))
           return toolResult({ status: "BLOCKED", reason: "CANCELLED", message: "Not confirmed; nothing changed." });
         const result = await abandonInflightAttempt(params, { directory: host.cwd, abort: host.signal });
+        return toolResult(result, { isError: result.status === "BLOCKED" && !result.evidence });
+      },
+    })),
+    withFailureReporting(defineTool({
+      name: "reconcile_external_changes",
+      label: "Record outside changes to the working tree",
+      description:
+        "Use when CONTINUATION_RECEIPT_INAPPLICABLE or a stale handoff says the working tree no longer matches the latest receipt because someone other than the executor changed files (a manual removal the review asked for, a formatter, a teammate's edit). Shows the user the changed paths and, once confirmed, writes an authenticated BLOCKED receipt that starts at the previous receipt's tree and ends at the current one. It consumes one attempt, verifies nothing, replays nothing and never touches source; the next attempt re-runs every check and the independent review. Returns the receipt to use as previousAttempt. Not for new commits (inspect_feature_drift) or an in-flight invocation (abandon_inflight_attempt).",
+      parameters: Type.Object(
+        {
+          task: Type.Object(
+            { featureId: Type.String(), taskId: Type.String(), designRef: Type.String() },
+            { additionalProperties: false },
+          ),
+          previousAttempt: Type.String({ description: "The task's latest receipt reference (inspect_issue_attempt)" }),
+          reason: Type.String({ minLength: 1, description: "What changed and why, e.g. user removed the stray archive requested by review" }),
+        },
+        { additionalProperties: false },
+      ),
+      async execute(params, host) {
+        const result = await reconcileExternalChanges(params, { directory: host.cwd, abort: host.signal },
+          { deps: { confirm: ({ title, message }) => host.confirm(title, message) } });
         return toolResult(result, { isError: result.status === "BLOCKED" && !result.evidence });
       },
     })),

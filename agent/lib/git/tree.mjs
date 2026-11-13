@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtemp, rm, copyFile, lstat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { RESERVED_PATHS } from './scope.mjs';
 
 export function git(repository, args, options = {}) {
   return execFileSync('git', args, { cwd: repository, encoding: 'utf8',
@@ -26,9 +27,11 @@ export async function implementationTree(repository, base = 'HEAD') {
       throw new Error('Submodules or unresolved index entries are unsupported');
     if (git(repository, ['ls-files', '-v', '-z']).split('\0').some(e => /^[a-zS]/.test(e)))
       throw new Error('Assume-unchanged and sparse/skip-worktree entries are unsupported');
-    if (git(repository, ['ls-files', '-z', '--', '.scaffold']))
-      throw new Error('Scaffold bookkeeping must be ignored and untracked');
+    if (git(repository, ['ls-files', '-z', '--', ...RESERVED_PATHS]))
+      throw new Error('Scaffold bookkeeping (.scaffold and .scaffold* at the repository root) must not be tracked');
     git(repository, ['add', '-A', '--', '.'], { env });
+    // Pathspec exclusions make `git add` reject an ignored `.scaffold`, so drop reserved paths afterwards.
+    git(repository, ['rm', '-r', '-q', '--cached', '--ignore-unmatch', '--', ...RESERVED_PATHS], { env });
     return git(repository, ['write-tree'], { env });
   });
 }

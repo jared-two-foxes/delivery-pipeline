@@ -82,7 +82,7 @@ export async function executeAndCheckpoint(args, context = {}, options = {}) {
         "CONTINUATION_RECEIPT_INAPPLICABLE",
         attempt?.status === "PASSED"
           ? "Attempt already PASSED; recover checkpoint finalization"
-          : "Handoff requires a retained attempt matching current source, index and HEAD",
+          : "Handoff requires a retained attempt matching current source, index and HEAD; if files changed since the latest receipt, record them with reconcile_external_changes",
         binding,
         attempt?.consumed_attempts,
       );

@@ -534,7 +534,7 @@ export async function executeAndReview(args, context = {}, options = {}) {
       )
         throw Object.assign(
           new Error(
-            "Current source/index or HEAD differs from the previous attempt after snapshot; preserve changes and reconcile before continuing",
+            "Current source/index or HEAD differs from the previous attempt after snapshot; preserve changes and record them with reconcile_external_changes (working-tree changes) or inspect_feature_drift (new commits) before continuing",
           ),
           {
             code: "CONTINUATION_RECEIPT_INAPPLICABLE",
