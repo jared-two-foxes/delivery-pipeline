@@ -118,6 +118,22 @@ If one terminal receipt exists after a lost response, authenticated continuation
 finishes its journal association. Ambiguous/missing terminal proof requires
 inspection, not another application of the old operations.
 
+### Interrupted invocation with no terminal receipt
+
+A killed session or lost connection can leave a reserved intent that never gets a
+terminal receipt. That must not block the task forever. `abandon_inflight_attempt`
+closes it: it is refused while a `terminal.lock` owner is alive or the invocation is
+inside its time allowance (`force` skips this after explicit user confirmation), then
+writes an authenticated `INVOCATION_ABANDONED` terminal receipt. The attempt stays
+consumed, the applied tree and history are retained, nothing is marked verified, and no
+operations are replayed. Continue with the returned receipt as `previousAttempt` and
+`{"operations":[]}` to run the checks and independent review.
+
+By default the files are kept as found. `restore: "checkpoint"` (user-confirmed) instead saves the
+interrupted tree as a commit under `refs/pi-delivery-recovery/<feature>/<task>/attempt-N`, resets
+tracked files and removes untracked ones back to the task's base commit, and requires HEAD to already
+be that commit. Re-author the operations afterwards; `git checkout <ref> -- .` recovers the saved tree.
+
 ## Check evidence reuse
 
 Empty operations allow verification-only continuation. Check reuse is conservative

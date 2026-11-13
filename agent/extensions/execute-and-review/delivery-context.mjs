@@ -62,7 +62,7 @@ export async function prepareDelivery(repository, feature, issue, args, options 
       } catch {} // Not recoverable from this reference: fall through to the explicit recovery error.
     requireValue(
       terminal.length === 1 && terminal[0] === args.previousAttempt,
-      "INVOCATION_RECOVERY_REQUIRED: retained intent may still be active; inspect terminal stages, never replay",
+      "INVOCATION_RECOVERY_REQUIRED: retained intent may still be active; inspect terminal stages, never replay. If the process is gone and no terminal receipt exists, close it with abandon_inflight_attempt",
     );
     journal = await deliveryEvent(repository, args.task, journal,
       { kind: "finished", started: journal.inflight, reference: terminal[0] }, scopedOptions);

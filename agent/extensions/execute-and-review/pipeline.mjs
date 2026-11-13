@@ -32,6 +32,7 @@ import { authenticateTaskEvidence } from "../../lib/verification/task-evidence.m
 import { git } from "../../lib/git/tree.mjs";
 import { taskReviewHandoff, testCounts } from "../../lib/verification/review-evidence.mjs";
 import { createHash } from "node:crypto";
+import { lockBody } from "../../lib/verification/terminal-lock.mjs";
 import { createReadStream } from "node:fs";
 const requireValue = (ok, message) => {
   if (!ok) throw new Error(message);
@@ -579,6 +580,7 @@ export async function runPipeline(meta, feature, context, options = {}) {
   let terminal;
   try {
     terminal = await open(lockPath, "wx", 0o600);
+    await terminal.writeFile(lockBody());
   } catch (error) {
     return result("BLOCKED", "EVIDENCE", {
       reason: "TERMINAL_RECEIPT_PENDING",

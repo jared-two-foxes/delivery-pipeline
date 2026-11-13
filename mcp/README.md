@@ -1,6 +1,6 @@
 # Delivery tools over MCP
 
-`server.mjs` serves the same 17 delivery tools Pi registers (`scaffold_tasks`, `execute_and_review`,
+`server.mjs` serves the same 18 delivery tools Pi registers (`scaffold_tasks`, `execute_and_review`,
 `checkpoint_verified_task`, `validate_feature`, the recovery tools, `review_changes`, ...) to any MCP host.
 It loads the host-neutral definitions in `agent/extensions/*/tools.mjs`; nothing is duplicated.
 The adapter logic is `agent/lib/host/mcp.mjs` (dependency-free and unit-tested); this directory only
@@ -29,7 +29,7 @@ uses the same tool code as other hosts:
 PI_DELIVERY_TRANSPORT=mcp pi
 ```
 
-- **Default is unchanged.** Without the variable Pi registers all 17 tools natively, as before.
+- **Default is unchanged.** Without the variable Pi registers all 18 tools natively, as before.
 - **Safe fallback.** Before choosing MCP, Pi's transport check actually starts the server
   (`node start.mjs --check` loads the whole module graph and exits). A missing file, missing or partial
   dependencies (including ones the direct packages need), a Node too old for the SDK, or no `node` on `PATH`
@@ -55,7 +55,7 @@ PI_DELIVERY_TRANSPORT=mcp pi
 
 Verified against real Pi 1.5.2 without a model (extensions loaded explicitly, `PI_DELIVERY_TRANSPORT=mcp`):
 the server registers and connects; Pi's tool list becomes 14 `mcp__pidelivery__*` tools plus the 3 native
-approval tools; the server runs in the session directory; with the variable unset all 17 tools are native; with
+approval tools; the server runs in the session directory; with the variable unset all 18 tools are native; with
 a missing server path, or a server whose direct dependencies are present but which cannot start, it falls
 back to all 17 native. **Not verified:** an actual tool call through Pi's MCP
 client (needs a model), and approvals and long runs in a live session.
