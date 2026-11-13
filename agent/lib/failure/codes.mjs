@@ -70,6 +70,7 @@ export const FAILURE_CODES = {
   ISSUE_REQUIRED: { owner: A, next: ["Pass the task binding (featureId, taskId, designRef) of the issue to implement."] },
   TASK_REQUIRED: { owner: A, next: ["A continuation needs the task binding. Pass task with featureId, taskId and designRef."] },
   HEAD_CHANGED: { owner: A, next: ["HEAD moved since the task started; nothing was applied. If someone committed to the branch, run inspect_feature_drift for the right recovery."] },
+  WORKTREE_NOT_NORMALIZED: { owner: U, next: ["Make core.autocrlf and .gitattributes match how the files were checked out (check git ls-files --eol), or renormalize the checkout, so a clean tree re-hashes to its commit tree. Nothing was applied; then rerun."] },
   CHECKPOINT_REQUIRED: { owner: A, next: ["The working tree has changes without a continuation receipt. If a prior attempt applied them, inspect_issue_attempt and pass its latest reference as previousAttempt; never discard source."] },
   SCAFFOLD_REVIEW_SCOPE: { owner: U, next: ["Scaffold state would appear in the review diff. Add .scaffold/ to the repository's ignore rules (ask the user first), then retry."] },
   REPOSITORY_CHANGED: { owner: A, next: ["The repository changed while the review ran. Rerun it on a stable tree."] },

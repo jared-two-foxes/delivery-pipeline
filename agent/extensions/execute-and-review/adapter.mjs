@@ -11,7 +11,7 @@ import { prepareWorkflow, decodeWorkflow, validateWorkflowPreparation } from "./
 import { invoke, runConductor, DEFAULT_TIMEOUT_MS } from "../../lib/conductor/client.mjs";
 import { requireBroadCheckJustifications } from "../../lib/verification/check-scope.mjs";
 import { validateBinding } from "../../lib/delivery-state/binding.mjs";
-import { snapshot } from "../../lib/git/snapshot.mjs";
+import { snapshot, baselineMismatch } from "../../lib/git/snapshot.mjs";
 import { readEvidence, retainEvidence } from "../../lib/evidence/store.mjs";
 import { retainAttempt } from "../../lib/evidence/attempts.mjs";
 import { ensureWorkDirectory } from "../../lib/git/workspace.mjs";
@@ -551,6 +551,17 @@ export async function executeAndReview(args, context = {}, options = {}) {
         message:
           "Working tree contains changes without a continuation receipt. If a prior attempt applied them, inspect_issue_attempt and supply its latest reference as previousAttempt; author corrections against that retained tree. Otherwise preserve and reconcile the unrelated changes",
       });
+    }
+    else {
+      const mismatch = baselineMismatch(repository, before, args.baseRef);
+      if (mismatch)
+        return outcome("BLOCKED", "PRECHECK", {
+          repository,
+          reason: "WORKTREE_NOT_NORMALIZED",
+          message:
+            "The working tree is clean for Git but re-hashes to tree " + mismatch.snapshotTree + ", not the baseline tree " +
+            mismatch.baselineTree + ". Git's line-ending/filter settings (core.autocrlf, .gitattributes) differ from those the files were checked out under. Nothing was applied.",
+        });
     }
     // Write intent before applying anything so a killed Pi session leaves the
     // original baseline, requirements and attempt count discoverable.

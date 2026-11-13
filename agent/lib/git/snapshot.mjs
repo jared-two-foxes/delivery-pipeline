@@ -73,3 +73,12 @@ export async function snapshot(repository) {
     ),
   };
 }
+
+// A status-clean tree at the baseline commit must hash to that commit's tree. It does not when Git's line-ending
+// or filter configuration now differs from the one the files were checked out under: status trusts cached file
+// stats, while the implementation tree re-hashes every file. Such a snapshot is not comparable with the baseline.
+export function baselineMismatch(repository, snap, baseRef) {
+  if (!snap.clean || snap.head !== baseRef) return null;
+  const tree = git(repository, ["rev-parse", baseRef + "^{tree}"]).trim();
+  return tree === snap.tree ? null : { snapshotTree: snap.tree, baselineTree: tree };
+}
