@@ -33,7 +33,7 @@ export async function implementationTree(repository, base = 'HEAD') {
     // selected first so reserved archives/backups are never read or hashed into the object database; `git add` with an
     // exclusion pathspec cannot do that itself because it rejects an ignored `.scaffold`.
     git(repository, ['add', '-u', '--', '.'], { env });
-    const untracked = git(repository, ['ls-files', '-z', '-o', '--exclude-standard', '--', '.', ...NAME_EXCLUDES]);
+    const untracked = git(repository, ['ls-files', '-z', '-o', '--exclude-standard', '--', '.', ...NAME_EXCLUDES], { env }); // relative to `base`, not the real index
     if (untracked) git(repository, ['add', '--pathspec-from-file=-', '--pathspec-file-nul'], { env, input: untracked });
     // An unignored `.scaffold` directory is still dropped (and reported by the snapshot's bookkeeping check).
     git(repository, ['rm', '-r', '-q', '--cached', '--ignore-unmatch', '--', '.scaffold'], { env });

@@ -159,7 +159,8 @@ test("two dependent tasks have separate verification baselines, commits, content
     f.g("show", "-s", "--format=%B", second.commit),
     /Pi-Checkpoint: two/,
   );
-  assert.equal((await f.checkpoint(two)).commit, second.commit);
+  const again = await f.checkpoint(two);
+  assert.equal(again.commit, second.commit, JSON.stringify(again));
   assert.equal(f.g("rev-list", "--count", f.base + "..HEAD"), "2");
 });
 

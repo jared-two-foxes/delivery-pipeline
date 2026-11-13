@@ -31,6 +31,7 @@ export const FAILURE_CODES = {
   EXTERNAL_CHANGES_RECONCILED: { owner: A, info: true, next: ["The outside working-tree changes are recorded and consumed one attempt. Continue with the returned receipt as previousAttempt; checks and review re-run on the current tree."] },
   NOTHING_TO_RECONCILE: { owner: A, info: true, next: ["The working tree already matches the latest receipt; continue with it as previousAttempt."] },
   NOT_STARTED: { owner: A, next: ["The task has no delivery journal yet; start it with execute_and_review instead of reconciling."] },
+  UNSUPPORTED_ZERO_ATTEMPT: { owner: U, next: ["No attempt has run since this handoff, so there is no receipt to reconcile from. Restore the tree to the handoff state, or suspend and resume the issue."] },
   RECONCILE_FAILED: { owner: B, next: ["Recording the outside changes failed; message carries the cause. Nothing in the source was changed; report it."] },
   INVOCATION_ABANDONED: { owner: A, info: true, next: ["The interrupted attempt is closed and consumed. Continue with the returned receipt as previousAttempt and empty operations."] },
   TERMINAL_RECEIPT_PENDING: { owner: B, next: ["Another process holds the terminal receipt. Retry once; if it persists, report it."] },

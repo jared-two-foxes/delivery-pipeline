@@ -61,3 +61,13 @@ test("reserved files are never hashed into the object database", async (t) => {
   assert.throws(() => g(dir, "cat-file", "-e", blob), "the archive blob must not exist");
   g(dir, "cat-file", "-e", g(dir, "hash-object", path.join(dir, "b.txt")));
 });
+
+test("the tree against an older base includes files committed since, and still drops reserved ones", async (t) => {
+  const dir = await repo(t);
+  const base = g(dir, "rev-parse", "HEAD");
+  await writeFile(path.join(dir, "later.txt"), "later\n");
+  g(dir, "add", "-A"); g(dir, "commit", "-qm", "later");
+  await writeFile(path.join(dir, ".scaffold.zip"), "archive");
+  const files = g(dir, "ls-tree", "-r", "--name-only", await implementationTree(dir, base)).split("\n");
+  assert.deepEqual(files, ["a.txt", "later.txt"]);
+});
