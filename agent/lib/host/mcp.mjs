@@ -47,18 +47,30 @@ export function createMcpCaller(tools, { cwd, validate, confirm, heartbeatMs = 1
   const byName = new Map(tools.map((tool) => [defineTool(tool).name, tool]));
   if (byName.size !== tools.length) throw new Error("Duplicate tool names");
 
-  const host = (signal) => ({
-    cwd,
-    signal,
-    confirm: async (title, message) => {
-      if (!confirm) return false;
-      try {
-        return (await confirm(title, message)) === true;
-      } catch {
-        return false; // a broken approval channel is a refusal, never an approval
-      }
-    },
-  });
+  const host = (signal) => {
+    const self = {
+      cwd,
+      signal,
+      // Why the last confirm was refused, for the tool to report. Never changes the outcome.
+      confirmFailure: undefined,
+      confirm: async (title, message) => {
+        self.confirmFailure = undefined;
+        if (!confirm) {
+          self.confirmFailure = "this host has no way to ask the user for approval";
+          return false;
+        }
+        try {
+          if ((await confirm(title, message)) === true) return true;
+          self.confirmFailure = "the user did not approve";
+        } catch (error) {
+          // A broken approval channel is a refusal, never an approval; keep the reason so it can be shown.
+          self.confirmFailure = error instanceof Error ? error.message : String(error);
+        }
+        return false;
+      },
+    };
+    return self;
+  };
 
   // `progress(n, message)` is supplied only when the client asked for progress (it sent a progressToken).
   // While a tool runs we send a periodic heartbeat: clients such as Pi reset their request timeout on

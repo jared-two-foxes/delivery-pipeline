@@ -67,7 +67,10 @@ client (needs a model), and approvals and long runs in a live session.
 - **Approvals via elicitation.** `approve_feature_direction`, `approve_delivery_amendment` and
   `adopt_foreign_commits` ask the human through MCP elicitation, so the host shows the prompt and the
   agent cannot answer it. Only an explicit `accept` with `approve: true` counts. A client without
-  elicitation support, a thrown error, or any other answer is a refusal: the tools fail closed.
+  elicitation support, a thrown error, or any other answer is a refusal: the tools fail closed. A refusal
+  now carries its reason in the tool's message (`Reason: ...`): no elicitation capability, prompt could not be
+  completed or timed out, declined, cancelled/dismissed, or submitted with Approve unticked. The prompt waits up
+  to 10 minutes (the SDK default of 60 s is too short for reading a design).
 
 ## What this does NOT give you yet
 

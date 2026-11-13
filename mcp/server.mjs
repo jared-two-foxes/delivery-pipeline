@@ -46,19 +46,36 @@ export function createValidator() {
   };
 }
 
-/** Ask the human through the client, or report that nobody can be asked (which the tools treat as "no"). */
-function elicitApproval(server) {
+// A person reading a design before approving it needs far longer than the SDK's 60 s default request timeout.
+const APPROVAL_TIMEOUT_MS = 10 * 60 * 1000;
+
+/**
+ * Ask the human through the client. Resolves true only for an explicit accept with `approve: true`; every
+ * other outcome throws an Error whose message says why, which the caller turns into a refusal plus a reason
+ * (a bare `false` made "no elicitation support", "timed out" and "declined" indistinguishable).
+ */
+export function elicitApproval(server, { timeoutMs = APPROVAL_TIMEOUT_MS } = {}) {
   return async (title, message) => {
-    if (!server.getClientCapabilities()?.elicitation) return false;
-    const answer = await server.elicitInput({
-      message: `${title}\n\n${message}`,
-      requestedSchema: {
-        type: "object",
-        properties: { approve: { type: "boolean", title: "Approve", description: "Approve this request" } },
-        required: ["approve"],
-      },
-    });
-    return answer.action === "accept" && answer.content?.approve === true;
+    if (!server.getClientCapabilities()?.elicitation)
+      throw new Error("this MCP client does not advertise elicitation, so no approval prompt can be shown to the user");
+    let answer;
+    try {
+      answer = await server.elicitInput({
+        message: `${title}\n\n${message}`,
+        requestedSchema: {
+          type: "object",
+          properties: { approve: { type: "boolean", title: "Approve", description: "Tick to approve, then submit" } },
+          required: ["approve"],
+        },
+      }, { timeout: timeoutMs });
+    } catch (error) {
+      throw new Error(`the approval prompt could not be completed (${error instanceof Error ? error.message : String(error)})`);
+    }
+    if (answer.action === "decline") throw new Error("the user declined the approval prompt");
+    if (answer.action !== "accept")
+      throw new Error("the approval prompt was cancelled or dismissed (Claude Code cancels MCP prompts in non-interactive runs, and an Elicitation hook can cancel them automatically)");
+    if (answer.content?.approve !== true) throw new Error("the approval prompt was submitted with Approve left unticked");
+    return true;
   };
 }
 

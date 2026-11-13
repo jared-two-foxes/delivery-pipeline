@@ -7,7 +7,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { missingDependencies } from "../agent/lib/host/dependencies.mjs";
 import { createMcpCaller, mcpToolList } from "../agent/lib/host/mcp.mjs";
-import { defineTool, toolResult } from "../agent/lib/host/tool.mjs";
+import { defineTool, toolResult, withApprovalReason } from "../agent/lib/host/tool.mjs";
 
 const schema = { type: "object", properties: { n: { type: "integer" } }, required: ["n"], additionalProperties: false };
 const ok = () => true;
@@ -105,7 +105,7 @@ async function connect(tools, { elicit } = {}) {
 
 const approvalTool = () => defineTool({
   name: "approve", description: "d", parameters: { type: "object", properties: {}, additionalProperties: false },
-  execute: async (_p, host) => toolResult({ ok: true, approved: await host.confirm("Approve?", "scope") }),
+  execute: async (_p, host) => toolResult({ ok: true, approved: await host.confirm("Approve?", "scope"), why: host.confirmFailure }),
 });
 const approvedBy = async (r) => JSON.parse(r.content[0].text).approved;
 
@@ -281,4 +281,24 @@ test("start.mjs --check fails with the same one-line fix when dependencies are m
   const run = spawnSync(process.execPath, [path.join(root, "mcp/start.mjs"), "--check"], { encoding: "utf8", timeout: 30000 });
   assert.equal(run.status, 1);
   assert.match(run.stderr, /dependencies are not installed/);
+});
+
+test("a refused approval says why, so the failure is diagnosable", { skip: !installed && "mcp dependencies not installed" }, async (t) => {
+  const why = async (opts) => {
+    const { client, close } = await connect([approvalTool()], opts);
+    t.after(close);
+    return JSON.parse((await client.callTool({ name: "approve", arguments: {} })).content[0].text).why;
+  };
+  assert.match(await why({}), /does not advertise elicitation/);
+  assert.match(await why({ elicit: async () => ({ action: "decline" }) }), /declined/);
+  assert.match(await why({ elicit: async () => ({ action: "cancel" }) }), /cancelled or dismissed.*Elicitation hook/);
+  assert.match(await why({ elicit: async () => ({ action: "accept", content: { approve: false } }) }), /Approve left unticked/);
+  assert.match(await why({ elicit: async () => { throw new Error("boom"); } }), /could not be completed/);
+});
+
+test("withApprovalReason appends the refusal reason to a failed approval and leaves other results alone", () => {
+  const failed = { ok: false, message: "Feature direction approval required" };
+  assert.match(withApprovalReason({ confirmFailure: "the user declined" }, failed).message, /required Reason: the user declined\.$/);
+  assert.equal(withApprovalReason({}, failed), failed);
+  assert.deepEqual(withApprovalReason({ confirmFailure: "x" }, { ok: true }), { ok: true });
 });

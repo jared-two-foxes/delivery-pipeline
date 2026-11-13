@@ -3,7 +3,7 @@ import { rewriteFeatureHistory } from "./reconciliation.mjs";
 import { adoptCommits, inspectDrift } from "./foreign-history.mjs";
 import { suspendIssue, resumeIssue } from "./issue-recovery.mjs";
 import { prepareIssueHandoff, inspectIssueHandoff, inspectIssueAttempt } from "./issue-context.mjs";
-import { defineTool, toolResult, withFailureReporting } from "../../lib/host/tool.mjs";
+import { defineTool, toolResult, withApprovalReason, withFailureReporting } from "../../lib/host/tool.mjs";
 
 /** Host-neutral tools. `Type` is a TypeBox-style schema builder supplied by the host adapter. */
 export function createExecutionRecoveryTools(Type) {
@@ -197,7 +197,7 @@ export function createExecutionRecoveryTools(Type) {
               ),
           },
         );
-        return toolResult(result, { isError: result.ok === false });
+        return toolResult(withApprovalReason(host, result), { isError: result.ok === false });
       },
     })),
     withFailureReporting(defineTool({
