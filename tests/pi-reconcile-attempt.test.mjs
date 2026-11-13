@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { renderContext } from "../agent/lib/delivery-state/delivery-context.mjs";
 import { reconcileExternalChanges, changedPaths } from "../agent/extensions/execute-and-review/reconcile-attempt.mjs";
 
 const task = { featureId: "F", taskId: "T", designRef: "sha256:" + "a".repeat(64) };
@@ -8,9 +9,9 @@ const sha = (c) => c.repeat(40);
 const after = { head: sha("b"), tree: sha("c"), digest: "old", clean: false, bookkeepingVisible: false };
 const now = { ...after, tree: sha("d"), digest: "new" };
 
-function setup({ journal = { head: PREV, revision: 3 }, status = "NEEDS_DESIGN", snap = now, approve = true, paths } = {}) {
+function setup({ kind, baseRef = after.head, journal = { head: PREV, revision: 3 }, status = "NEEDS_DESIGN", snap = now, approve = true, paths } = {}) {
   const calls = { retained: [], attempts: [], events: [], confirms: [] };
-  const previous = { attempt: 8, args: { task, baseRef: after.head, deliveryContext: { schema: "x" }, requirements: "r", input: "ops", previousAttempt: "p" }, after, result: { status } };
+  const previous = { kind, attempt: 8, args: { task, baseRef, deliveryContext: { schema: "pi.delivery-context/v1", original: "o", design: { reference: "d", summary: "s", verification: "v", approval: "a" }, obligations: [], updates: [], contractItems: [] }, requirements: "handoff recovery text", input: "ops", previousAttempt: "p" }, after, result: { status } };
   const deps = {
     git: () => "/repo\n",
     requireFeatureAuthorization: async () => {},
@@ -38,10 +39,15 @@ test("records an authenticated receipt that chains from the previous after-snaps
   assert.deepEqual(rec.after, now, "ends at the current tree");
   assert.equal(rec.args.previousAttempt, PREV);
   assert.equal(rec.args.baseRef, after.head);
+  assert.notEqual(rec.args.requirements, "handoff recovery text", "requirements are re-rendered from the context so validContextContinuation holds");
+  assert.equal(rec.args.requirements, renderContext(rec.args.deliveryContext));
   assert.equal("input" in rec.args, false, "no operations are inherited");
   assert.equal(rec.result.status, "BLOCKED");
   assert.notEqual(rec.result.status, "PASSED");
   assert.deepEqual(rec.result.external.changes.paths, ["D\t.scaffold.zip"]);
+  const started = calls.retained[0];
+  assert.deepEqual(started.before, after, "an abandoned reconciliation must still chain from the previous receipt");
+  assert.deepEqual(started.after, now);
   assert.deepEqual(calls.events.map((e) => e.kind), ["begun", "finished"]);
   assert.equal(calls.events[0].sequence, 9);
   assert.equal(calls.events[0].previous, PREV);
@@ -59,6 +65,8 @@ test("refuses unsafe or pointless reconciliations", async () => {
   assert.equal((await setup({ snap: { ...now, head: sha("e") } }).run()).reason, "HEAD_CHANGED");
   assert.equal((await setup({ snap: { ...now, bookkeepingVisible: true } }).run()).reason, "SCAFFOLD_REVIEW_SCOPE");
   assert.equal((await setup({ status: "PASSED" }).run()).reason, "CONTINUATION_RECEIPT_INAPPLICABLE");
+  assert.equal((await setup({ kind: "issue-zero-handoff" }).run()).reason, "UNSUPPORTED_ZERO_ATTEMPT");
+  assert.equal((await setup({ baseRef: sha("f") }).run()).reason, "HEAD_CHANGED", "a HEAD_CHANGED receipt ends away from its baseline");
   assert.equal((await setup({ journal: { head: PREV, inflight: "x" } }).run()).reason, "INVOCATION_RECOVERY_REQUIRED");
   assert.equal((await setup({ journal: { head: "sha256:" + "9".repeat(64) } }).run()).reason, "CONTINUATION_RECEIPT_STALE");
   assert.equal((await setup({ journal: null }).run()).reason, "NOT_STARTED");
@@ -74,7 +82,7 @@ test("a tree that moves during confirmation is rejected", async () => {
     deps: {
       git: () => "/repo", requireFeatureAuthorization: async () => {},
       issueFeature: async () => ({ tasks: { T: { delivery: { head: PREV } } } }),
-      authenticateAttemptChain: async () => ({ record: { attempt: 8, args: { task }, after, result: { status: "BLOCKED" } } }),
+      authenticateAttemptChain: async () => ({ record: { attempt: 8, args: { task, baseRef: after.head }, after, result: { status: "BLOCKED" } } }),
       assertLatestAttempt: async () => {}, snapshot: async () => snaps[Math.min(n++, 1)],
       changedPaths: () => null, confirm: async () => true,
     },

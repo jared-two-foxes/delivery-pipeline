@@ -50,3 +50,14 @@ test("a tracked reserved file is refused rather than silently excluded", async (
   g(dir, "add", "-f", ".scaffold.zip");
   await assert.rejects(() => implementationTree(dir), /must not be tracked/);
 });
+
+test("reserved files are never hashed into the object database", async (t) => {
+  const dir = await repo(t);
+  const content = "unique archive bytes " + Math.random();
+  await writeFile(path.join(dir, ".scaffold.zip"), content);
+  await writeFile(path.join(dir, "b.txt"), "b\n");
+  await snapshot(dir);
+  const blob = execFileSync("git", ["hash-object", "--stdin"], { cwd: dir, input: content, encoding: "utf8" }).trim();
+  assert.throws(() => g(dir, "cat-file", "-e", blob), "the archive blob must not exist");
+  g(dir, "cat-file", "-e", g(dir, "hash-object", path.join(dir, "b.txt")));
+});

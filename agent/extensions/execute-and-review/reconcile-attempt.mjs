@@ -15,6 +15,7 @@ import { authenticateAttemptChain, assertLatestAttempt } from "../../lib/verific
 import { requireFeatureAuthorization } from "../scaffold/feature-authorization.mjs";
 import { issueFeature } from "../scaffold/adapter.mjs";
 import { deliveryEvent } from "./delivery-context.mjs";
+import { renderContext } from "../../lib/delivery-state/delivery-context.mjs";
 
 const MAX_LISTED = 200;
 const blocked = (reason, message, extra = {}) => ({
@@ -63,11 +64,14 @@ export async function reconcileExternalChanges(params, context = {}, options = {
     if (previous.result.status === "PASSED")
       return blocked("CONTINUATION_RECEIPT_INAPPLICABLE", "The latest attempt PASSED; finish its checkpoint instead of reconciling.");
 
+    if (previous.kind === "issue-zero-handoff")
+      return blocked("UNSUPPORTED_ZERO_ATTEMPT", "No attempt has run since this handoff and it carries no verification plan to continue from. Restore the tree to the handoff state, or suspend and resume the issue.");
     const before = await d.snapshot(repository);
     if (before.bookkeepingVisible)
       return blocked("SCAFFOLD_REVIEW_SCOPE", "Scaffold state is visible in the working tree; establish an authorised ignore rule first.");
-    if (before.head !== previous.after.head)
-      return blocked("HEAD_CHANGED", "HEAD moved since the receipt. Reconciling covers working-tree changes only; if someone committed, use inspect_feature_drift.");
+    // A HEAD_CHANGED receipt ends at a different HEAD than its baseline; the chain cannot continue from it.
+    if (before.head !== previous.after.head || previous.after.head !== previous.args.baseRef)
+      return blocked("HEAD_CHANGED", "HEAD differs from the receipt's ending HEAD or its baseline. Reconciling covers working-tree changes only; if someone committed, use inspect_feature_drift.");
     if (before.digest === previous.after.digest && before.tree === previous.after.tree)
       return blocked("NOTHING_TO_RECONCILE", "The working tree already matches the latest receipt; continue with it as previousAttempt.");
 
@@ -90,8 +94,12 @@ export async function reconcileExternalChanges(params, context = {}, options = {
     const scoped = { ...options, featureInstanceId: instanceId };
     const args = { ...previous.args, previousAttempt, contextUpdates: [] };
     delete args.input;
+    // A handoff's requirements carry recovery text that is not the rendered context; the next attempt renders afresh.
+    if (args.deliveryContext) args.requirements = renderContext(args.deliveryContext);
     const started = await d.retainEvidence(repository, {
-      repository, ...(instanceId ? { featureInstanceId: instanceId } : {}), task, attempt, args, before, after: before,
+      repository, ...(instanceId ? { featureInstanceId: instanceId } : {}), task, attempt, args,
+      // Same boundaries as the terminal receipt, so abandoning an interrupted reconciliation still chains.
+      before: previous.after, after: before,
       result: { schema: "pi.execute-and-review.result/v1", status: "BLOCKED", stage: "STARTED", reason: "INTERRUPTED_OR_RUNNING" },
     });
     let current = await d.deliveryEvent(repository, task, journal,
