@@ -27,6 +27,7 @@ export const FAILURE_CODES = {
   NOTHING_IN_FLIGHT: { owner: A, info: true, next: ["No invocation is open for this task; continue from its latest receipt with inspect_issue_attempt."] },
   TERMINAL_RECEIPT_EXISTS: { owner: A, next: ["A terminal receipt already exists; continue with it as previousAttempt instead of abandoning."] },
   ABANDON_FAILED: { owner: B, next: ["Closing the interrupted invocation failed; message carries the cause. Nothing was changed; report it."] },
+  RESTORE_UNSAFE: { owner: U, next: ["Restore needs HEAD at the task base commit. Reconcile history yourself, or close the attempt without restore."] },
   INVOCATION_ABANDONED: { owner: A, info: true, next: ["The interrupted attempt is closed and consumed. Continue with the returned receipt as previousAttempt and empty operations."] },
   TERMINAL_RECEIPT_PENDING: { owner: B, next: ["Another process holds the terminal receipt. Retry once; if it persists, report it."] },
   EVIDENCE_RETENTION_FAILED: { owner: B, next: ["The result could not be stored in the ledger. Check that Scaffold is installed and the ledger is writable; do not reapply operations."] },

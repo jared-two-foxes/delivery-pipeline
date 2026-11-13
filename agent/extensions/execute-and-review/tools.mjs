@@ -412,15 +412,17 @@ export function createExecuteAndReviewTools(Type) {
             { additionalProperties: false },
           ),
           reason: Type.String({ minLength: 1, description: "Why the invocation is believed dead, e.g. observed connection loss" }),
+          restore: Type.Optional(Type.Literal("checkpoint", { description: "Also reset the working tree to the task's base commit after saving the interrupted tree to a recovery ref. Requires user confirmation. Omit to keep the files as found." })),
           force: Type.Optional(Type.Boolean({ description: "Skip the liveness allowance after the user confirms no process is running" })),
         },
         { additionalProperties: false },
       ),
       async execute(params, host) {
-        if (params.force &&
-            !(await host.confirm("Close the in-flight attempt now?",
-              "Confirm no delivery, Conductor, cargo or review process for " + params.task.taskId +
-              " is still running. The attempt is recorded as interrupted and consumed; nothing is marked verified.")))
+        if ((params.force || params.restore) &&
+            !(await host.confirm(params.restore ? "Close the attempt and reset the working tree?" : "Close the in-flight attempt now?",
+              (params.force ? "Confirm no delivery, Conductor, cargo or review process for " + params.task.taskId + " is still running. " : "") +
+              (params.restore ? "Uncommitted files will be reset to the task's base commit; the interrupted tree is first saved under refs/pi-delivery-recovery. " : "") +
+              "The attempt is recorded as interrupted and consumed; nothing is marked verified.")))
           return toolResult({ status: "BLOCKED", reason: "CANCELLED", message: "Not confirmed; nothing changed." });
         const result = await abandonInflightAttempt(params, { directory: host.cwd, abort: host.signal });
         return toolResult(result, { isError: result.status === "BLOCKED" && !result.evidence });

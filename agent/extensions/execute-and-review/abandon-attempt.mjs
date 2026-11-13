@@ -10,6 +10,7 @@ import { snapshot } from "../../lib/git/snapshot.mjs";
 import { readEvidence } from "../../lib/evidence/store.mjs";
 import { retainAttempt, taskReceipts } from "../../lib/evidence/attempts.mjs";
 import { DEFAULT_TIMEOUT_MS } from "../../lib/conductor/client.mjs";
+import { restoreCheckpoint } from "../../lib/git/checkpoint-restore.mjs";
 import { liveLocks } from "../../lib/verification/terminal-lock.mjs";
 import { requireFeatureAuthorization } from "../scaffold/feature-authorization.mjs";
 import { issueFeature } from "../scaffold/adapter.mjs";
@@ -21,14 +22,16 @@ const blocked = (reason, message, extra = {}) => ({
 });
 
 /**
- * params: { task, reason, force? }. `force` is the user's statement that the original process is gone;
+ * params: { task, reason, force?, restore? }. restore: "checkpoint" saves the dirty tree to a ref and resets to the
+ * task base (the caller must have obtained explicit confirmation); default keeps the files as found.
+ * `force` is the user's statement that the original process is gone;
  * the caller must have obtained explicit confirmation before passing it (see the tool).
  * options.deps may replace any collaborator (tests).
  */
 export async function abandonInflightAttempt(params, context = {}, options = {}) {
   const d = {
     git, snapshot, readEvidence, retainAttempt, taskReceipts, deliveryEvent, issueFeature,
-    requireFeatureAuthorization, liveLocks, now: Date.now, ...options.deps,
+    requireFeatureAuthorization, liveLocks, restoreCheckpoint, now: Date.now, ...options.deps,
   };
   try {
     const { task } = params;
@@ -69,6 +72,18 @@ export async function abandonInflightAttempt(params, context = {}, options = {})
             "s allowance. Wait, or pass force after confirming its process tree is gone.",
         { retryAfterMs: Math.max(0, timeout - age) });
 
+    let saved = null;
+    if (params.restore !== undefined && params.restore !== "checkpoint")
+      return blocked("INVALID_ARGUMENTS", "restore must be \"checkpoint\" when supplied");
+    if (params.restore === "checkpoint") {
+      if (!started.args?.baseRef) return blocked("RESTORE_UNSAFE", "The start receipt has no base commit to restore to.");
+      try {
+        saved = await d.restoreCheckpoint(repository, started.args.baseRef,
+          "refs/pi-delivery-recovery/" + task.featureId + "/" + task.taskId + "/attempt-" + started.attempt);
+      } catch (error) {
+        return blocked(error.code === "RESTORE_UNSAFE" ? "RESTORE_UNSAFE" : "ABANDON_FAILED", error.message);
+      }
+    }
     const after = await d.snapshot(repository);
     const record = {
       repository,
@@ -81,7 +96,8 @@ export async function abandonInflightAttempt(params, context = {}, options = {})
         status: "BLOCKED", stage: "EVIDENCE", reason: "INVOCATION_ABANDONED",
         message: "Invocation closed without a terminal receipt: " + params.reason.trim() +
           ". Source was preserved as found; no check or review was verified.",
-        abandoned: { started: journal.inflight, forced: Boolean(params.force), liveOwners: live.length, ageMs: age },
+        abandoned: { started: journal.inflight, forced: Boolean(params.force), liveOwners: live.length, ageMs: age,
+          ...(saved ? { restoredTo: started.args.baseRef, savedWorkingTree: saved } : {}) },
       },
     };
     const reference = await d.retainAttempt(repository, record);
@@ -90,8 +106,11 @@ export async function abandonInflightAttempt(params, context = {}, options = {})
     return {
       schema: "pi.execute-and-review.result/v1", status: "BLOCKED", stage: "RECOVERY",
       reason: "INVOCATION_ABANDONED", evidence: { reference, task, attempt: started.attempt },
-      message: "Attempt " + started.attempt + " is closed as interrupted and remains consumed. Continue with " +
-        "previousAttempt = " + reference + " and {\"operations\":[]} to run the checks and review against the retained tree.",
+      ...(saved ? { savedWorkingTree: saved } : {}),
+      message: "Attempt " + started.attempt + " is closed as interrupted and remains consumed. " + (saved
+        ? "The working tree was reset to " + started.args.baseRef + "; the interrupted tree is saved at " + saved.ref +
+          ". Continue with previousAttempt = " + reference + " and author the operations again."
+        : "Continue with previousAttempt = " + reference + " and {\"operations\":[]} to run the checks and review against the retained tree."),
     };
   } catch (error) {
     return blocked("ABANDON_FAILED", error.message);

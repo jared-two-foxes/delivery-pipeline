@@ -10,7 +10,7 @@ function setup({ inflight = REF, terminal = [], ageMs = 3 * 3600e3, live = [], s
     git: () => "/repo\n",
     requireFeatureAuthorization: async () => {},
     issueFeature: async () => ({ workflow: { instance_id: "i" }, tasks: { T: { delivery: { inflight, revision: 4 } } } }),
-    readEvidence: async () => ({ task, attempt: 4, args: { x: 1 }, before: { tree: "b" }, recordedAt: new Date(1e12).toISOString(), result: { stage } }),
+    readEvidence: async () => ({ task, attempt: 4, args: { x: 1, baseRef: "base" }, before: { tree: "b" }, recordedAt: new Date(1e12).toISOString(), result: { stage } }),
     taskReceipts: async () => terminal,
     liveLocks: async () => live,
     now: () => 1e12 + ageMs,
@@ -18,7 +18,7 @@ function setup({ inflight = REF, terminal = [], ageMs = 3 * 3600e3, live = [], s
     retainAttempt: async (_r, rec) => (calls.retained.push(rec), "sha256:" + "2".repeat(64)),
     deliveryEvent: async (_r, _t, j, ev) => (calls.events.push({ j, ev }), {}),
   };
-  return { calls, run: (extra = {}) => abandonInflightAttempt({ task, reason: "connection lost", ...extra }, { directory: "/repo" }, { deps }) };
+  return { calls, deps, run: (extra = {}) => abandonInflightAttempt({ task, reason: "connection lost", ...extra }, { directory: "/repo" }, { deps }) };
 }
 
 test("closes a dead invocation with an interrupted terminal receipt and releases the journal", async () => {
@@ -49,4 +49,17 @@ test("defers to an existing terminal receipt and rejects non-start evidence", as
   assert.equal((await t.run()).reason, "TERMINAL_RECEIPT_EXISTS");
   assert.equal((await setup({ inflight: null }).run()).reason, "NOTHING_IN_FLIGHT");
   assert.equal((await setup({ stage: "EVIDENCE" }).run()).reason, "EVIDENCE_RECOVERY_REQUIRED");
+});
+
+test("restore: checkpoint saves and resets before the receipt, and rejects unknown modes", async () => {
+  const s = setup();
+  const seen = [];
+  const run = (extra) => abandonInflightAttempt({ task, reason: "x", ...extra }, { directory: "/repo" }, { deps: { ...s.deps, restoreCheckpoint: async (...a) => (seen.push(a), { ref: "refs/r", commit: "c" }) } });
+  assert.equal((await run({ restore: "bogus" })).reason, "INVALID_ARGUMENTS");
+  assert.equal(seen.length, 0);
+  const ok = await run({ restore: "checkpoint" });
+  assert.equal(ok.reason, "INVOCATION_ABANDONED");
+  assert.deepEqual(seen[0].slice(1), ["base", "refs/pi-delivery-recovery/F/T/attempt-4"]);
+  assert.equal(ok.savedWorkingTree.ref, "refs/r");
+  assert.equal(s.calls.retained[0].result.abandoned.restoredTo, "base");
 });
