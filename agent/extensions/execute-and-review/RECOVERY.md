@@ -12,7 +12,7 @@ operations, named checks and checkpoint branch protections. A correction needs o
 
 ```json
 {
-  "previousAttempt": "pi-evidence:sha256:…",
+  "previousAttempt": "sha256:…",
   "input": "{\"operations\":[]}",
   "contextUpdates": [
     {

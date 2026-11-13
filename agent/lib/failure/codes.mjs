@@ -54,7 +54,7 @@ export const FAILURE_CODES = {
   PROVIDER_FAILURE: { owner: U, next: ["The review provider failed. Wait or switch provider, then continue with one bounded attempt after the cooldown."] },
   RATE_LIMITED: { owner: U, next: ["The review service rate-limited the request. Wait for the cooldown, then continue with one bounded attempt."] },
   MODEL_FAILURE: { owner: U, next: ["The review model failed. Check the configured model, then continue with one bounded attempt."] },
-  REVIEW_ENGINE_NOT_AVAILABLE: { owner: U, next: ["The review program is not available. Install or configure it, then continue with previousAttempt."] },
+  REVIEW_ENGINE_NOT_AVAILABLE: { owner: U, next: ["The review engine stopped before any model activity. Check review-cli, the provider credential and the model id (stderr is in the conductor output dir), then continue with the receipt in this failure as previousAttempt; reviewProbe: true runs one probe."] },
   BUDGET_EXHAUSTED: { owner: A, next: ["The review ran out of its turn, tool-call or time budget. Raise the review budget or narrow the scope, then continue with previousAttempt."] },
   LIMIT_EXCEEDED: { owner: A, next: ["The review exceeded a limit. Narrow the change or raise the limit, then continue with previousAttempt."] },
   SESSION_STALLED: { owner: A, next: ["The review session stalled. Continue with previousAttempt once; if it stalls again, report it."] },

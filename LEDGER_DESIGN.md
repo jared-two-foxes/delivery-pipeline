@@ -28,7 +28,7 @@ one `operate()` call is a locked read, validate, mutate, write transaction over 
 `delivery` journal, a `checkpoint` record, a `suspension` record and a `validation` history.
 
 What Scaffold does **not** hold is the evidence. It stores opaque references
-(`pi-evidence:sha256:…`, `pi-feature-evidence:sha256:…`) whose format it checks with a regex.
+(`sha256:…`, `pi-feature-evidence:sha256:…`) whose format it checks with a regex.
 Pi holds the records those point to (in `.git/pi-conductor-evidence/`), and re-verifies that the
 Scaffold history, the receipt, the commit trailer and the Git tree all agree.
 

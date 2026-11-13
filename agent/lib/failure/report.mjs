@@ -49,6 +49,9 @@ export function failureEnvelope(tool, result, { cause } = {}) {
     : FAILURE_CODES[code] ?? { ...describeCode("UNSPECIFIED_FAILURE"), owner: byCategory[category] ?? describeCode("UNSPECIFIED_FAILURE").owner };
   const evidence = [result.evidence?.reference, result.evidenceRef, result.diagnosticEvidenceRef].find((r) => REFERENCE.test(r ?? ""));
   const next = [...known.next];
+  // A BLOCKED attempt has consumed an attempt and left a receipt: name it, so a retry never starts from nothing.
+  const continuable = tool === "execute_and_review" && evidence && result.status === "BLOCKED";
+  if (continuable) next.unshift("Continue with previousAttempt = " + evidence + " and {\"operations\":[]}; do not re-apply operations.");
   if (typeof result.recovery === "string" && !next.includes(result.recovery)) next.push(result.recovery);
   const review = conductor?.review;
   const failedCheck = conductor?.checks?.find((c) => c?.status !== undefined ? c.status !== "PASSED" : c?.exit_code !== 0);
@@ -62,8 +65,14 @@ export function failureEnvelope(tool, result, { cause } = {}) {
     failedCheck ? "Check " + failedCheck.name + " exited " + failedCheck.exit_code : undefined,
     result.reason,
   ) ?? code;
+  const engineDown = review && review.status === "INDETERMINATE" && review.reason === "REVIEW_ENGINE_NOT_AVAILABLE";
+  const engineDetail = engineDown
+    ? "review-cli stopped before any model activity (" + (review.usage?.input_tokens ?? 0) + " input / " + (review.usage?.output_tokens ?? 0) +
+      " output tokens). Likely causes: review-cli missing or not runnable by the pipeline, a missing credential for the model's provider, or an unknown/unconfigured model id. Its stderr is retained under the conductor output directory (NNNNNN.stderr)."
+    : undefined;
   const detail = firstText(
     cause,
+    engineDetail,
     scaffold ? result.stderr : undefined,
     conductor?.error,
     conductor?.failed_command?.stderr,
@@ -78,6 +87,7 @@ export function failureEnvelope(tool, result, { cause } = {}) {
     ...(clip(result.stage, 64) ? { stage: clip(result.stage, 64) } : {}),
     ...(detail && detail !== message ? { cause: clip(detail, 4000) } : {}),
     ...(evidence ? { evidence } : {}),
+    ...(continuable ? { continuation: { previousAttempt: evidence, input: "{\"operations\":[]}" } } : {}),
     ...(next.length ? { next: next.slice(0, 5).map((step) => step.slice(0, 300)) } : {}),
   };
 }

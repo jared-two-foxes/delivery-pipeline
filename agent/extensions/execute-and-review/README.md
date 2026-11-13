@@ -361,7 +361,7 @@ that capsule and continue with the same execution receipt. Never weaken context
 staleness checks or use context references as execution evidence.
 
 `inspect_conductor_evidence` reads a receipt by its returned
-`pi-evidence:sha256:<digest>` reference and reports whether the current tree
+`sha256:<digest>` reference and reports whether the current tree
 matches. Records are under Git metadata, outside review diffs. STARTED intent is
 written before execution; final records retain the request, raw process response,
 result, task/design identity, attempt number and tree fingerprints. Missing or
