@@ -258,3 +258,28 @@ test("a failure of a reference-only continuation is recorded against the task it
   assert.equal(recorded.length, 3);
   assert.ok(recorded.every((r) => r.code === "RESOURCE_PAUSED" && r.task_id === "a"), JSON.stringify(recorded));
 });
+
+test("a review-engine outage names the receipt to continue from and a diagnosis", () => {
+  const reference = "sha256:" + "ab".repeat(32);
+  const envelope = failureEnvelope("execute_and_review", {
+    status: "BLOCKED", stage: "REVIEW", evidence: { reference },
+    conductor: { review: { status: "INDETERMINATE", reason: "REVIEW_ENGINE_NOT_AVAILABLE", usage: { input_tokens: 0, output_tokens: 0 } } },
+  });
+  assert.equal(envelope.code, "REVIEW_ENGINE_NOT_AVAILABLE");
+  assert.equal(envelope.evidence, reference);
+  assert.deepEqual(envelope.continuation, { previousAttempt: reference, input: '{"operations":[]}' });
+  assert.ok(envelope.next[0].includes(reference));
+  assert.match(envelope.cause, /credential/);
+});
+
+test("failure comes first in the tool result so a long body cannot hide the continuation", async () => {
+  const reference = "sha256:" + "cd".repeat(32);
+  const tool = reportFailures({ name: "execute_and_review", async execute() {
+    return { content: [{ type: "text", text: JSON.stringify({ big: "x".repeat(50000) }) }],
+      details: { status: "BLOCKED", reason: "REVIEW_ENGINE_NOT_AVAILABLE", evidence: { reference } } };
+  } });
+  const out = await tool.execute("id", {}, undefined, undefined, {});
+  const text = out.content[0].text;
+  assert.ok(text.indexOf(reference) < 2000);
+  assert.equal(JSON.parse(text).previousAttempt, reference);
+});

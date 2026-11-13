@@ -10,7 +10,7 @@ function withFailure(output, envelope, recorded) {
   let content = output.content;
   try {
     const parsed = JSON.parse(text);
-    content = [{ type: "text", text: JSON.stringify({ ...parsed, failure }, null, 2) }, ...output.content.filter((c) => c.text !== text)];
+    content = [{ type: "text", text: JSON.stringify({ failure, ...parsed, ...(failure.continuation ? { previousAttempt: failure.continuation.previousAttempt } : {}) }, null, 2) }, ...output.content.filter((c) => c.text !== text)];
   } catch {
     content = [...(output.content ?? []), { type: "text", text: JSON.stringify({ failure }, null, 2) }];
   }
@@ -36,7 +36,7 @@ export function reportFailures(tool, options = {}) {
       const envelope = failureEnvelope(tool.name, result);
       if (!envelope) return output;
       // A NEEDS_DESIGN attempt already left a receipt in the ledger; every other failure leaves nothing.
-      const recorded = isFailure(result) ? await recordFailure(directory, params, envelope, options, result) : null;
+      const recorded = isFailure(result) ? await recordFailure(directory, params, (({ continuation: _shown, ...stored }) => stored)(envelope), options, result) : null;
       return withFailure(output, envelope, recorded);
     },
   };

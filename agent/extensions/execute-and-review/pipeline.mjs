@@ -729,6 +729,12 @@ export async function runPipeline(meta, feature, context, options = {}) {
         .catch(() => null),
       result: outcome,
     });
+    // A small stable file: the continuation handle survives even when the tool result is large or lost.
+    await writeFile(
+      path.join(root, "continuation.json"),
+      JSON.stringify({ schema: "pi.continuation/v1", previousAttempt: reference, attempt: meta.attempt,
+        status: outcome.status, input: '{"operations":[]}' }, null, 2),
+    ).catch(() => {});
     return {
       ...outcome,
       evidence: { reference, task: meta.args.task, attempt: meta.attempt },
