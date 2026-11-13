@@ -3,13 +3,14 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { implementationTree } from "./tree.mjs";
+import { IMPLEMENTATION_SCOPE, RESERVED_PATHS } from "./scope.mjs";
 // Preserve the exact bytes used by historical snapshot fingerprints.
 const git = (repository, args) =>
   execFileSync("git", args, {
     cwd: repository, encoding: "utf8", maxBuffer: 16 * 1024 * 1024, windowsHide: true,
   });
 const digest = value => createHash("sha256").update(value).digest("hex");
-const scope = ["--", ".", ":(exclude).scaffold"];
+const scope = IMPLEMENTATION_SCOPE;
 // Include index, working diff and nonignored untracked contents. Scaffold state
 // is bookkeeping, excluded from the implementation baseline. Ignored build
 // artifacts are intentionally outside this recovery fingerprint.
@@ -47,7 +48,7 @@ export async function snapshot(repository) {
       "--porcelain=v1",
       "--untracked-files=all",
       "--",
-      ".scaffold",
+      ...RESERVED_PATHS,
     ]).trim(),
     digest: digest(
       JSON.stringify([

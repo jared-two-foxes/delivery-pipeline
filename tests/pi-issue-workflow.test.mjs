@@ -22,6 +22,7 @@ import { issueDesignRequirements } from "../agent/lib/scaffold/contracts.mjs";
 import { authenticateIssueMutation } from "../agent/lib/verification/issue-mutation.mjs";
 import { suspendIssue, resumeIssue } from "../agent/extensions/execution-recovery/issue-recovery.mjs";
 import { authenticateAttemptChain } from "../agent/lib/verification/attempt-chain.mjs";
+import { reconcileExternalChanges } from "../agent/extensions/execute-and-review/reconcile-attempt.mjs";
 import { validateFeature } from "../agent/extensions/feature-validation/feature.mjs";
 import {
   prepareIssueHandoff,
@@ -1719,5 +1720,42 @@ test(
     );
     assert.deepEqual(record.args.checks[1].command, ["pytest", "-q"]);
     assert.equal(record.attempt, 3);
+  },
+);
+
+test(
+  "an outside working-tree change is recorded by reconciliation and the chain continues from it",
+  integration,
+  async (t) => {
+    const f = await fixture(t);
+    await f.approve("F");
+    await f.call("design-finish");
+    await f.call("start", { task_id: "F" });
+    const first = await f.run(await f.args("F"), "NEEDS_DESIGN", () =>
+      writeFile(path.join(f.dir, "stray.txt"), "requested to be removed\n"),
+    );
+    assert.ok(first.evidence, JSON.stringify(first));
+    const receipt = first.evidence.reference;
+    // The user removes the file the review flagged: the tree no longer matches the receipt.
+    await rm(path.join(f.dir, "stray.txt"));
+    const refused = await f.run({ previousAttempt: receipt, input: '{"operations":[]}' });
+    assert.equal(refused.status, "BLOCKED");
+    assert.equal(refused.code ?? refused.reason, "CONTINUATION_RECEIPT_INAPPLICABLE", JSON.stringify(refused));
+    const ctx = { directory: f.dir };
+    const deps = { confirm: async () => true };
+    const decl = { task: f.binding("F"), previousAttempt: receipt, reason: "user removed stray.txt" };
+    const reconciled = await reconcileExternalChanges(decl, ctx, { ...f.options, deps });
+    assert.equal(reconciled.reason, "EXTERNAL_CHANGES_RECONCILED", JSON.stringify(reconciled));
+    assert.equal(reconciled.evidence.attempt, 2);
+    assert.ok(reconciled.changes.paths.some((p) => p.endsWith("stray.txt")));
+    const chain = await authenticateAttemptChain(f.dir, reconciled.evidence.reference, f.binding("F"));
+    assert.equal(chain.records.length, 2);
+    assert.notEqual(chain.record.result.status, "PASSED");
+    // The next attempt continues from the reconciliation receipt on the changed tree.
+    const next = await f.run({ previousAttempt: reconciled.evidence.reference, input: '{"operations":[]}' }, "NEEDS_DESIGN");
+    assert.equal(next.evidence.attempt, 3, JSON.stringify(next));
+    // Reconciling again with nothing changed is refused, and a stale receipt is too.
+    assert.equal((await reconcileExternalChanges({ ...decl, previousAttempt: next.evidence.reference }, ctx, { ...f.options, deps })).reason, "NOTHING_TO_RECONCILE");
+    assert.equal((await reconcileExternalChanges(decl, ctx, { ...f.options, deps })).reason, "CONTINUATION_RECEIPT_STALE");
   },
 );

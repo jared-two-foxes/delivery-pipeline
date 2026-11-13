@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { git } from "./tree.mjs";
 
-const SCOPE = ["--", ".", ":(exclude).scaffold"];
+import { IMPLEMENTATION_SCOPE as SCOPE } from "./scope.mjs";
 
 /** Commit the working tree (tracked, staged, untracked non-ignored) to a ref without touching index or files. */
 export async function saveWorkingTree(repository, refName, message) {

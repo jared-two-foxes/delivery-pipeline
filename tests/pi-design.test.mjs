@@ -67,7 +67,7 @@ test('delegated issue designs remain explicit and final review remains mandatory
 
 test('native checkpoints, recovery and validation reuse the same durable direction authority', () => {
   const native = read('agent/extensions/execute-and-review/tools.mjs');
-  assert.equal((native.match(/host\.confirm\(/g) ?? []).length, 3, 'one routine direction confirmation, one explicit material-amendment confirmation, and one explicit confirmation before force-closing an interrupted invocation');
+  assert.equal((native.match(/host\.confirm\(/g) ?? []).length, 4, 'one routine direction confirmation, one explicit material-amendment confirmation, one explicit confirmation before force-closing an interrupted invocation, and one confirmation of the changed paths before recording outside working-tree changes');
   assert.match(native, /approveFeatureDirection/);
   assert.doesNotMatch(native, /registerRecoveryTools|name: "(?:validate_feature|checkpoint_verified_task)"/);
   const recovery = read('agent/extensions/execution-recovery/tools.mjs');
