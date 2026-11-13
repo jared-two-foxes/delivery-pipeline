@@ -51,3 +51,12 @@ export function withFailureReporting(tool, options = {}) {
       wrapped.execute(undefined, params, host.signal, host.onUpdate, { cwd: host.cwd, host }),
   };
 }
+
+/**
+ * When an approval tool failed because `host.confirm` was refused, say why. Pi's host has no `confirmFailure`,
+ * so this leaves its results untouched.
+ */
+export function withApprovalReason(host, result) {
+  if (result?.ok !== false || !host?.confirmFailure) return result;
+  return { ...result, message: `${result.message} Reason: ${host.confirmFailure}.` };
+}

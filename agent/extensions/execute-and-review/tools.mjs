@@ -13,7 +13,7 @@ import { scaffoldCliUsage, scaffoldCliUsageSince } from "../scaffold/adapter.mjs
 import { combineScaffoldUsage } from "../../lib/verification/timings.mjs";
 import { approveDeliveryAmendment } from "./context-amendment.mjs";
 import { formatScope } from "../../lib/host/format-scope.mjs";
-import { defineTool, toolResult, withFailureReporting } from "../../lib/host/tool.mjs";
+import { defineTool, toolResult, withApprovalReason, withFailureReporting } from "../../lib/host/tool.mjs";
 
 export function createExecuteAndReviewTools(Type) {
   return [
@@ -53,7 +53,7 @@ export function createExecuteAndReviewTools(Type) {
               ),
           },
         );
-        return toolResult(result, { indent: 0 });
+        return toolResult(withApprovalReason(host, result), { indent: 0 });
       },
     })),
     withFailureReporting(defineTool({
@@ -83,7 +83,7 @@ export function createExecuteAndReviewTools(Type) {
               ),
           },
         );
-        return toolResult(result, { indent: 0 });
+        return toolResult(withApprovalReason(host, result), { indent: 0 });
       },
     })),
     withFailureReporting(defineTool({
