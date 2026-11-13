@@ -125,8 +125,12 @@ export async function authenticateAttemptChain(repository, reference, binding, s
       previous.after.tree === record.before.tree, 'Invalid correction receipt chain');
     return { record, records: [...prior.records, record] };
   }
-  requireValue(record.attempt === 1 && record.before.clean &&
-    record.before.tree === git(repository, ['rev-parse', record.args.baseRef + '^{tree}']), 'Task did not start from a clean isolated baseline');
+  // Say which condition failed: the bare message cannot tell a moved baseline from a dirty or re-normalized tree.
+  const baseTree = git(repository, ['rev-parse', record.args.baseRef + '^{tree}']);
+  requireValue(record.attempt === 1, 'Task did not start from a clean isolated baseline: chain root is attempt ' + record.attempt + ', not 1');
+  requireValue(record.before.clean, 'Task did not start from a clean isolated baseline: the recorded start state was not clean');
+  requireValue(record.before.tree === baseTree, 'Task did not start from a clean isolated baseline: recorded start tree ' + record.before.tree +
+    ' differs from tree ' + baseTree + ' of baseRef ' + record.args.baseRef + ' (check line-ending normalization or untracked files at attempt start)');
   return { record, records: [record] };
 }
 
