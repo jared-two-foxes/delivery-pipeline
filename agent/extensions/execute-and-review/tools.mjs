@@ -319,7 +319,7 @@ export function createExecuteAndReviewTools(Type) {
         ),
         reviewModel: Type.Optional(
           Type.String({
-            description: "Independent review model; default opencode/gpt-6.1-sol",
+            description: "Independent review model; default opencode/gpt-6-luna",
           }),
         ),
         workflowTimeoutMs: Type.Optional(

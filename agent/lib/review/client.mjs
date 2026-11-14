@@ -27,8 +27,12 @@ export function reviewStep(requestPath, request, requirements, settings, {
   };
 }
 
+// Per-task review judges one issue's diff against its own criteria, so it uses a
+// cheaper model than the whole-feature gate (see REVIEW_MODEL / feature.mjs).
+export const DEFAULT_TASK_REVIEW_MODEL = "opencode/gpt-6-luna";
+
 export function deliveryReviewSettings(args) {
-  const model = args.reviewModel ?? "opencode/gpt-6.1-sol";
+  const model = args.reviewModel ?? DEFAULT_TASK_REVIEW_MODEL;
   requireValue(
     typeof model === "string" &&
       model.trim() &&

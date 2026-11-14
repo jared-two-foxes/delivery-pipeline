@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { readFile, stat, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import { homedir } from 'node:os';
+import { DEFAULT_TASK_REVIEW_MODEL } from '../../lib/review/client.mjs';
 const digest = v => createHash('sha256').update(JSON.stringify(v)).digest('hex');
 export function diagnosticSignature(value) {
   return digest(String(value).replace(/\x1b\[[0-9;]*m/g, '').replace(/\b\d+(?:\.\d+)?(?:ms|s)\b/g, '<time>')
@@ -83,7 +84,7 @@ export async function reviewEnvironment(args) {
   let generation = 'absent';
   try { const s = await stat(credentials); generation = [s.mtimeMs, s.ctimeMs, s.ino, s.size]; } catch {}
   return digest([await executable(process.env.REVIEW_CLI_BIN ?? 'review-cli'),
-    args.reviewModel ?? 'opencode/gpt-6.1-sol', process.env.REVIEW_PROVIDER_ROOT ?? '', generation,
+    args.reviewModel ?? DEFAULT_TASK_REVIEW_MODEL, process.env.REVIEW_PROVIDER_ROOT ?? '', generation,
     // Presence only: never retain a secret or a guessable hash of a secret.
     !!process.env.OPENCODE_API_KEY, !!process.env.OPENAI_API_KEY]);
 }
