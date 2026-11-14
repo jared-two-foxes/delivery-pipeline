@@ -203,6 +203,7 @@ export async function validateFeature(args, context = {}, options = {}) {
     };
     for (const check of plan.checks) {
       const checkClock = stopwatch();
+      monitor.mark('check', check.name);
       const output = await runCheck(check.command, { cwd: repository, signal: context.abort, timeoutMs: plan.timeoutMs });
       checkTimings.push({ name: check.name, started_at: checkClock.startedAt, duration_ms: checkClock.elapsed() });
       record.checks.push({ name: check.name, definition: check, ...output, meaningful: meaningful(check, output) });
@@ -216,6 +217,7 @@ export async function validateFeature(args, context = {}, options = {}) {
     if (record.checks.length === plan.checks.length && record.checks.every(c => c.meaningful)) {
       await options.interrupt?.('beforeReview');
       const reviewClock = stopwatch();
+      monitor.mark('review');
       const review = await reviewChanges({ ...plan.review, repository, baseRef: binding.baseline, headRef: binding.head,
         requirements: reviewScope(requirements, record.checks) }, context, options.reviewOptions);
       reviewMs = reviewClock.elapsed();
@@ -225,6 +227,7 @@ export async function validateFeature(args, context = {}, options = {}) {
         obligationsVerified({ deliveryContext: { obligations: pre.obligations } }, review) ? 'PASSED' : review.status === 'CHANGES_REQUESTED' ? 'NEEDS_DESIGN' : 'BLOCKED',
         { message: review.reason ?? review.message ?? 'Independent review indeterminate' });
     }
+    monitor.mark('retention');
     await unchanged({ fresh: true });
     await options.interrupt?.('beforeRetention');
     // Additive telemetry in its own top-level field; not part of any authenticated comparison.
@@ -244,7 +247,8 @@ export async function validateFeature(args, context = {}, options = {}) {
       try {
         // Failed and interrupted runs keep the timing evidence gathered so far.
         const failed = { ...record, result: result('BLOCKED', { message: error.message }),
-          timings: currentTimings(), after: await snapshot(repository) };
+          timings: currentTimings(), after: await snapshot(repository),
+          ...(monitor?.total() ? { monitorDiagnostics: monitor.diagnostics() } : {}) };
         const failureRef = await retainFeatureEvidence(repository, failed);
         blocked.diagnosticEvidenceRef = failureRef;
         // A post-retention interruption may have succeeded; leave that intent recoverable.
