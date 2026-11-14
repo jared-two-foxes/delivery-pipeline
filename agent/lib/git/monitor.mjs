@@ -5,7 +5,11 @@ const MAX_EVENTS = 200;
 // Any notification on a tracked path (or one that names no path) still trips the monitor, because a
 // write-then-revert is invisible to the Git fingerprint. The offending events are recorded so a trip
 // can be told apart as a real edit, a touch/antivirus metadata event, or an unnamed overflow.
-export function monitorTrackedInputs(repository) {
+// `ignoreMetadataOnly` is an explicit, human-authorized opt-in (default false = strict). Even then a
+// notification is ignored only when its event-time content hash equals the baseline; because the hash is
+// taken when the callback runs, a write restored before then is indistinguishable, so only enable it for a
+// machine with a known touch/antivirus source.
+export function monitorTrackedInputs(repository, { ignoreMetadataOnly = false } = {}) {
   const files = git(repository, ["ls-files", "-z"]).split("\0").filter(Boolean);
   const watchers = [];
   const events = [];
@@ -44,10 +48,11 @@ export function monitorTrackedInputs(repository) {
     const rel = file ? file.split(path.sep).join("/") : null;
     const observed = rel ? observe(rel) : {};
     const classification = rel && observed.content_matches_baseline === true ? "metadata-only" : "blocking";
-    if (classification === "blocking") blocking++;
+    const blocks = classification === "blocking" || !ignoreMetadataOnly;
+    if (blocks) blocking++;
     if (events.length >= MAX_EVENTS) return;
     events.push({ kind, path: rel, dir: path.relative(repository, dir).split(path.sep).join("/") || ".",
-      at: new Date().toISOString(), ...stage, ...observed, classification });
+      at: new Date().toISOString(), ...stage, ...observed, classification, blocks });
   };
   try {
     const tracked = new Set(files.map((f) => path.resolve(repository, f)));
@@ -74,14 +79,14 @@ export function monitorTrackedInputs(repository) {
     // Label subsequent notifications with the validation stage and active command.
     mark: (name, command = null) => { stage = { stage: name, command }; },
     // Structured, serialisable summary for failure receipts.
-    diagnostics: () => ({ total, blocking, warnings: total - blocking, retained: events.length, events: events.slice() }),
+    diagnostics: () => ({ ignoreMetadataOnly, total, blocking, warnings: total - blocking, retained: events.length, events: events.slice() }),
     assert: () => {
       if (!blocking) return;
-      const shown = events.filter((e) => e.classification === "blocking");
+      const shown = events.filter((e) => e.blocks);
       const first = shown[0];
       const detail = shown.slice(0, 3).map((e) => `${e.kind} ${e.path ?? "<unnamed in " + e.dir + ">"} @${e.at}${e.content_matches_baseline === false ? " (content differs)" : e.path ? " (content not verifiable)" : ""}`).join("; ");
       throw new Error("Tracked implementation inputs changed during validation; reconcile" +
-        ` (${blocking} blocking notification${blocking === 1 ? "" : "s"}${total > blocking ? `, ${total - blocking} metadata-only ignored` : ""}` +
+        ` (${blocking} blocking notification${blocking === 1 ? "" : "s"}${total > blocking ? `, ${total - blocking} metadata-only ignored (opt-in)` : ""}` +
         `${first ? `, first ${first.kind} ${first.path ?? "<unnamed>"}: ${detail}` : ""}${blocking > shown.length ? `; ${blocking - shown.length} more not recorded` : ""})`);
     },
     close: () => watchers.forEach((w) => w.close()),
