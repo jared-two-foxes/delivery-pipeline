@@ -132,7 +132,8 @@ export async function rewriteFeatureHistory(args, context = {}, options = {}) {
   } catch (error) {
     let diagnosticEvidenceRef;
     if (verification && repository && !reference) {
-      try { diagnosticEvidenceRef = await retainFeatureEvidence(repository, { ...verification, result: result('BLOCKED', error.message) }); } catch {}
+      try { diagnosticEvidenceRef = await retainFeatureEvidence(repository, { ...verification, result: result('BLOCKED', error.message),
+        ...(monitor?.total() ? { monitorDiagnostics: monitor.diagnostics() } : {}) }); } catch {}
     }
     return { ...result('BLOCKED', error.message), evidenceRef: reference, diagnosticEvidenceRef,
       recovery: 'Nothing was changed in Scaffold or Git. Inspect retained evidence and the actual Git state; never edit the ledger or reset work' };

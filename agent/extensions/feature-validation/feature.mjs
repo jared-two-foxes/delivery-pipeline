@@ -232,6 +232,8 @@ export async function validateFeature(args, context = {}, options = {}) {
     await options.interrupt?.('beforeRetention');
     // Additive telemetry in its own top-level field; not part of any authenticated comparison.
     record.timings = currentTimings();
+    // Ignored metadata-only notifications stay visible in the receipt.
+    if (monitor.total()) record.monitorDiagnostics = monitor.diagnostics();
     reference = await retainFeatureEvidence(repository, record);
     await options.interrupt?.('afterRetention');
     await unchanged();

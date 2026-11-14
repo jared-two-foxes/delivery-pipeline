@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, utimesSync } from "node:fs";
+import { mkdtempSync, writeFileSync, utimesSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { monitorTrackedInputs } from "../agent/lib/git/monitor.mjs";
@@ -16,7 +16,7 @@ function repo() {
   return dir;
 }
 
-test("metadata-only touch is recorded with matching hash and still trips the guard", async () => {
+test("metadata-only touch is recorded with matching hash and is a warning and does not trip the guard", async () => {
   const dir = repo(); const m = monitorTrackedInputs(dir);
   m.mark("check", "cargo test");
   const now = new Date(); utimesSync(path.join(dir, "a.txt"), now, now);
@@ -24,7 +24,9 @@ test("metadata-only touch is recorded with matching hash and still trips the gua
   const [e] = m.diagnostics().events;
   assert.equal(e.path, "a.txt"); assert.equal(e.stage, "check"); assert.equal(e.command, "cargo test");
   assert.equal(e.content_matches_baseline, true); assert.ok(e.mtime && e.ctime && e.size === 4);
-  assert.throws(() => m.assert(), /content unchanged/);
+  assert.equal(e.classification, "metadata-only");
+  assert.equal(m.blocking(), 0); assert.doesNotThrow(() => m.assert());
+  assert.deepEqual([m.diagnostics().blocking, m.diagnostics().warnings], [0, m.total()]);
 });
 
 test("content write is recorded as differing from baseline", async () => {
@@ -32,4 +34,22 @@ test("content write is recorded as differing from baseline", async () => {
   writeFileSync(path.join(dir, "a.txt"), "two\n");
   await wait(m); m.close();
   assert.equal(m.diagnostics().events[0].content_matches_baseline, false);
+  assert.throws(() => m.assert(), /content differs/);
+});
+
+test("a metadata-only touch does not mask a later real edit", async () => {
+  const dir = repo(); const m = monitorTrackedInputs(dir);
+  const now = new Date(); utimesSync(path.join(dir, "a.txt"), now, now);
+  await wait(m); writeFileSync(path.join(dir, "a.txt"), "three\n");
+  for (let i = 0; i < 50 && !m.blocking(); i++) await new Promise((r) => setTimeout(r, 40));
+  m.close();
+  assert.throws(() => m.assert(), /1 blocking notification/);
+});
+
+test("deleted tracked file blocks because its content cannot be verified", async () => {
+  const dir = repo(); const m = monitorTrackedInputs(dir);
+  rmSync(path.join(dir, "a.txt"));
+  for (let i = 0; i < 50 && !m.blocking(); i++) await new Promise((r) => setTimeout(r, 40));
+  m.close();
+  assert.throws(() => m.assert(), /content not verifiable/);
 });
