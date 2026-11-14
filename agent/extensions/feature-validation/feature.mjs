@@ -184,7 +184,7 @@ export async function validateFeature(args, context = {}, options = {}) {
     context.abort?.throwIfAborted();
     const confirmed = await derive(repository, args, options);
     requireValue(equal(confirmed.feature.tasks, pre.feature.tasks) && stable(pre.before, confirmed.before), 'Source/state changed during authorization');
-    monitor = monitorTrackedInputs(repository);
+    monitor = monitorTrackedInputs(repository, { ignoreMetadataOnly: options.ignoreMetadataOnlyNotifications === true });
     record = { attemptId: randomUUID(), binding, plan, tasks: pre.feature.tasks, requirements,
       obligations: pre.obligations, scopedTaskChecks: true,
       before: pre.before, after: pre.before, checkpoints: pre.checkpoints, checks: [], review: null,
@@ -232,6 +232,8 @@ export async function validateFeature(args, context = {}, options = {}) {
     await options.interrupt?.('beforeRetention');
     // Additive telemetry in its own top-level field; not part of any authenticated comparison.
     record.timings = currentTimings();
+    // Ignored metadata-only notifications stay visible in the receipt.
+    if (monitor.total()) record.monitorDiagnostics = monitor.diagnostics();
     reference = await retainFeatureEvidence(repository, record);
     await options.interrupt?.('afterRetention');
     await unchanged();

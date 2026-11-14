@@ -59,6 +59,9 @@ export function createFeatureValidationTools(Type) {
           params,
           { directory: host.cwd, abort: host.signal },
           {
+            // Human-set host environment only; deliberately not a tool parameter the agent could choose.
+            // Ignores notifications whose content hash equals the baseline. Default is strict.
+            ignoreMetadataOnlyNotifications: process.env.PI_VALIDATION_IGNORE_METADATA_ONLY === "1",
             authorize: async () =>
               featureAuthorized(withoutValidationBase(params), { directory: host.cwd, abort: host.signal }),
           },
