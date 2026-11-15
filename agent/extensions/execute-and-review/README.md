@@ -164,7 +164,7 @@ and requires `APPROVED` with no blocking findings before the commit entry runs.
 [
   {"name": "executor", "program": "executor", "args": ["apply", "/repo/.scaffold/work/runs/attempt-unique/executor.json"]},
   {"name": "invoice tests", "program": "cargo", "args": ["test", "--lib", "invoices::"]},
-  {"name": "review", "program": "review-cli", "args": ["run", "--request", "/repo/.scaffold/work/runs/attempt-unique/review.json", "--format", "json", "--model", "opencode/gpt-6.1-sol", "--wall-clock-budget-secs", "180", "--max-turns", "20", "--ledger", "/repo/.scaffold/work/runs/attempt-unique/review-ledger.jsonl"]}
+  {"name": "review", "program": "review-cli", "args": ["run", "--request", "/repo/.scaffold/work/runs/attempt-unique/review.json", "--format", "json", "--model", "opencode/gpt-6-luna", "--wall-clock-budget-secs", "180", "--max-turns", "20", "--ledger", "/repo/.scaffold/work/runs/attempt-unique/review-ledger.jsonl"]}
 ]
 ```
 
