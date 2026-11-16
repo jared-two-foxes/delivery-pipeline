@@ -50,14 +50,22 @@ const scopeOf = (args, feature, { validation, status, finished, binding }) => ({
  * `store(artifact)` returns a ledger reference; `record(payload)` appends the `validation-accept` entry.
  */
 export async function acceptFeatureResult(args, { readFeature, store, record }, context = {}, options = {}) {
+  let writing = false; // true once the write to Scaffold has been attempted: its outcome may be unknown
   try {
     context.abort?.throwIfAborted();
     let feature = await readFeature();
     const first = derive(args, feature);
-    // Idempotent: a repeat, or a retry after a lost response, needs no new prompt.
-    if (first.status === 'accepted')
+    // Idempotent: a repeat, or a retry after a lost response, needs no new prompt. A note that was not part of
+    // the recorded acceptance is not a repeat: it was never shown to the user or retained, so it is refused.
+    if (first.status === 'accepted') {
+      const recorded = first.validation.accepted;
+      if (args.note !== undefined && args.note !== recorded?.note)
+        throw Object.assign(new Error('Already accepted with a different note. The recorded note is ' +
+          (recorded?.note === undefined ? 'absent' : JSON.stringify(recorded.note)) + '; the new note was not recorded'),
+        { recovery: 'The existing acceptance is unchanged. Repeat without a note to confirm it, or give the recorded note.' });
       return { ok: true, status: 'ACCEPTED', recovered: true, featureId: feature.id, attemptId: first.validation.current,
-        head: first.binding.head, accepted: first.validation.accepted };
+        head: first.binding.head, accepted: recorded };
+    }
     const scope = scopeOf(args, feature, first);
     requireValue(await options.confirm?.(scope) === true, 'Explicit user approval of this acceptance is required');
     context.abort?.throwIfAborted();
@@ -71,12 +79,17 @@ export async function acceptFeatureResult(args, { readFeature, store, record }, 
     const unchanged = derive(args, await readFeature());
     requireValue(unchanged.status !== 'accepted' && equal(scope, scopeOf(args, feature, unchanged)),
       'The validation result changed before the acceptance was recorded; nothing was recorded');
+    // A cancelled call must never persist the user's sign-off: check immediately before the write.
+    context.abort?.throwIfAborted();
+    writing = true;
     await record({ attempt_id: scope.attemptId, binding: second.binding, approval, ...(args.note === undefined ? {} : { note: args.note }) });
     await options.interrupt?.('afterRecord');
     return { ok: true, status: 'ACCEPTED', featureId: feature.id, attemptId: scope.attemptId, head: scope.head,
       fromStatus: scope.fromStatus, resultKind: scope.resultKind, approval, ...(args.note === undefined ? {} : { note: args.note }) };
   } catch (error) {
     return { ok: false, status: 'BLOCKED', message: error.message,
-      recovery: 'Nothing was recorded. Check scaffold_tasks summary: acceptance needs the current result to be checked or verified at the head you name. Retry only with the exact head you approve.' };
+      recovery: error.recovery ?? (writing
+        ? 'The write to Scaffold may have completed, so do not assume it was rolled back. Check scaffold_tasks summary: if validation_status is accepted the sign-off is recorded, and repeating accept_feature with the same head is safe (it will not prompt again); otherwise retry with the exact head you approve.'
+        : 'Nothing was recorded. Check scaffold_tasks summary: acceptance needs the current result to be checked or verified at the head you name. Retry only with the exact head you approve.') };
   }
 }

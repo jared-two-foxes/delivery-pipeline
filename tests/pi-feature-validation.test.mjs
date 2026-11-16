@@ -1113,3 +1113,60 @@ test("a rerun of the checks leaves an accepted feature alone, and a graph change
   assert.equal(reopened.accepted, undefined);
   assert.match((await acceptWith(f, head)).message, /checked or verified/);
 });
+
+test("accept_feature refuses a replay whose note was never recorded or shown, but not a plain repeat", integration, async (t) => {
+  const { f, head } = await checkedFeature(t);
+  assert.equal((await acceptWith(f, head, { note: "Merged as PR 42" })).status, "ACCEPTED");
+  const before = (await f.call("list")).feature.validation;
+  const noPrompt = { confirm: async () => { throw new Error("must not prompt again"); } };
+  const other = await acceptWith(f, head, { note: "Merged as PR 43" }, noPrompt);
+  assert.equal(other.status, "BLOCKED", JSON.stringify(other));
+  assert.match(other.message, /different note/);
+  assert.match(other.recovery, /existing acceptance is unchanged/);
+  assert.deepEqual((await f.call("list")).feature.validation, before, "the unseen note was not recorded");
+  // The recorded note, or no note at all, is a genuine repeat.
+  const same = await acceptWith(f, head, { note: "Merged as PR 42" }, noPrompt);
+  assert.deepEqual([same.status, same.recovered], ["ACCEPTED", true]);
+  const none = await acceptWith(f, head, {}, noPrompt);
+  assert.deepEqual([none.status, none.recovered], ["ACCEPTED", true]);
+  // Accepted without a note, a replay that brings one is refused too.
+  const g = await checkedFeature(t);
+  assert.equal((await acceptWith(g.f, g.head)).status, "ACCEPTED");
+  const added = await acceptWith(g.f, g.head, { note: "late note" }, noPrompt);
+  assert.equal(added.status, "BLOCKED");
+  assert.match(added.message, /recorded note is absent/);
+  assert.equal((await g.f.call("list")).feature.validation.accepted.note, undefined);
+});
+
+test("accept_feature never records after the call was cancelled", integration, async (t) => {
+  const { f, head } = await checkedFeature(t);
+  const controller = new AbortController();
+  // Cancelled during artifact storage, after the last abort check that used to guard the write.
+  const r = await acceptFeature(acceptArgs(head), { directory: f.dir, abort: controller.signal },
+    { scaffoldOptions: f.options.scaffoldOptions, confirm: async () => true,
+      interrupt: async (at) => { if (at === "afterArtifact") controller.abort(); } });
+  assert.equal(r.status, "BLOCKED", JSON.stringify(r));
+  assert.match(r.recovery, /Nothing was recorded/);
+  const validation = (await f.call("list")).feature.validation;
+  assert.equal(validation.status, "checked");
+  assert.ok(!validation.history.some((h) => h.event === "accepted"), "a cancelled call recorded no sign-off");
+  // A fresh, uncancelled call still succeeds.
+  assert.equal((await acceptWith(f, head)).status, "ACCEPTED");
+});
+
+test("accept_feature does not claim nothing was recorded once the write may have committed", integration, async (t) => {
+  const { f, head } = await checkedFeature(t);
+  // Interrupted after the write landed, as with a lost or malformed response from the CLI.
+  const r = await acceptWith(f, head, {}, { interrupt: async (at) => { if (at === "afterRecord") throw new Error("Interrupted after the write"); } });
+  assert.equal(r.status, "BLOCKED", JSON.stringify(r));
+  assert.match(r.recovery, /may have completed/);
+  assert.doesNotMatch(r.recovery, /Nothing was recorded/);
+  assert.equal((await f.call("list")).feature.validation.status, "accepted", "the write did commit");
+  // Repeating is safe and does not prompt again.
+  const again = await acceptWith(f, head, {}, { confirm: async () => { throw new Error("must not prompt again"); } });
+  assert.deepEqual([again.status, again.recovered], ["ACCEPTED", true]);
+  // Before the write, the message still says nothing was recorded.
+  const g = await checkedFeature(t);
+  const early = await acceptWith(g.f, g.head, {}, { interrupt: async (at) => { if (at === "afterArtifact") throw new Error("Interrupted"); } });
+  assert.match(early.recovery, /Nothing was recorded/);
+});
