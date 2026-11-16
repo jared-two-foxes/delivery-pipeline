@@ -6,6 +6,7 @@ import { isDeepStrictEqual as equal } from "node:util";
 import { runnerExitCodes, validateRunner } from "../conductor/client.mjs";
 
 import { executorInput, executorStep, validateExecutorResult } from "../executor/client.mjs";
+import { reviewCheckpointPath } from "../review/checkpoint.mjs";
 import {
   deliveryReviewSettings,
   reviewRequest,
@@ -57,8 +58,19 @@ export function reviewRequirements(args) {
 }
 
 export function deliveryReviewStep(directory, args, inputs, program) {
+  const settings = deliveryReviewSettings(args);
   return reviewStep(path.join(directory, "review.json"), inputs.review, inputs.requirements,
-    deliveryReviewSettings(args), { program, ledgerPath: path.join(directory, "review-ledger.jsonl") });
+    settings, {
+      program,
+      ledgerPath: path.join(directory, "review-ledger.jsonl"),
+      ...(settings.checkpoint ? {
+        checkpointPath: reviewCheckpointPath(directory),
+        // The review receives these criteria plus per-attempt check evidence (review-handoff.mjs), so its
+        // requirements text differs on every attempt. Bind the checkpoint to the criteria alone.
+        resumeIdentity: "sha256:" + digest(inputs.requirements),
+      } : {}),
+      ...(settings.resumeFrom ? { resumeFrom: settings.resumeFrom } : {}),
+    });
 }
 
 // Authenticate retained request contents without depending on mutable request/log
