@@ -45,12 +45,12 @@ async function state(repository, featureId, options) {
   requireValue(response.ok, 'Cannot inspect Scaffold: ' + (response.message ?? 'invalid response'));
   return response.data.feature;
 }
-async function lifecycle(repository, operation, featureId, payload, options) {
+export async function lifecycle(repository, operation, featureId, payload, options) {
   await checkStatePaths(repository);
   // Final-validation bookkeeping is an internal, bounded operation; do not
   // expose it via the native scaffold_tasks allowlist. Scaffold's task CLI
   // actions now live at the top level (no retired "tasks" prefix).
-  requireValue(['validation-start', 'validation-record', 'validation-invalidate'].includes(operation),
+  requireValue(['validation-start', 'validation-record', 'validation-invalidate', 'validation-accept'].includes(operation),
     'Unsupported internal Scaffold validation transition');
   const response = await (options.scaffoldOptions?.invokeScaffold ?? invoke)('scaffold',
     [operation, '--feature=' + featureId, '--input', '-'],
@@ -303,8 +303,10 @@ export async function runFeatureChecks(args, context = {}, options = {}) {
     // A validation that finished while authorization was pending (tasks and source unchanged) could be
     // "verified" by now; starting an attempt over it would replace it, so refuse rather than decide on stale state.
     requireValue(equal(pre.feature.validation, confirmed.feature.validation), 'Validation state changed during authorization; rerun');
-    // A reviewed "verified" result at this head outranks a checks-only one: leave Scaffold untouched.
-    recording = confirmed.feature.validation?.status !== 'verified';
+    // A reviewed "verified" result, or the user's "accepted" sign-off, outranks a checks-only one at this head:
+    // leave Scaffold untouched, or a cheap rerun would start a new attempt and cancel it.
+    const standing = confirmed.feature.validation?.status;
+    recording = !['verified', 'accepted'].includes(standing);
     monitor = monitorTrackedInputs(repository, { ignoreMetadataOnly: options.ignoreMetadataOnlyNotifications === true });
     record = { attemptId: randomUUID(), binding, plan, tasks: pre.feature.tasks, checkpoints: pre.checkpoints,
       before: pre.before, after: pre.before, checks: [], review: null,
@@ -357,7 +359,9 @@ export async function runFeatureChecks(args, context = {}, options = {}) {
     await unchanged();
     const scaffold = recording
       ? { recorded: true, validation_status: { PASSED: 'checked', NEEDS_DESIGN: 'failed', BLOCKED: 'blocked' }[record.result.status] }
-      : { recorded: false, validation_status: 'verified', reason: 'Already verified by a reviewed validation at this head; left unchanged' };
+      : { recorded: false, validation_status: standing, reason: standing === 'accepted'
+        ? 'Already accepted by the user at this head; left unchanged'
+        : 'Already verified by a reviewed validation at this head; left unchanged' };
     return { ...record.result, binding, evidenceRef: reference, checks: record.checks, review: null, scaffold };
   } catch (error) {
     const blocked = checksResult('BLOCKED', { message: error.message, ...(reference ? { evidenceRef: reference } : {}),
@@ -413,7 +417,7 @@ export async function inspectFeatureValidation(args, context = {}, options = {})
         requireValue(pre.feature.validation?.current === record.attemptId, 'Validation superseded');
         if (checksOnly) {
           requireValue(record.result.status === 'PASSED' && b.task_revision === pre.feature.task_revision &&
-            pre.feature.validation.status === 'checked', 'Checks-only result is not the current passed result');
+            ['checked', 'accepted'].includes(pre.feature.validation.status), 'Checks-only result is not the current passed result');
           applicable = true;
           results.push({ reference, record, kind: 'checks-only', applicable });
           continue;

@@ -65,6 +65,9 @@ test('delegated issue designs remain explicit and the final gate is mechanical, 
   // The whole-feature agent review is no longer mandatory, and feature-delivery never runs validate_feature.
   assert.doesNotMatch(delivery, /Final feature review is mandatory/);
   assert.match(delivery, /do not call\s+`validate_feature`/);
+  // Acceptance is the user's call: the delivery skill mentions accept_feature only as something to do on request.
+  assert.match(delivery, /accept_feature/);
+  assert.match(delivery, /Call it only when the user explicitly asks/);
   // The manual question skill exists and is never invoked by the delivery workflows.
   const questions = read('skills-src/feature-questions/SKILL.md');
   assert.match(questions, /disable-model-invocation: true/);

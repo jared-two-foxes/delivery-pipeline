@@ -1,6 +1,6 @@
 # Delivery tools over MCP
 
-`server.mjs` serves the same 20 delivery tools Pi registers (`scaffold_tasks`, `execute_and_review`,
+`server.mjs` serves the same 21 delivery tools Pi registers (`scaffold_tasks`, `execute_and_review`,
 `checkpoint_verified_task`, `validate_feature`, the recovery tools, `review_changes`, ...) to any MCP host.
 It loads the host-neutral definitions in `agent/extensions/*/tools.mjs`; nothing is duplicated.
 The adapter logic is `agent/lib/host/mcp.mjs` (dependency-free and unit-tested); this directory only
@@ -29,7 +29,7 @@ uses the same tool code as other hosts:
 PI_DELIVERY_TRANSPORT=mcp pi
 ```
 
-- **Default is unchanged.** Without the variable Pi registers all 20 tools natively, as before.
+- **Default is unchanged.** Without the variable Pi registers all 21 tools natively, as before.
 - **Safe fallback.** Before choosing MCP, Pi's transport check actually starts the server
   (`node start.mjs --check` loads the whole module graph and exits). A missing file, missing or partial
   dependencies (including ones the direct packages need), a Node too old for the SDK, or no `node` on `PATH`
@@ -40,8 +40,8 @@ PI_DELIVERY_TRANSPORT=mcp pi
   reconnects on the next call; the native tools are not restored mid-session (Pi exposes no connection state
   to extensions, only each server's config).
 - **Approvals stay native.** Pi 1.5.2's MCP client declares `{"roots":{}}` and no `elicitation`, so approvals
-  over MCP would always fail closed. The three tools marked `interactive` (`approve_feature_direction`,
-  `approve_delivery_amendment`, `adopt_foreign_commits`) therefore register natively and the server omits them
+  over MCP would always fail closed. The four tools marked `interactive` (`approve_feature_direction`,
+  `approve_delivery_amendment`, `adopt_foreign_commits`, `accept_feature`) therefore register natively and the server omits them
   (`PI_DELIVERY_MCP_OMIT_INTERACTIVE=1`, set by the extension). This is safe because approvals are written to
   the Scaffold ledger and every other tool reads them back from there; no state is shared in memory.
 - **Settings the extension applies.** `exposure: "direct"` (Pi's default `codemode` would hide the tools from
@@ -55,7 +55,7 @@ PI_DELIVERY_TRANSPORT=mcp pi
 
 Verified against real Pi 1.5.2 without a model (extensions loaded explicitly, `PI_DELIVERY_TRANSPORT=mcp`):
 the server registers and connects; Pi's tool list becomes 14 `mcp__pidelivery__*` tools plus the 3 native
-approval tools; the server runs in the session directory; with the variable unset all 20 tools are native; with
+approval tools; the server runs in the session directory; with the variable unset all 21 tools are native; with
 a missing server path, or a server whose direct dependencies are present but which cannot start, it falls
 back to all 17 native. **Not verified:** an actual tool call through Pi's MCP
 client (needs a model), and approvals and long runs in a live session.
@@ -64,8 +64,8 @@ client (needs a model), and approvals and long runs in a live session.
 
 - **Validates arguments.** Pi checked them against the TypeBox schema before `execute`; the MCP SDK's server
   does not. The adapter validates every call (`ajv`) and refuses to be built without a validator.
-- **Approvals via elicitation.** `approve_feature_direction`, `approve_delivery_amendment` and
-  `adopt_foreign_commits` ask the human through MCP elicitation, so the host shows the prompt and the
+- **Approvals via elicitation.** `approve_feature_direction`, `approve_delivery_amendment`,
+  `adopt_foreign_commits` and `accept_feature` ask the human through MCP elicitation, so the host shows the prompt and the
   agent cannot answer it. Only an explicit `accept` with `approve: true` counts. A client without
   elicitation support, a thrown error, or any other answer is a refusal: the tools fail closed. A refusal
   now carries its reason in the tool's message (`Reason: ...`): no elicitation capability, prompt could not be

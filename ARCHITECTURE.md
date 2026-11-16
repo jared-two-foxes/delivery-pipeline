@@ -72,6 +72,7 @@ constraints. Issue designs are produced afterwards, inside that approved scope.
 | `execute_and_review` | execute-and-review | One Executor, checks, Review pass; auto-completes and checkpoints on PASS | source, evidence, Scaffold, Git |
 | `checkpoint_verified_task` | checkpoint | Create or recover the checkpoint commit for a passed task | Git |
 | `run_feature_checks` | feature-validation | Final full build/test checks, no agent review; the gate `feature-delivery` uses. Records `checked` (never `verified`) in Scaffold | evidence, Scaffold |
+| `accept_feature` | feature-validation | The user's sign-off on the current `checked`/`verified` result (UI confirm); judged from the ledger alone. Never called by a skill on its own | evidence, Scaffold |
 | `validate_feature` | feature-validation | Full checks + whole-feature agent review, recorded in Scaffold. Not called by any skill; kept available | evidence, Scaffold |
 | `inspect_conductor_evidence`, `inspect_feature_validation`, `inspect_issue_handoff`, `inspect_issue_attempt` | various | Read retained evidence and handoffs | none |
 | `suspend_issue`, `resume_issue` | execution-recovery | Park an unfinished issue (saved source/index) and return the graph to design; restore it later | Scaffold, refs, evidence |
@@ -187,6 +188,7 @@ needs its own accommodation here. That is the source of most special cases.
 | Feature direction | `approve_feature_direction` (UI confirm) | A `direction-approve` ledger entry; Scaffold computes and matches the scope digest | The whole local loop: design, implementation, checks, review, checkpoints, recovery. **Not** publish or merge. |
 | Delivery amendment | `approve_delivery_amendment` | Per change | One concrete contract change |
 | Foreign commits | `adopt_foreign_commits` (UI confirm) | Recorded in the ledger | One named recorded head to new head range |
+| Feature acceptance | `accept_feature` (UI confirm) | A `validation-accept` ledger entry; ends at any later graph or history change, invalidation or new validation | The user's sign-off on one validated head. Grants nothing else: not publish, merge or change |
 | Checkpoint grant | per-session UI grant (`checkpointAuthorization`) | Session | Local commits; separate from feature direction |
 
 ## 8. Recovery: which tool, when

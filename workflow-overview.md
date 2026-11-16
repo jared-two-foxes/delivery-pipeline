@@ -52,7 +52,10 @@ preparation to `init-feature`, with no redundant direction approval.
 5. **Check the feature:** Run meaningful full-project build and test checks via
    `run_feature_checks` (no agent review; per-issue review already happened),
    including a rerun after corrective issues. Report actual results and
-   reviewable commits/PRs to the user, and mention `/skill:feature-questions`. Pushes
+   reviewable commits/PRs to the user, and mention `/skill:feature-questions`.
+   When the user later asks to mark the feature complete (typically after their own
+   review and merge), `accept_feature` records their sign-off on the validated head;
+   Scaffold then shows `accepted`. Pushes
    and PR publishing require their own user authority; merges remain human-owned.
 
 Use explicit targeted `checks` for leaves and scoped integration checks for

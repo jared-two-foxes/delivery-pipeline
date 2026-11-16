@@ -154,9 +154,17 @@ The result is recorded in Scaffold as a checks-only result. A PASSED run makes t
 feature's `validation_status` **`checked`** (full build and tests passed with meaningful
 output); it is never `verified`, which Scaffold reserves for a result carrying an approved
 independent review. A failed or blocked run records `failed` or `blocked`. A feature that is
-already `verified` at the same head is left unchanged. Any later change to the task graph or
-history makes `checked` inapplicable again, so rerun the checks after corrective work.
-Report `checked` to the user as exactly that.
+already `verified`, or `accepted` by the user, at the same head is left unchanged. Any later
+change to the task graph or history makes `checked` inapplicable again, so rerun the checks
+after corrective work. Report `checked` to the user as exactly that.
+
+Whether the user considers the feature complete is theirs to say, usually after they have
+reviewed it and merged. When they explicitly ask you to mark it accepted or complete, call
+`mcp__plugin_delivery-pipeline_pidelivery__accept_feature` with the validated head (`binding.head` from the checks result). It shows
+them a confirmation of exactly what is being accepted and records `validation_status`
+**`accepted`**. Call it only when the user explicitly asks: never on your own initiative, never as
+part of this workflow, and never to make a failed or unchecked feature look finished. It needs a
+`checked` or `verified` result and ends on any later graph or history change.
 Resolve a failed check through a corrective issue (design, implement, checkpoint)
 without further approval prompts, then rerun the checks. Preserve original criteria
 and every historical failure. Stop on material scope changes as above.

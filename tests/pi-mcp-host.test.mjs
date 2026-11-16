@@ -109,13 +109,13 @@ const approvalTool = () => defineTool({
 });
 const approvedBy = async (r) => JSON.parse(r.content[0].text).approved;
 
-test("server lists all 20 delivery tools with real TypeBox schemas", { skip: !installed && "mcp dependencies not installed" }, async (t) => {
+test("server lists all 21 delivery tools with real TypeBox schemas", { skip: !installed && "mcp dependencies not installed" }, async (t) => {
   const { deliveryTools } = await import("../mcp/server.mjs");
   const { client, close } = await connect(deliveryTools());
   t.after(close);
   const { tools } = await client.listTools();
-  assert.equal(tools.length, 20);
-  assert.equal(new Set(tools.map((x) => x.name)).size, 20);
+  assert.equal(tools.length, 21);
+  assert.equal(new Set(tools.map((x) => x.name)).size, 21);
   for (const x of tools) { assert.equal(x.inputSchema.type, "object", x.name); assert.ok(x.description.length > 40, x.name); }
   assert.ok(tools.some((x) => x.name === "approve_feature_direction"));
 });
@@ -172,14 +172,14 @@ test("launcher without dependencies exits 1 with a one-line fix on stderr and no
   assert.doesNotMatch(run.stderr, /ERR_MODULE_NOT_FOUND|node:internal/, "no raw module-resolution stack trace");
 });
 
-test("launcher serves all 20 tools over real stdio", { skip: !installed && "mcp dependencies not installed" }, async (t) => {
+test("launcher serves all 21 tools over real stdio", { skip: !installed && "mcp dependencies not installed" }, async (t) => {
   const { Client } = await sdk("client/index.js");
   const { StdioClientTransport } = await sdk("client/stdio.js");
   const transport = new StdioClientTransport({ command: process.execPath, args: [fileURLToPath(new URL("../mcp/start.mjs", import.meta.url))], cwd: process.cwd() });
   const client = new Client({ name: "test", version: "0" }, { capabilities: {} });
   t.after(() => client.close());
   await client.connect(transport);
-  assert.equal((await client.listTools()).tools.length, 20);
+  assert.equal((await client.listTools()).tools.length, 21);
 });
 
 // ---- Progress heartbeat: keeps long calls alive for clients that reset their timeout on progress (Pi).
@@ -237,11 +237,11 @@ test("server relays heartbeats as MCP progress notifications when the client ask
 });
 
 // ---- Interactive (approval) tools: stay native in Pi, are omitted from the Pi-facing MCP server.
-test("exactly the three approval tools are marked interactive and MCP listings do not leak the flag", { skip: !installed && "mcp dependencies not installed" }, async () => {
+test("exactly the four approval tools are marked interactive and MCP listings do not leak the flag", { skip: !installed && "mcp dependencies not installed" }, async () => {
   const { deliveryTools } = await import("../mcp/server.mjs");
   const all = deliveryTools();
   assert.deepEqual(all.filter((t) => t.interactive).map((t) => t.name).sort(),
-    ["adopt_foreign_commits", "approve_delivery_amendment", "approve_feature_direction"]);
+    ["accept_feature", "adopt_foreign_commits", "approve_delivery_amendment", "approve_feature_direction"]);
   const rest = deliveryTools({ includeInteractive: false });
   assert.equal(rest.length, 17);
   assert.equal(rest.some((t) => t.interactive), false);
@@ -251,7 +251,7 @@ test("exactly the three approval tools are marked interactive and MCP listings d
 test("PI_DELIVERY_MCP_OMIT_INTERACTIVE=1 makes the served server omit the approval tools", { skip: !installed && "mcp dependencies not installed" }, async (t) => {
   const { Client } = await sdk("client/index.js");
   const { StdioClientTransport } = await sdk("client/stdio.js");
-  for (const [omit, expected] of [["1", 17], [undefined, 20]]) {
+  for (const [omit, expected] of [["1", 17], [undefined, 21]]) {
     const env = { ...process.env, ...(omit ? { PI_DELIVERY_MCP_OMIT_INTERACTIVE: omit } : {}) };
     if (!omit) delete env.PI_DELIVERY_MCP_OMIT_INTERACTIVE;
     const client = new Client({ name: "test", version: "0" }, { capabilities: {} });
