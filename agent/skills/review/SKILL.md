@@ -102,6 +102,18 @@ required for automation; the flag path is a convenience for interactive use.
 | `--max-cost-usd` | USD | — | Abort after exceeding this estimated USD cost |
 | `--emit-events` | flag | — | Enable info-level event logging on stderr |
 | `--ledger` | PATH | — | Write a run ledger to this path |
+| `--checkpoint` | PATH | — | Save a resumable checkpoint here after every turn and on early stop; removed when the review completes |
+| `--resume` | flag | — | Continue from `--checkpoint` instead of starting over |
+| `--resume-from` | PATH | — | Continue from the checkpoint at PATH (for example a previous run's) while saving to `--checkpoint` |
+
+Resuming continues a review that stopped on a limit instead of repeating its work. Limits are
+cumulative against the checkpointed counters (turns, tool calls, completion attempts, tokens, cost),
+so raising `--max-tool-calls` from 120 to 180 grants 60 more calls; the wall-clock budget restarts.
+A checkpoint is bound to the resolved base/head commits and the requirements content, and is
+refused for a different request. The checkpoint's `progress` block (`tool_calls`,
+`distinct_tool_calls`, `turns`) shows whether the review was still finding new evidence. Review
+state is rebuilt by replaying the saved ledger, and a `kernel.session_resumed` event marks the
+join. For a `:working` review the checkpoint must be outside the repository or git-ignored.
 
 ## Request protocol (review.request/v1)
 

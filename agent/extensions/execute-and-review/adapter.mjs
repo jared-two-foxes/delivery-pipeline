@@ -13,6 +13,7 @@ import { requireBroadCheckJustifications } from "../../lib/verification/check-sc
 import { validateBinding } from "../../lib/delivery-state/binding.mjs";
 import { snapshot, baselineMismatch } from "../../lib/git/snapshot.mjs";
 import { readEvidence, retainEvidence } from "../../lib/evidence/store.mjs";
+import { withReviewCheckpoint } from "../../lib/review/checkpoint.mjs";
 import { retainAttempt } from "../../lib/evidence/attempts.mjs";
 import { ensureWorkDirectory } from "../../lib/git/workspace.mjs";
 import { verifiedResult } from "../../lib/verification/result.mjs";
@@ -173,6 +174,8 @@ async function executeAttempt(args, context = {}, options = {}) {
     ) {
       throw new Error("reviewMaxCompletionAttempts must be a positive integer");
     }
+    if (args.reviewResume != null && typeof args.reviewResume !== "boolean")
+      throw new Error("reviewResume must be a boolean");
     const directory = path.resolve(
       context.worktree ?? context.directory ?? ".",
     );
@@ -323,6 +326,8 @@ export async function hydrateContinuation(args, context) {
     baseRef: previous.args.baseRef,
     input: args.input,
     reviewProbe: args.reviewProbe === true,
+    // Per attempt: never inherited from the receipt being continued.
+    reviewResume: args.reviewResume === true,
     callerPlan,
     requirements: previous.args.requirements,
     contextUpdates: args.contextUpdates ?? [],
@@ -563,6 +568,19 @@ export async function executeAndReview(args, context = {}, options = {}) {
             mismatch.baselineTree + ". Git's line-ending/filter settings (core.autocrlf, .gitattributes) differ from those the files were checked out under. Nothing was applied.",
         });
     }
+    // Ask review-cli to checkpoint, and when the caller asked to continue the previous review, find
+    // that attempt's checkpoint. The path is derived from retained evidence, never taken from the
+    // caller, and is part of the retained args so the command list can be reconstructed exactly.
+    const reviewArgs = await withReviewCheckpoint(args, (reference) =>
+      readEvidence(repository, reference),
+    );
+    if (reviewArgs.problem)
+      return outcome("BLOCKED", "PRECHECK", {
+        repository,
+        reason: "REVIEW_RESUME_UNAVAILABLE",
+        message: "Cannot continue the previous review: " + reviewArgs.problem + ". Nothing was applied; rerun without reviewResume to start the review over.",
+      });
+    args = reviewArgs.args;
     // Write intent before applying anything so a killed Pi session leaves the
     // original baseline, requirements and attempt count discoverable.
     const startedReference = await retainEvidence(repository, {

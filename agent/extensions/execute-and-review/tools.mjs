@@ -373,6 +373,16 @@ export function createExecuteAndReviewTools(Type) {
               "(forwards to review-cli --max-completion-attempts). Omit to use the review engine default.",
           }),
         ),
+        reviewResume: Type.Optional(
+          Type.Boolean({
+            description:
+              "Continue the previous attempt's independent review from where it stopped instead of reviewing from scratch. " +
+              "Use after a review stopped on a limit (LIMIT_EXCEEDED, BUDGET_EXHAUSTED, CANCELLED) when it was making progress: " +
+              "supply previousAttempt, empty operations and a higher reviewMaxToolCalls / reviewMaxTurns. " +
+              "Review limits are cumulative across the resumed attempts, so a raised limit grants exactly the extra headroom. " +
+              "Refused unless the previous attempt retained a resumable review checkpoint and no source operations are applied.",
+          }),
+        ),
       }),
       async execute(params, host) {
         const scaffoldBefore = scaffoldCliUsage();

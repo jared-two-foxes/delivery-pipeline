@@ -13,7 +13,7 @@ export function reviewExecutable() {
 }
 
 export function reviewStep(requestPath, request, requirements, settings, {
-  program = reviewExecutable(), prefixArgs = [], ledgerPath,
+  program = reviewExecutable(), prefixArgs = [], ledgerPath, checkpointPath, resumeFrom,
 } = {}) {
   const { model, budget, turns, limits } = settings;
   const wallClock = ["--wall-clock-budget-secs", String(budget)];
@@ -22,6 +22,8 @@ export function reviewStep(requestPath, request, requirements, settings, {
     program,
     args: [...prefixArgs, "run", "--request", requestPath, "--format", "json", "--model", model,
       ...wallClock, ...maxTurns, ...(ledgerPath === undefined ? [] : ["--ledger", ledgerPath]),
+      ...(checkpointPath === undefined ? [] : ["--checkpoint", checkpointPath]),
+      ...(resumeFrom === undefined ? [] : ["--resume-from", resumeFrom]),
       ...limits],
     files: [[requestPath, JSON.stringify(request)], [request.requirements, requirements]],
   };
@@ -60,6 +62,16 @@ export function deliveryReviewSettings(args) {
         args.reviewMaxCostUsd >= 0),
     "Invalid reviewMaxCostUsd",
   );
+  requireValue(
+    args.reviewCheckpoint == null || typeof args.reviewCheckpoint === "boolean",
+    "Invalid reviewCheckpoint",
+  );
+  requireValue(
+    args.reviewResumeFrom == null ||
+      (typeof args.reviewResumeFrom === "string" && args.reviewResumeFrom.trim() &&
+        !args.reviewResumeFrom.includes("\0") && args.reviewCheckpoint === true),
+    "Invalid reviewResumeFrom",
+  );
   const limits = [];
   for (const [field, flag] of [
     ["reviewMaxCostUsd", "--max-cost-usd"],
@@ -68,7 +80,12 @@ export function deliveryReviewSettings(args) {
     ["reviewMaxCompletionAttempts", "--max-completion-attempts"],
   ])
     if (args[field] != null) limits.push(flag, String(args[field]));
-  return { model, budget: args.reviewWallClockBudgetSecs ?? 180, turns: args.reviewMaxTurns ?? 20, limits };
+  return {
+    model, budget: args.reviewWallClockBudgetSecs ?? 180, turns: args.reviewMaxTurns ?? 20, limits,
+    // Attempts retained before checkpoints existed have neither flag, so their commands still reconstruct.
+    checkpoint: args.reviewCheckpoint === true,
+    ...(args.reviewResumeFrom ? { resumeFrom: args.reviewResumeFrom } : {}),
+  };
 }
 
 export function validateReviewResult(value, code) {
