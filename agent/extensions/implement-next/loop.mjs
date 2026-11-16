@@ -62,7 +62,7 @@ export function describe(result) {
       return done + "Stopped at the requested limit.";
     case "no-eligible-issue":
       return done + "No eligible issue. This is not proof the feature is complete: " +
-        "run /skill:feature-delivery to check phase and run validate_feature.";
+        "run /skill:feature-delivery to check phase and run run_feature_checks.";
     default:
       return done + `Issue ${result.task.taskId} ended ${result.status}, not completed. ` +
         "Inspect it with scaffold_tasks `issue` / inspect_issue_attempt in this session " +

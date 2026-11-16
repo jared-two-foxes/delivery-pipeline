@@ -18,6 +18,7 @@ import { designReference } from "../agent/lib/scaffold/contracts.mjs";
 import { authenticateIssueMutation } from "../agent/lib/verification/issue-mutation.mjs";
 import {
   validateFeature,
+  runFeatureChecks,
   inspectFeatureValidation,
 } from "../agent/extensions/feature-validation/feature.mjs";
 import { readEvidence } from "../agent/lib/evidence/store.mjs";
@@ -228,7 +229,7 @@ console.log(JSON.stringify({schema:'review.result/v1',obligation_assessments,sta
     testSuccessPattern: "12 integration tests passed",
     review: { maxTurns: 8, maxToolCalls: 30, wallClockBudgetSecs: 30 },
   });
-  const validate = async (patch = {}, optionPatch = {}) => {
+  const prepare = async () => {
     const feature = (await call("list")).feature;
     if (
       feature.tasks.F5.status !== "completed" &&
@@ -241,8 +242,20 @@ console.log(JSON.stringify({schema:'review.result/v1',obligation_assessments,sta
         if ((await snapshot(dir)).clean) await finish("F5", true);
       } catch {} // Invalid checkpoints/source are tested by the real final gate below.
     }
+  };
+  const validate = async (patch = {}, optionPatch = {}) => {
+    await prepare();
     return validateFeature(
       { ...args(), ...patch },
+      { directory: dir },
+      { ...options, ...optionPatch },
+    );
+  };
+  const checks = async (patch = {}, optionPatch = {}) => {
+    await prepare();
+    const { review: _review, ...mechanical } = args();
+    return runFeatureChecks(
+      { ...mechanical, ...patch },
       { directory: dir },
       { ...options, ...optionPatch },
     );
@@ -251,6 +264,8 @@ console.log(JSON.stringify({schema:'review.result/v1',obligation_assessments,sta
     dir,
     g,
     base,
+    prepare,
+    checks,
     add,
     finish,
     call,
@@ -686,4 +701,117 @@ test("Git design references are rejected; context hashes are required", async ()
   assert.throws(() => approvedDesign("/unused", {
     context: "Original approved design", design_ref: "approved.md@" + "a".repeat(40),
   }), /design|context/i);
+});
+
+// The mechanical final gate: same checks and coverage rule as validate_feature, but no agent
+// review and no Scaffold validation lifecycle (Scaffold only records PASSED with an APPROVED review).
+async function finishedFeature(f) {
+  await f.add("parent");
+  await f.add("one", [], "parent");
+  await f.finish("one");
+  await f.finish("parent", true);
+}
+const exists = (file) => readFile(file).then(() => true, () => false);
+
+test("run_feature_checks passes on meaningful output without a review or Scaffold validation record", integration, async (t) => {
+  const f = await fixture(t);
+  await finishedFeature(f);
+  await f.prepare(); // completes the root issue; this, not the gate, moves Scaffold to awaiting_validation
+  const before = (await f.call("list")).feature.validation;
+  assert.equal(before.status, "awaiting_validation");
+  const passed = await f.checks();
+  assert.equal(passed.status, "PASSED", JSON.stringify(passed));
+  assert.equal(passed.schema, "pi.feature-checks/v1");
+  assert.equal(passed.mode, "checks-only");
+  assert.equal(passed.review, null);
+  assert.match(passed.message, /No independent feature review was performed/);
+  assert.equal(passed.binding.baseline, f.base);
+  assert.equal(passed.binding.head, f.g("rev-parse", "HEAD"));
+  assert.deepEqual(passed.checks.map((c) => [c.name, c.meaningful]), [["build", true], ["test", true]]);
+  assert.equal(await exists(f.capture), false, "the reviewer was never invoked");
+  // Scaffold's validation state is untouched: nothing started, recorded or verified.
+  assert.deepEqual((await f.call("list")).feature.validation, before);
+  assert.notEqual((await f.call("list")).feature.validation.status, "verified");
+  // Its own evidence is retained, readable and clearly not a validation result.
+  const record = await readFeatureEvidence(f.dir, passed.evidenceRef);
+  assert.equal(record.result.schema, "pi.feature-checks/v1");
+  assert.equal(record.review, null);
+  assert.equal(record.timings.kind, "feature");
+  assert.equal((await snapshot(f.dir)).clean, true, "the gate leaves the worktree clean");
+  // validate_feature is unchanged and still works afterwards.
+  const full = await f.validate();
+  assert.equal(full.status, "PASSED", JSON.stringify(full));
+  assert.equal((await f.call("list")).feature.validation.status, "verified");
+});
+
+test("run_feature_checks reports failed and non-meaningful checks and fails closed", integration, async (t) => {
+  const f = await fixture(t);
+  await finishedFeature(f);
+  const failing = await f.checks({ testCommand: [process.execPath, "-e", 'console.log("12 integration tests passed");process.exit(1)'] });
+  assert.equal(failing.status, "NEEDS_DESIGN", JSON.stringify(failing));
+  assert.match(failing.message, /Project check failed: test/);
+  const vacuous = await f.checks({ testCommand: [process.execPath, "-e", 'console.log("0 tests passed")'], testSuccessPattern: "0 tests passed" });
+  assert.equal(vacuous.status, "BLOCKED", JSON.stringify(vacuous));
+  assert.match(vacuous.message, /Meaningful coverage not established: test/);
+  const unmarked = await f.checks({ testSuccessPattern: "an approved marker the output never prints" });
+  assert.equal(unmarked.status, "BLOCKED");
+  const unauthorized = await f.checks({}, { authorize: async () => false });
+  assert.equal(unauthorized.status, "BLOCKED");
+  assert.match(unauthorized.message, /authorization required/);
+  assert.equal(await exists(f.capture), false, "no failure path invoked a reviewer");
+  const validation = (await f.call("list")).feature.validation;
+  assert.ok(!validation.history?.length, "no attempt was recorded in Scaffold");
+});
+
+test("run_feature_checks refuses an unfinished feature and a head that is not the clean checkpointed HEAD", integration, async (t) => {
+  const f = await fixture(t);
+  await f.add("parent");
+  await f.add("one", [], "parent");
+  await f.finish("one");
+  const unfinished = await f.checks();
+  assert.equal(unfinished.status, "BLOCKED", JSON.stringify(unfinished));
+  await f.finish("parent", true);
+  const stale = await f.checks({ headRef: f.base });
+  assert.equal(stale.status, "BLOCKED", JSON.stringify(stale));
+  await appendFile(path.join(f.dir, "one.txt"), "dirty\n");
+  const dirty = await f.checks();
+  assert.equal(dirty.status, "BLOCKED", JSON.stringify(dirty));
+  assert.match(dirty.message, /clean matching HEAD/);
+});
+
+test("run_feature_checks blocks source edited, or edited then restored, while a check runs, and keeps diagnostics", integration, async (t) => {
+  const passing = 'console.log("12 integration tests passed")';
+  const variants = {
+    edited: `require("fs").writeFileSync("source.txt","changed");${passing}`,
+    restored: `const fs=require("fs");const original=fs.readFileSync("source.txt");fs.writeFileSync("source.txt","transient");fs.writeFileSync("source.txt",original);${passing}`,
+  };
+  for (const [name, code] of Object.entries(variants)) {
+    const f = await fixture(t);
+    await f.add("one");
+    await f.finish("one");
+    await f.prepare();
+    const validationBefore = (await f.call("list")).feature.validation;
+    const r = await f.checks({ testCommand: [process.execPath, "-e", code] });
+    assert.equal(r.status, "BLOCKED", name + ": " + JSON.stringify(r));
+    assert.equal(r.schema, "pi.feature-checks/v1");
+    assert.equal(r.evidenceRef, undefined, name + ": a blocked run retains no success receipt");
+    // The interrupted run leaves a readable BLOCKED diagnostic receipt, never a PASSED one.
+    assert.ok(r.diagnosticEvidenceRef, name + ": diagnostic evidence retained");
+    const diagnostic = await readFeatureEvidence(f.dir, r.diagnosticEvidenceRef);
+    assert.equal(diagnostic.result.status, "BLOCKED");
+    assert.equal(diagnostic.review, null);
+    assert.ok(diagnostic.checks.some((c) => c.name === "test"), name + ": the offending check is recorded");
+    // Scaffold's validation state is exactly as it was: nothing started, recorded or invalidated.
+    assert.deepEqual((await f.call("list")).feature.validation, validationBefore, name);
+    assert.equal(await exists(f.capture), false, name + ": no reviewer ran");
+  }
+  // Ignored generated output is not a source change, as for validate_feature.
+  const g = await fixture(t);
+  await g.add("one");
+  await g.finish("one");
+  const generated = await g.checks({
+    testCommand: [process.execPath, "-e", `const fs=require("fs");fs.mkdirSync("output",{recursive:true});fs.writeFileSync("output/report.txt","generated");${passing}`],
+  });
+  assert.equal(generated.status, "PASSED", JSON.stringify(generated));
+  assert.equal(g.g("status", "--porcelain"), "");
 });

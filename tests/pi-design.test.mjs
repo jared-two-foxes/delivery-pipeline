@@ -55,13 +55,22 @@ test('Pi executor guide uses the merged exact-text edit operation', () => {
 });
 
 
-test('delegated issue designs remain explicit and final review remains mandatory', () => {
+test('delegated issue designs remain explicit and the final gate is mechanical, not an agent review', () => {
   const init = read('agent/skills/init-feature/SKILL.md');
   const delivery = read('agent/skills/feature-delivery/SKILL.md');
   for (const phrase of ['agent-authored', 'design-record', 'actual reference',
     'Never claim the user approved an individual issue', 'completed descendants']) assert.ok(init.includes(phrase), phrase);
-  for (const phrase of ['Final feature review is mandatory', 'no per-issue attempt limit',
-    'previousAttempt', 'completed descendants']) assert.ok(delivery.includes(phrase), phrase);
+  for (const phrase of ['no per-issue attempt limit', 'previousAttempt', 'completed descendants',
+    'run_feature_checks', 'no independent or agent-based feature review']) assert.ok(delivery.includes(phrase), phrase);
+  // The whole-feature agent review is no longer mandatory, and feature-delivery never runs validate_feature.
+  assert.doesNotMatch(delivery, /Final feature review is mandatory/);
+  assert.match(delivery, /do not call\s+`validate_feature`/);
+  // The manual question skill exists and is never invoked by the delivery workflows.
+  const questions = read('skills-src/feature-questions/SKILL.md');
+  assert.match(questions, /disable-model-invocation: true/);
+  assert.match(questions, /Ask, never answer/);
+  for (const file of ['feature-delivery', 'implement-task', 'init-feature', 'scaffold'])
+    assert.doesNotMatch(read(`skills-src/${file}/SKILL.md`), /Run the \{\{skill:feature-questions\}\}|invoke \{\{skill:feature-questions\}\}/i, file);
   assert.match(delivery, /material scope changes|material commitments|material departures|material changes/);
 });
 
@@ -76,9 +85,10 @@ test('native checkpoints, recovery and validation reuse the same durable directi
   assert.match(checkpoint, /name: "checkpoint_verified_task"/);
   assert.doesNotMatch(recovery, /name: "checkpoint_verified_task"/);
   assert.match(validation, /name: "validate_feature"/);
-  // Suspend/resume and validation ask the retained approval; the rewrite and foreign-commit tools read
+  assert.match(validation, /name: "run_feature_checks"/);
+  // Suspend/resume, validate_feature and run_feature_checks ask the retained approval (no second prompt); the rewrite and foreign-commit tools read
   // Scaffold's recorded approval themselves (approved(feature)).
-  assert.equal(((native + recovery + validation).match(/authorize: async \(\) =>\s*featureAuthorized/g) ?? []).length, 2);
+  assert.equal(((native + recovery + validation).match(/authorize: async \(\) =>\s*featureAuthorized/g) ?? []).length, 3);
   assert.match(read('agent/extensions/execute-and-review/delivery.mjs'), /requireFeatureAuthorization/);
   assert.match(read('agent/extensions/checkpoint/finalization.mjs'), /featureAuthorized/);
   const adapter = read('agent/extensions/execute-and-review/adapter.mjs');

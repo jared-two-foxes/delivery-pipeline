@@ -15,7 +15,9 @@ const stable = (a, b) =>
   b.clean &&
   !b.bookkeepingVisible;
 
-export function planFor(args) {
+// `{ review: false }` plans only the mechanical checks (build, tests, integration checks) and never
+// validates or defaults any review settings, so a checks-only gate cannot depend on a reviewer.
+export function planFor(args, { review: withReview = true } = {}) {
   requireValue(
     args &&
       ["featureId", "designRef", "branch"].every(
@@ -84,6 +86,7 @@ export function planFor(args) {
       Array.isArray(args.integrationChecks),
     "Integration checks must be an array",
   );
+  if (!withReview) return { checks, timeoutMs, review: null };
   const review = {
     model: process.env.REVIEW_MODEL ?? "opencode/gpt-6.1-sol",
     wallClockBudgetSecs: 180,

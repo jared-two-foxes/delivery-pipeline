@@ -14,7 +14,8 @@ implementation correctness.
 | `/skill:design` | Research and produce a bounded engineering design contract, independently or for one issue in a prepared feature | No |
 | `/skill:init-feature` | Read a Linear ticket or supplied requirements; reconcile/create the Scaffold root; obtain **one overall feature direction approval**; decompose, design and persist all issue contracts; run `design-finish` | No |
 | `/skill:implement-task` | Execute, check, review, correct and checkpoint **one existing eligible issue** with authentic receipts | Yes, within its approved scope |
-| `/skill:feature-delivery` | Ensure the feature is prepared; orchestrate dependent issues through `implement-task`, recover graph-level discoveries and invoke final `validate_feature` | Yes, through task execution |
+| `/skill:feature-delivery` | Ensure the feature is prepared; orchestrate dependent issues through `implement-task`, recover graph-level discoveries and run the final mechanical build/test gate (`run_feature_checks`) | Yes, through task execution |
+| `/skill:feature-questions` | Manual only. Read-only: list the contract, precondition, postcondition and edge-case questions a finished feature's implementation should answer, tied to Scaffold state. Asks, never answers | No |
 | `/skill:scaffold` | Reference for the native `scaffold_tasks` lifecycle and state contract | No independent execution |
 
 A standalone design is a document/contract, **not** a new Scaffold feature or
@@ -48,9 +49,10 @@ preparation to `init-feature`, with no redundant direction approval.
    original criteria after children. A blocked prerequisite or review finding
    returns to the issue graph through explicit suspension/design/resumption,
    preserving receipts, prior work and baseline.
-5. **Validate the feature:** Run meaningful full-feature checks and independent
-   final review via `validate_feature`, including revalidation after corrective
-   issues. Report actual results and reviewable commits/PRs to the user. Pushes
+5. **Check the feature:** Run meaningful full-project build and test checks via
+   `run_feature_checks` (no agent review; per-issue review already happened),
+   including a rerun after corrective issues. Report actual results and
+   reviewable commits/PRs to the user, and mention `/skill:feature-questions`. Pushes
    and PR publishing require their own user authority; merges remain human-owned.
 
 Use explicit targeted `checks` for leaves and scoped integration checks for

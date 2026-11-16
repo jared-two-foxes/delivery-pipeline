@@ -88,7 +88,7 @@ obligation you added yourself, say so and ask the user to override it with
 Present a concise overall design direction, any **Agent-added constraints (not in the
 ticket)** and the intended local delivery scope:
 design/decomposition, implementation, relevant checks and independent review,
-verified local commits, final feature validation, and necessary issue/rebase recovery.
+verified local commits, final build/test checks, and necessary issue/rebase recovery.
 Persist its exact text in feature context using `scaffold_tasks` `init`, immutable
 `design_ref: "sha256:context"`, original full Git baseline and feature branch.
 Scaffold creates the root issue. State creation does not grant source authority.
@@ -166,7 +166,7 @@ design, and the original feature approval is retained and applicable. Return
 the feature ID, Linear source, branch/baseline, approved direction reference,
 issue counts and any unresolved blockers. A single root leaf is valid for a
 small ticket. This skill **never** calls `implement-task`, `execute_and_review`,
-`validate_feature`, starts an issue, edits application source or creates a
+`run_feature_checks`, starts an issue, edits application source or creates a
 checkpoint. If approval is declined, design remains incomplete, or state
 authentication is inconclusive, stop and report the exact phase/blocker.
 
