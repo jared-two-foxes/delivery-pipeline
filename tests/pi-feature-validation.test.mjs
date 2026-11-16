@@ -875,3 +875,89 @@ test("run_feature_checks blocks source edited, or edited then restored, while a 
   assert.equal(generated.status, "PASSED", JSON.stringify(generated));
   assert.equal(g.g("status", "--porcelain"), "");
 });
+
+test("run_feature_checks refuses to start over a validation that finished while authorization was pending", integration, async (t) => {
+  const f = await fixture(t);
+  await finishedFeature(f);
+  await f.prepare(); // so the nested validation changes only Scaffold's validation state
+  let nested;
+  const r = await f.checks({}, {
+    authorize: async () => {
+      // A reviewed validation completes inside the authorization window: tasks and source are untouched.
+      nested = await f.validate();
+      return true;
+    },
+  });
+  assert.equal(nested.status, "PASSED", JSON.stringify(nested));
+  assert.equal(r.status, "BLOCKED", JSON.stringify(r));
+  assert.match(r.message, /Validation state changed during authorization/);
+  // The reviewed result survives untouched: no checks-only attempt was started over it.
+  const validation = (await f.call("list")).feature.validation;
+  assert.equal(validation.status, "verified");
+  assert.deepEqual((await finished(f)).map((h) => h.result.schema), ["pi.feature-validation/v1"]);
+});
+
+test("run_feature_checks leaves Scaffold agreeing with a BLOCKED result at every interruption point", integration, async (t) => {
+  // [stage, expected Scaffold status]. Before the handoff the attempt is closed as blocked; once it has
+  // been recorded it is invalidated, so "checked" never outlives a BLOCKED result.
+  for (const [stage, status] of [["beforeChecks", "blocked"], ["beforeRetention", "blocked"],
+    ["afterRetention", "blocked"], ["afterCompletion", "awaiting_validation"]]) {
+    const f = await fixture(t);
+    await f.add("one");
+    await f.finish("one");
+    await f.prepare();
+    const r = await f.checks({}, { interrupt: async (at) => { if (at === stage) throw new Error("Interrupted at " + stage); } });
+    assert.equal(r.status, "BLOCKED", stage + ": " + JSON.stringify(r));
+    const validation = (await f.call("list")).feature.validation;
+    assert.equal(validation.status, status, stage);
+    assert.notEqual(validation.status, "checked", stage);
+    assert.notEqual(validation.status, "validating", stage + ": the attempt is never left running");
+    assert.ok(r.diagnosticEvidenceRef, stage + ": diagnostics retained");
+    const results = await finished(f);
+    assert.equal(results.at(-1).result.status, stage === "afterCompletion" ? "PASSED" : "BLOCKED", stage);
+    assert.equal(await exists(f.capture), false, stage + ": no reviewer ran");
+  }
+});
+
+test("run_feature_checks cleans up an edit-and-restore detected after the evidence is retained", integration, async (t) => {
+  // The worktree is clean and HEAD unchanged again, so only the monitor can see it.
+  for (const [stage, status] of [["afterRetention", "blocked"], ["afterCompletion", "awaiting_validation"]]) {
+    const f = await fixture(t);
+    await f.add("one");
+    await f.finish("one");
+    await f.prepare();
+    const source = path.join(f.dir, "source.txt");
+    const r = await f.checks({}, {
+      interrupt: async (at) => {
+        if (at !== stage) return;
+        const original = await readFile(source);
+        await writeFile(source, "transient");
+        await writeFile(source, original);
+        await new Promise((resolve) => setTimeout(resolve, 300)); // let the filesystem notification arrive
+      },
+    });
+    assert.equal(r.status, "BLOCKED", stage + ": " + JSON.stringify(r));
+    assert.equal((await snapshot(f.dir)).clean, true, stage + ": nothing is left to see in Git");
+    const validation = (await f.call("list")).feature.validation;
+    assert.equal(validation.status, status, stage);
+    assert.notEqual(validation.status, "checked", stage + ": the tool said BLOCKED, so Scaffold must not say checked");
+  }
+});
+
+test("run_feature_checks never touches an attempt that has since been superseded", integration, async (t) => {
+  const f = await fixture(t);
+  await finishedFeature(f);
+  await f.prepare();
+  let nested;
+  const r = await f.checks({}, {
+    interrupt: async (at) => {
+      if (at !== "afterCompletion") return;
+      nested = await f.validate(); // supersedes this run's recorded "checked" with a reviewed result
+      throw new Error("Interrupted after completion");
+    },
+  });
+  assert.equal(nested.status, "PASSED", JSON.stringify(nested));
+  assert.equal(r.status, "BLOCKED");
+  // The reviewed result is not invalidated by the interrupted checks-only run's cleanup.
+  assert.equal((await f.call("list")).feature.validation.status, "verified");
+});
