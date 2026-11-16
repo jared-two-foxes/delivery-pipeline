@@ -73,7 +73,7 @@ export function createFeatureValidationTools(Type) {
       name: "run_feature_checks",
       label: "Run final feature checks",
       description:
-        "Mechanical final gate: authenticate all task checkpoints, then run the approved full-project build, test and integration checks and require meaningful output. No agent review and no Scaffold validation record; retains its own evidence. Uses the retained overall feature authorization. No implementation, commits, publishing, retries or task selection.",
+        "Mechanical final gate: authenticate all task checkpoints, then run the approved full-project build, test and integration checks and require meaningful output. No agent review. Records the result in Scaffold as a checks-only result (PASSED makes the feature `checked`, never `verified`) and retains its own evidence; a feature already `verified` at this head is left unchanged. Uses the retained overall feature authorization. No implementation, commits, publishing, retries or task selection.",
       parameters: Type.Object({
         featureId: Type.String(),
         designRef: Type.String(),
