@@ -71,7 +71,7 @@ constraints. Issue designs are produced afterwards, inside that approved scope.
 | `approve_delivery_amendment` | execute-and-review | Approve a material contract change | evidence + Scaffold |
 | `execute_and_review` | execute-and-review | One Executor, checks, Review pass; auto-completes and checkpoints on PASS | source, evidence, Scaffold, Git |
 | `checkpoint_verified_task` | checkpoint | Create or recover the checkpoint commit for a passed task | Git |
-| `run_feature_checks` | feature-validation | Final full build/test checks, no agent review; the gate `feature-delivery` uses | evidence |
+| `run_feature_checks` | feature-validation | Final full build/test checks, no agent review; the gate `feature-delivery` uses. Records `checked` (never `verified`) in Scaffold | evidence, Scaffold |
 | `validate_feature` | feature-validation | Full checks + whole-feature agent review, recorded in Scaffold. Not called by any skill; kept available | evidence, Scaffold |
 | `inspect_conductor_evidence`, `inspect_feature_validation`, `inspect_issue_handoff`, `inspect_issue_attempt` | various | Read retained evidence and handoffs | none |
 | `suspend_issue`, `resume_issue` | execution-recovery | Park an unfinished issue (saved source/index) and return the graph to design; restore it later | Scaffold, refs, evidence |

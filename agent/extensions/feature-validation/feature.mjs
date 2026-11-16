@@ -265,13 +265,19 @@ export async function validateFeature(args, context = {}, options = {}) {
 
 // Mechanical final gate: authenticate every task checkpoint, then run the approved build, test and
 // integration checks with the same "meaningful output" rule as validate_feature. There is NO agent
-// review and NO Scaffold validation lifecycle (start/record/invalidate): Scaffold only records a PASSED
-// feature validation that carries an APPROVED independent review, so this gate reports and retains
-// its own evidence (schema pi.feature-checks/v1) and leaves feature.validation untouched.
+// review. The result is recorded in Scaffold as a checks-only result (schema pi.feature-checks/v1):
+// PASSED makes the feature "checked", never "verified", because nothing reviewed it as a whole.
+// Scaffold only records PASSED-with-a-review as "verified", so this gate can never claim that state.
+// A feature that is already "verified" at this head is left exactly as it is (the checks still run
+// and their evidence is retained), so a cheap rerun cannot downgrade a reviewed result.
 // validate_feature itself is unchanged and remains available.
 const checksResult = (status, fields = {}) => ({ schema: 'pi.feature-checks/v1', status, mode: 'checks-only', ...fields });
+// The exact field set Scaffold's validation-record accepts; `mode` is pipeline-side only.
+const checksHandoff = (record, reference) => ({ schema: record.result.schema, attempt_id: record.attemptId,
+  binding: record.binding, status: record.result.status, reference, checks: record.checks, review: null,
+  message: record.result.message ?? '' });
 export async function runFeatureChecks(args, context = {}, options = {}) {
-  let repository, reference, record, monitor, started = false;
+  let repository, reference, record, monitor, started = false, recording = false, recorded = false;
   const totalClock = stopwatch();
   const checkTimings = [], rechecks = { count: 0, ms: 0 };
   const cache = createPreconditionCache();
@@ -294,18 +300,29 @@ export async function runFeatureChecks(args, context = {}, options = {}) {
     context.abort?.throwIfAborted();
     const confirmed = await derive(repository, args, options);
     requireValue(equal(confirmed.feature.tasks, pre.feature.tasks) && stable(pre.before, confirmed.before), 'Source/state changed during authorization');
+    // A validation that finished while authorization was pending (tasks and source unchanged) could be
+    // "verified" by now; starting an attempt over it would replace it, so refuse rather than decide on stale state.
+    requireValue(equal(pre.feature.validation, confirmed.feature.validation), 'Validation state changed during authorization; rerun');
+    // A reviewed "verified" result at this head outranks a checks-only one: leave Scaffold untouched.
+    recording = confirmed.feature.validation?.status !== 'verified';
     monitor = monitorTrackedInputs(repository, { ignoreMetadataOnly: options.ignoreMetadataOnlyNotifications === true });
     record = { attemptId: randomUUID(), binding, plan, tasks: pre.feature.tasks, checkpoints: pre.checkpoints,
       before: pre.before, after: pre.before, checks: [], review: null,
       result: checksResult('BLOCKED', { message: 'INTERRUPTED_OR_RUNNING' }) };
-    started = true;
-    // Nothing here may write feature.validation, so it must be exactly what it was when we started.
+    if (recording) {
+      await lifecycle(repository, 'validation-start', args.featureId, { attempt_id: record.attemptId, binding }, options);
+      started = true;
+    }
+    await options.interrupt?.('beforeChecks');
     const unchanged = async ({ fresh = false } = {}) => {
       monitor.assert();
       context.abort?.throwIfAborted();
       const current = await derive(repository, args, options, { fresh });
+      // While recording, this attempt must still be Scaffold's active one; otherwise nothing may have touched it.
       requireValue(stable(pre.before, current.before) && equal(pre.feature.tasks, current.feature.tasks) &&
-        equal(pre.feature.validation, current.feature.validation), 'Source, task graph or validation state changed; reconcile');
+        (recording ? current.feature.validation?.current === record.attemptId
+          : equal(pre.feature.validation, current.feature.validation)),
+        'Source, task graph or validation state changed; reconcile');
       record.after = current.before;
     };
     for (const check of plan.checks) {
@@ -325,21 +342,46 @@ export async function runFeatureChecks(args, context = {}, options = {}) {
       record.result = checksResult('PASSED', { message: 'Build and tests passed with meaningful output. No independent feature review was performed.' });
     monitor.mark('retention');
     await unchanged({ fresh: true });
+    await options.interrupt?.('beforeRetention');
     record.timings = currentTimings();
     if (monitor.total()) record.monitorDiagnostics = monitor.diagnostics();
+    record.scaffoldRecorded = recording;
     reference = await retainFeatureEvidence(repository, record);
+    await options.interrupt?.('afterRetention');
     await unchanged();
-    return { ...record.result, binding, evidenceRef: reference, checks: record.checks, review: null };
+    if (recording) {
+      await lifecycle(repository, 'validation-record', args.featureId, checksHandoff(record, reference), options);
+      recorded = true;
+    }
+    await options.interrupt?.('afterCompletion');
+    await unchanged();
+    const scaffold = recording
+      ? { recorded: true, validation_status: { PASSED: 'checked', NEEDS_DESIGN: 'failed', BLOCKED: 'blocked' }[record.result.status] }
+      : { recorded: false, validation_status: 'verified', reason: 'Already verified by a reviewed validation at this head; left unchanged' };
+    return { ...record.result, binding, evidenceRef: reference, checks: record.checks, review: null, scaffold };
   } catch (error) {
     const blocked = checksResult('BLOCKED', { message: error.message, ...(reference ? { evidenceRef: reference } : {}),
-      recovery: 'Inspect actual Git state and Scaffold; a check run that was interrupted proves nothing, so rerun run_feature_checks' });
-    if (repository && started && !reference) {
+      recovery: 'Inspect actual Git state and Scaffold; an interrupted check run proves nothing, so rerun run_feature_checks' });
+    if (repository && record) {
+      // Keep diagnostics whenever a run was in progress. Then make Scaffold agree with the BLOCKED result
+      // this run returns, but only for this run's own attempt: one that has since been superseded (by a
+      // reviewed validation, say) is left exactly as it is.
       try {
         const failed = { ...record, result: checksResult('BLOCKED', { message: error.message }),
-          timings: currentTimings(), after: await snapshot(repository),
+          timings: currentTimings(), after: await snapshot(repository), scaffoldRecorded: started,
           ...(monitor?.total() ? { monitorDiagnostics: monitor.diagnostics() } : {}) };
-        blocked.diagnosticEvidenceRef = await retainFeatureEvidence(repository, failed);
-      } catch { /* Diagnostics are best effort; the BLOCKED result is still returned. */ }
+        const failureRef = await retainFeatureEvidence(repository, failed);
+        blocked.diagnosticEvidenceRef = failureRef;
+        const ours = started && (await state(repository, args.featureId, options)).validation?.current === record.attemptId;
+        if (ours && recorded)
+          // Already recorded (as "checked", "failed" or "blocked"): it must no longer stand.
+          await lifecycle(repository, 'validation-invalidate', args.featureId, { reason: error.message }, options);
+        else if (ours) {
+          // Never recorded, so close it; if the record had in fact landed (a lost response), invalidate instead.
+          try { await lifecycle(repository, 'validation-record', args.featureId, checksHandoff(failed, failureRef), options); }
+          catch { await lifecycle(repository, 'validation-invalidate', args.featureId, { reason: error.message }, options); }
+        }
+      } catch { /* The BLOCKED result is still returned; a dangling attempt is replaced by the next start. */ }
     }
     return blocked;
   } finally { monitor?.close(); }
@@ -360,18 +402,28 @@ export async function inspectFeatureValidation(args, context = {}, options = {})
       const record = await readFeatureEvidence(repository, reference, args.featureId ? { featureId: args.featureId } : undefined);
       if (args.featureId && record.binding?.feature_id !== args.featureId) continue;
       let applicable = false, reason;
+      const checksOnly = record.result?.schema === 'pi.feature-checks/v1';
       try {
-        requireValue(record.scopedTaskChecks === true && Array.isArray(record.obligations), 'Unsupported feature verification format');
+        // Checks-only records have no review or obligations to authenticate; they apply while Scaffold still
+        // holds that attempt as the current one, bound to the same graph revision.
+        requireValue(checksOnly || (record.scopedTaskChecks === true && Array.isArray(record.obligations)), 'Unsupported feature verification format');
         const b = record.binding;
         const args = { featureId: b.feature_id, designRef: b.design_ref, branch: b.branch, featureBaseRef: b.baseline, headRef: b.head, resumeEvidenceRef: reference };
         const pre = await featurePreconditions(repository, args, options);
         requireValue(pre.feature.validation?.current === record.attemptId, 'Validation superseded');
+        if (checksOnly) {
+          requireValue(record.result.status === 'PASSED' && b.task_revision === pre.feature.task_revision &&
+            pre.feature.validation.status === 'checked', 'Checks-only result is not the current passed result');
+          applicable = true;
+          results.push({ reference, record, kind: 'checks-only', applicable });
+          continue;
+        }
         authenticateFeatureRecord(record, { ...b, task_revision: pre.feature.task_revision }, record.plan,
           pre.feature.tasks, assembledRequirements(pre, args),
           undefined, pre.reviewTasks);
         applicable = true;
       } catch (error) { reason = error.message; }
-      results.push({ reference, record, applicable, ...(reason ? { reason } : {}) });
+      results.push({ reference, record, ...(checksOnly ? { kind: 'checks-only' } : {}), applicable, ...(reason ? { reason } : {}) });
     }
     return { ok: true, results };
   } catch (error) { return { ok: false, message: error.message }; }

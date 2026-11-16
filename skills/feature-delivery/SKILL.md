@@ -145,12 +145,18 @@ another confirmation. Zero exit status alone never establishes coverage; require
 concrete successful test output (the approved `testSuccessPattern`). INDETERMINATE
 or BLOCKED is BLOCKED.
 
-This gate is mechanical. It performs **no independent or agent-based feature review**
-and records nothing in Scaffold's `validation` state, so do not call
-`mcp__plugin_delivery-pipeline_pidelivery__validate_feature` from this workflow. Per-issue review during
+This gate is mechanical. It performs **no independent or agent-based feature review**,
+so do not call `mcp__plugin_delivery-pipeline_pidelivery__validate_feature` from this workflow. Per-issue review during
 `mcp__plugin_delivery-pipeline_pidelivery__execute_and_review` is unchanged. Do not describe the feature as
 independently reviewed as a whole.
 
+The result is recorded in Scaffold as a checks-only result. A PASSED run makes the
+feature's `validation_status` **`checked`** (full build and tests passed with meaningful
+output); it is never `verified`, which Scaffold reserves for a result carrying an approved
+independent review. A failed or blocked run records `failed` or `blocked`. A feature that is
+already `verified` at the same head is left unchanged. Any later change to the task graph or
+history makes `checked` inapplicable again, so rerun the checks after corrective work.
+Report `checked` to the user as exactly that.
 Resolve a failed check through a corrective issue (design, implement, checkpoint)
 without further approval prompts, then rerun the checks. Preserve original criteria
 and every historical failure. Stop on material scope changes as above.
