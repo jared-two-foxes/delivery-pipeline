@@ -13,7 +13,7 @@ import { requireBroadCheckJustifications } from "../../lib/verification/check-sc
 import { validateBinding } from "../../lib/delivery-state/binding.mjs";
 import { snapshot, baselineMismatch } from "../../lib/git/snapshot.mjs";
 import { readEvidence, retainEvidence } from "../../lib/evidence/store.mjs";
-import { withReviewCheckpoint } from "../../lib/review/checkpoint.mjs";
+import { stripInternalReviewArgs, withReviewCheckpoint } from "../../lib/review/checkpoint.mjs";
 import { retainAttempt } from "../../lib/evidence/attempts.mjs";
 import { ensureWorkDirectory } from "../../lib/git/workspace.mjs";
 import { verifiedResult } from "../../lib/verification/result.mjs";
@@ -345,11 +345,20 @@ export async function executeAndReview(args, context = {}, options = {}) {
       message: error.message,
     });
   }
+  // Checkpoint arguments belong to the adapter: never take them from the caller or inherit them.
+  if (args) args = stripInternalReviewArgs(args);
   if (options.issueWorkflowOnly && !args?.task)
     return outcome("BLOCKED", "PRECHECK", { reason: "ISSUE_REQUIRED" });
   if (!args?.task) {
     if (args?.previousAttempt)
       return outcome("BLOCKED", "PRECHECK", { reason: "TASK_REQUIRED" });
+    // Without a task there is no previous attempt to resume, and this path would otherwise ignore the
+    // request, apply operations and review from scratch.
+    if (args?.reviewResume === true)
+      return outcome("BLOCKED", "PRECHECK", {
+        reason: "REVIEW_RESUME_UNAVAILABLE",
+        message: "Cannot continue the previous review: reviewResume continues a task's previous attempt, so it needs a task and previousAttempt. Nothing was applied.",
+      });
     return executeAttempt(args, context, options);
   }
   let repository, before, request, response, boundaryPath, workflow, delivery, instanceId;

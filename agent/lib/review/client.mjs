@@ -13,7 +13,7 @@ export function reviewExecutable() {
 }
 
 export function reviewStep(requestPath, request, requirements, settings, {
-  program = reviewExecutable(), prefixArgs = [], ledgerPath, checkpointPath, resumeFrom,
+  program = reviewExecutable(), prefixArgs = [], ledgerPath, checkpointPath, resumeFrom, resumeIdentity,
 } = {}) {
   const { model, budget, turns, limits } = settings;
   const wallClock = ["--wall-clock-budget-secs", String(budget)];
@@ -24,6 +24,7 @@ export function reviewStep(requestPath, request, requirements, settings, {
       ...wallClock, ...maxTurns, ...(ledgerPath === undefined ? [] : ["--ledger", ledgerPath]),
       ...(checkpointPath === undefined ? [] : ["--checkpoint", checkpointPath]),
       ...(resumeFrom === undefined ? [] : ["--resume-from", resumeFrom]),
+      ...(resumeIdentity === undefined ? [] : ["--resume-identity", resumeIdentity]),
       ...limits],
     files: [[requestPath, JSON.stringify(request)], [request.requirements, requirements]],
   };

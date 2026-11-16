@@ -63,7 +63,12 @@ export function deliveryReviewStep(directory, args, inputs, program) {
     settings, {
       program,
       ledgerPath: path.join(directory, "review-ledger.jsonl"),
-      ...(settings.checkpoint ? { checkpointPath: reviewCheckpointPath(directory) } : {}),
+      ...(settings.checkpoint ? {
+        checkpointPath: reviewCheckpointPath(directory),
+        // The review receives these criteria plus per-attempt check evidence (review-handoff.mjs), so its
+        // requirements text differs on every attempt. Bind the checkpoint to the criteria alone.
+        resumeIdentity: "sha256:" + digest(inputs.requirements),
+      } : {}),
       ...(settings.resumeFrom ? { resumeFrom: settings.resumeFrom } : {}),
     });
 }

@@ -324,13 +324,23 @@ Resuming is refused (`REVIEW_RESUME_UNAVAILABLE`, nothing applied) unless:
   review stopped on a limit, budget, cancellation, stall or model failure, not a finished review);
 - the attempt applies no source operations, so the review continues over the tree it already
   examined (continuation already requires the tree to match the previous attempt's snapshot);
-- the resolved base commit and the requirements content are unchanged; `review-cli` rejects a
-  checkpoint from a different request.
+- the resolved base commit and the approved criteria are unchanged; `review-cli` rejects a
+  checkpoint from a different request. The review is given the criteria plus per-attempt check
+  evidence (which embeds the attempt number and receipt), so its requirements text differs every
+  attempt. The checkpoint is therefore bound to a digest of the criteria alone (`--resume-identity`,
+  taken from the stable requirements, not the evidence). Changing the criteria or the verification
+  plan (a `repair_check` update) changes the identity and the resume is refused.
+- the attempt belongs to a task: `reviewResume` without a task and `previousAttempt` is refused before
+  anything is applied.
 
-The flag is per attempt and is not inherited from the receipt being continued. Attempts retained
+The flag is per attempt and is not inherited from the receipt being continued. Checkpoint arguments
+(`reviewCheckpoint`, `reviewResumeFrom`) belong to the adapter: they are stripped from caller input and
+from the retained args a continuation inherits, before anything validates them. Attempts retained
 before checkpoints existed carry neither flag, so their command lists still reconstruct and
-authenticate. Install a `review-cli` that supports `--checkpoint` / `--resume-from`: an older binary
-ignores unknown flags and would silently review from the start, which is safe but wasteful. Feature
+authenticate. Install a `review-cli` that supports `--checkpoint`, `--resume-from` and `--resume-identity`:
+an older binary ignores unknown flags and would silently review from the start (or, with an older
+`--resume-from` but no identity support, reject every native resume as a different request). Neither
+is unsafe, but both waste the work. Feature
 validation (`validate_feature`) does not yet resume its whole-feature review.
 
 ## Current limits

@@ -153,3 +153,60 @@ test("an attempt retained before checkpoints existed still authenticates", async
   assert.ok(!JSON.parse(workflow.request.commands.at(-1).args[1]).args.includes("--checkpoint"));
   assert.deepEqual(authenticateWorkflow(workflow, workflow.request, args, repository), []);
 });
+
+import { createHash } from "node:crypto";
+import { reviewHandoff } from "../agent/lib/verification/review-evidence.mjs";
+import { stripInternalReviewArgs } from "../agent/lib/review/checkpoint.mjs";
+import { executeAndReview } from "../agent/extensions/execute-and-review/adapter.mjs";
+
+const sha = (text) => "sha256:" + createHash("sha256").update(text).digest("hex");
+const evidenceOf = (attempt) => ({
+  schema: "pi.task-review-evidence/v1", gate: "targeted-task", attempt,
+  startedReference: sha("started-" + attempt), tree: "t", head: "h", sourceDigest: "d", checks: [],
+});
+
+test("the checkpoint is bound to the stable criteria, not the per-attempt requirements text", async (t) => {
+  const { workflow } = await prepared(t, { reviewCheckpoint: true });
+  const original = JSON.parse(workflow.request.commands.at(-1).args[1]);
+  assert.equal(flagValue(original.args, "--resume-identity"), sha(workflow.inputs.requirements));
+
+  // What the reviewer is actually given differs on every attempt (it embeds attempt/startedReference) ...
+  const first = reviewHandoff(workflow, evidenceOf(1));
+  const second = reviewHandoff(workflow, evidenceOf(2));
+  assert.notEqual(first.files[1][1], second.files[1][1]);
+  // ... yet both native handoffs carry the same identity and the same checkpoint flag.
+  const argsOf = (handoff) => JSON.parse(handoff.args[1]).args;
+  assert.equal(flagValue(argsOf(first), "--resume-identity"), sha(workflow.inputs.requirements));
+  assert.equal(flagValue(argsOf(second), "--resume-identity"), flagValue(argsOf(first), "--resume-identity"));
+  assert.equal(flagValue(argsOf(first), "--checkpoint"), flagValue(argsOf(second), "--checkpoint"));
+});
+
+test("changed criteria change the identity, and non-checkpointing attempts carry none", async (t) => {
+  const a = await prepared(t, { reviewCheckpoint: true, requirements: "criteria one" });
+  const b = await prepared(t, { reviewCheckpoint: true, requirements: "criteria two" });
+  const id = ({ workflow }) => flagValue(JSON.parse(workflow.request.commands.at(-1).args[1]).args, "--resume-identity");
+  assert.notEqual(id(a), id(b));
+  const plain = await prepared(t, {});
+  assert.ok(!JSON.parse(plain.workflow.request.commands.at(-1).args[1]).args.includes("--resume-identity"));
+});
+
+test("internal checkpoint arguments are stripped before anything validates them", () => {
+  const stripped = stripInternalReviewArgs({
+    requirements: "r", reviewResume: true, reviewResumeFrom: "/attacker/x.json", reviewCheckpoint: true,
+  });
+  assert.deepEqual(stripped, { requirements: "r", reviewResume: true });
+  // A first attempt that supplies only a resume path used to fail validation instead of being ignored.
+  assert.doesNotThrow(() => deliveryReviewSettings(stripInternalReviewArgs({ reviewResumeFrom: "/x" })));
+});
+
+test("reviewResume without a task is refused before any operation is applied", async (t) => {
+  const directory = await scratch(t);
+  const result = await executeAndReview({
+    input: '{"operations":[{"op":"write","path":"x","content":"y"}]}', requirements: "criteria",
+    baseRef: "a".repeat(40), reviewResume: true,
+  }, { directory });
+  assert.equal(result.status, "BLOCKED");
+  assert.equal(result.stage, "PRECHECK");
+  assert.equal(result.reason, "REVIEW_RESUME_UNAVAILABLE");
+  assert.match(result.message, /needs a task and previousAttempt/);
+});

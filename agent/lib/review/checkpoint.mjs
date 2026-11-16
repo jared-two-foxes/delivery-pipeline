@@ -50,6 +50,16 @@ export async function inspectReviewCheckpoint(file) {
 }
 
 /**
+ * Drop the arguments only the adapter may set. A caller cannot choose where a review resumes from or
+ * whether it checkpoints, and a continuation must not inherit either from the receipt it continues
+ * (hydration spreads the previous attempt's retained args). Call this before anything validates them.
+ */
+export function stripInternalReviewArgs(args) {
+  const { reviewCheckpoint: _checkpoint, reviewResumeFrom: _resumeFrom, ...rest } = args;
+  return rest;
+}
+
+/**
  * Finalize the review-related arguments of one attempt.
  *
  * Every new attempt asks review-cli to checkpoint (`reviewCheckpoint`). A caller that sets `reviewResume`
