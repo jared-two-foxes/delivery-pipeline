@@ -79,7 +79,7 @@ test("withFailureReporting gives a neutral tool the shared failure envelope", as
 test("converted extensions expose the same tool names and register through the adapter", () => {
   const names = (tools) => tools.map((t) => t.name);
   assert.deepEqual(names(createCheckpointTools(Type)), ["checkpoint_verified_task"]);
-  assert.deepEqual(names(createFeatureValidationTools(Type)), ["validate_feature", "inspect_feature_validation"]);
+  assert.deepEqual(names(createFeatureValidationTools(Type)), ["validate_feature", "run_feature_checks", "inspect_feature_validation"]);
   assert.deepEqual(names(createScaffoldTools(Type)), ["scaffold_tasks"]);
   assert.deepEqual(names([createReviewTool(Type)]), ["review_changes"]);
   const registered = [];
@@ -141,7 +141,7 @@ test("the tool inventory is stable across hosts", async () => {
     "adopt_foreign_commits", "approve_delivery_amendment", "approve_feature_direction", "checkpoint_verified_task",
     "abandon_inflight_attempt", "execute_and_review", "inspect_conductor_evidence", "inspect_feature_drift", "inspect_feature_validation",
     "inspect_issue_attempt", "inspect_issue_handoff", "prepare_issue_handoff", "reconcile_external_changes", "review_changes",
-    "resume_issue", "rewrite_feature_history", "scaffold_tasks", "suspend_issue", "validate_feature",
+    "resume_issue", "rewrite_feature_history", "run_feature_checks", "scaffold_tasks", "suspend_issue", "validate_feature",
   ].sort());
   assert.equal(new Set(all.map((t) => t.name)).size, all.length, "tool names are unique");
   for (const tool of all) {

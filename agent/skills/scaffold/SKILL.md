@@ -139,7 +139,7 @@ commits the exact tree with Git provenance and records the checkpoint in Scaffol
 Do not invoke `checkpoint-record` manually as a substitute. If bookkeeping was
 interrupted after committing, retry the native checkpoint with the same reference.
 A checkpoint grants no execution, push or publishing authority. After all nodes
-are completed/checkpointed, use approved `validate_feature`; all completed nodes
+are completed/checkpointed, use approved `run_feature_checks`; all completed nodes
 or `next: null` alone do not prove the root ticket has been delivered.
 
 ## Discoveries and interrupted work
@@ -223,7 +223,7 @@ per-issue design approval or implementation confirmation. All design-record appr
 strings must identify delegated authority and the actual reference, never claim the
 user individually approved an issue. Local checks, independent reviews, verified
 commits and recovery reuse that authority across sessions. Material changes outside
-the agreed objectives/constraints return to the user. Final feature review is mandatory.
+the agreed objectives/constraints return to the user. The final gate is mechanical build/test only; there is no whole-feature agent review.
 
 
 ## Delivery journal

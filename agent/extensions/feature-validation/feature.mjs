@@ -263,6 +263,88 @@ export async function validateFeature(args, context = {}, options = {}) {
   } finally { monitor?.close(); }
 }
 
+// Mechanical final gate: authenticate every task checkpoint, then run the approved build, test and
+// integration checks with the same "meaningful output" rule as validate_feature. There is NO agent
+// review and NO Scaffold validation lifecycle (start/record/invalidate): Scaffold only records a PASSED
+// feature validation that carries an APPROVED independent review, so this gate reports and retains
+// its own evidence (schema pi.feature-checks/v1) and leaves feature.validation untouched.
+// validate_feature itself is unchanged and remains available.
+const checksResult = (status, fields = {}) => ({ schema: 'pi.feature-checks/v1', status, mode: 'checks-only', ...fields });
+export async function runFeatureChecks(args, context = {}, options = {}) {
+  let repository, reference, record, monitor, started = false;
+  const totalClock = stopwatch();
+  const checkTimings = [], rechecks = { count: 0, ms: 0 };
+  const cache = createPreconditionCache();
+  const derive = async (repo, deriveArgs, deriveOptions, { fresh = false } = {}) => {
+    const clock = stopwatch();
+    try { return await featurePreconditions(repo, deriveArgs, deriveOptions, { cache, fresh }); }
+    finally { rechecks.count += 1; rechecks.ms += clock.elapsed(); }
+  };
+  const currentTimings = () => featureTimings({ checks: checkTimings, reviewMs: null, totalMs: totalClock.elapsed(), rechecks,
+    cache: preconditionCacheStats(cache) });
+  try {
+    context.abort?.throwIfAborted();
+    const plan = planFor(args, { review: false });
+    repository = path.resolve(git(context.directory, ['rev-parse', '--show-toplevel']));
+    const pre = await derive(repository, args, options, { fresh: true });
+    const binding = { feature_id: args.featureId, design_ref: args.designRef, baseline: args.featureBaseRef,
+      head: args.headRef, tree: pre.before.tree, branch: args.branch, task_revision: pre.feature.task_revision,
+      plan_digest: digest(JSON.stringify(plan)) };
+    requireValue(await options.authorize?.({ repository, binding, plan }), 'Explicit feature verification authorization required');
+    context.abort?.throwIfAborted();
+    const confirmed = await derive(repository, args, options);
+    requireValue(equal(confirmed.feature.tasks, pre.feature.tasks) && stable(pre.before, confirmed.before), 'Source/state changed during authorization');
+    monitor = monitorTrackedInputs(repository, { ignoreMetadataOnly: options.ignoreMetadataOnlyNotifications === true });
+    record = { attemptId: randomUUID(), binding, plan, tasks: pre.feature.tasks, checkpoints: pre.checkpoints,
+      before: pre.before, after: pre.before, checks: [], review: null,
+      result: checksResult('BLOCKED', { message: 'INTERRUPTED_OR_RUNNING' }) };
+    started = true;
+    // Nothing here may write feature.validation, so it must be exactly what it was when we started.
+    const unchanged = async ({ fresh = false } = {}) => {
+      monitor.assert();
+      context.abort?.throwIfAborted();
+      const current = await derive(repository, args, options, { fresh });
+      requireValue(stable(pre.before, current.before) && equal(pre.feature.tasks, current.feature.tasks) &&
+        equal(pre.feature.validation, current.feature.validation), 'Source, task graph or validation state changed; reconcile');
+      record.after = current.before;
+    };
+    for (const check of plan.checks) {
+      const checkClock = stopwatch();
+      monitor.mark('check', check.name);
+      const output = await runCheck(check.command, { cwd: repository, signal: context.abort, timeoutMs: plan.timeoutMs });
+      checkTimings.push({ name: check.name, started_at: checkClock.startedAt, duration_ms: checkClock.elapsed() });
+      record.checks.push({ name: check.name, definition: check, ...output, meaningful: meaningful(check, output) });
+      await unchanged();
+      if (output.problem || output.exit_code === null) {
+        record.result = checksResult('BLOCKED', { message: 'Check indeterminate: ' + (output.problem ?? check.name) }); break;
+      }
+      if (output.exit_code !== 0) { record.result = checksResult('NEEDS_DESIGN', { message: 'Project check failed: ' + check.name }); break; }
+      if (!record.checks.at(-1).meaningful) { record.result = checksResult('BLOCKED', { message: 'Meaningful coverage not established: ' + check.name }); break; }
+    }
+    if (record.checks.length === plan.checks.length && record.checks.every(c => c.meaningful))
+      record.result = checksResult('PASSED', { message: 'Build and tests passed with meaningful output. No independent feature review was performed.' });
+    monitor.mark('retention');
+    await unchanged({ fresh: true });
+    record.timings = currentTimings();
+    if (monitor.total()) record.monitorDiagnostics = monitor.diagnostics();
+    reference = await retainFeatureEvidence(repository, record);
+    await unchanged();
+    return { ...record.result, binding, evidenceRef: reference, checks: record.checks, review: null };
+  } catch (error) {
+    const blocked = checksResult('BLOCKED', { message: error.message, ...(reference ? { evidenceRef: reference } : {}),
+      recovery: 'Inspect actual Git state and Scaffold; a check run that was interrupted proves nothing, so rerun run_feature_checks' });
+    if (repository && started && !reference) {
+      try {
+        const failed = { ...record, result: checksResult('BLOCKED', { message: error.message }),
+          timings: currentTimings(), after: await snapshot(repository),
+          ...(monitor?.total() ? { monitorDiagnostics: monitor.diagnostics() } : {}) };
+        blocked.diagnosticEvidenceRef = await retainFeatureEvidence(repository, failed);
+      } catch { /* Diagnostics are best effort; the BLOCKED result is still returned. */ }
+    }
+    return blocked;
+  } finally { monitor?.close(); }
+}
+
 export async function inspectFeatureValidation(args, context = {}, options = {}) {
   try {
     const repository = path.resolve(git(context.directory, ['rev-parse', '--show-toplevel']));

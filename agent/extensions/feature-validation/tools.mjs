@@ -1,5 +1,5 @@
 import { featureAuthorized } from "../scaffold/feature-authorization.mjs";
-import { validateFeature, inspectFeatureValidation } from "./feature.mjs";
+import { validateFeature, runFeatureChecks, inspectFeatureValidation } from "./feature.mjs";
 import { defineTool, toolResult, withFailureReporting } from "../../lib/host/tool.mjs";
 
 // Validation binds to the ledger's movable `base` (moved by a rebase). The authorization check compares the
@@ -61,6 +61,47 @@ export function createFeatureValidationTools(Type) {
           {
             // Human-set host environment only; deliberately not a tool parameter the agent could choose.
             // Ignores notifications whose content hash equals the baseline. Default is strict.
+            ignoreMetadataOnlyNotifications: process.env.PI_VALIDATION_IGNORE_METADATA_ONLY === "1",
+            authorize: async () =>
+              featureAuthorized(withoutValidationBase(params), { directory: host.cwd, abort: host.signal }),
+          },
+        );
+        return toolResult(result, { isError: result.status === "BLOCKED" });
+      },
+    })),
+    withFailureReporting(defineTool({
+      name: "run_feature_checks",
+      label: "Run final feature checks",
+      description:
+        "Mechanical final gate: authenticate all task checkpoints, then run the approved full-project build, test and integration checks and require meaningful output. No agent review and no Scaffold validation record; retains its own evidence. Uses the retained overall feature authorization. No implementation, commits, publishing, retries or task selection.",
+      parameters: Type.Object({
+        featureId: Type.String(),
+        designRef: Type.String(),
+        branch: Type.String(),
+        featureBaseRef: Type.String(),
+        headRef: Type.String(),
+        buildCommand: Type.Array(Type.String(), { minItems: 1 }),
+        testCommand: Type.Array(Type.String(), { minItems: 1 }),
+        testSuccessPattern: Type.String({
+          description:
+            "Approved literal output marker demonstrating meaningful tests ran, e.g. '42 passed'. Never choose a generic exit message.",
+        }),
+        integrationChecks: Type.Optional(
+          Type.Array(
+            Type.Object({
+              name: Type.String(),
+              command: Type.Array(Type.String(), { minItems: 1 }),
+              successPattern: Type.String(),
+            }),
+          ),
+        ),
+        checkTimeoutMs: Type.Optional(Type.Integer()),
+      }),
+      async execute(params, host) {
+        const result = await runFeatureChecks(
+          params,
+          { directory: host.cwd, abort: host.signal },
+          {
             ignoreMetadataOnlyNotifications: process.env.PI_VALIDATION_IGNORE_METADATA_ONLY === "1",
             authorize: async () =>
               featureAuthorized(withoutValidationBase(params), { directory: host.cwd, abort: host.signal }),

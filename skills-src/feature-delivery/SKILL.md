@@ -2,7 +2,7 @@
 name: feature-delivery
 description: >
   Orchestrate multi-task implementation of an initialized, approved Scaffold
-  feature, using implement-task for issues and final feature validation.
+  feature, using implement-task for issues and a final mechanical build/test gate.
 ---
 
 # Autonomous feature delivery
@@ -52,11 +52,11 @@ without reinitializing or requesting another approval. If the graph is still
 in Design, or feature approval is missing, delegate to `{{skill:init-feature}}`
 to finish preparation; never claim a null selection means completion.
 
-This skill owns the **multi-task implementation loop** and final feature
-validation only. Preparation is separate from execution: `init-feature`
+This skill owns the **multi-task implementation loop** and the final mechanical
+build/test gate only. Preparation is separate from execution: `init-feature`
 does not apply code or start tasks, and `feature-delivery` must not execute
 before verified `design-finish`. Reuse the single retained direction grant
-through task checkpointing, recovery and final validation.
+through task checkpointing, recovery and the final checks.
 
 ## 2. Implement upward and process discoveries
 
@@ -86,7 +86,7 @@ using the handoff as previousAttempt. Three consumed attempts mean the next is f
 Never reset the issue, weaken criteria/findings or blindly replay old operations.
 Conflicts, stale state or exhausted budgets block with saved work retained.
 Without unfinished work use `design-reopen` directly. Completed nodes remain intact;
-final review findings become dependent corrective issues in the same graph.
+a failed final check becomes a dependent corrective issue in the same graph.
 
 Stop and ask only when the work requires changing approved objectives, externally
 visible behaviour, explicit constraints or other material commitments, or when a
@@ -123,34 +123,42 @@ Task-level `previousAttempt`, `repair_check`, targeted checks, correction,
 checkpoint recovery, retained receipts, meaningful test evaluators and retry
 details live in `{{skill:implement-task}}`. Task completion requires authentic
 PASSED evidence and exact Git checkpoint. The full repository test suite is
-reserved for `{{tool:validate_feature}}`, not repeated for each leaf or parent by
+reserved for `{{tool:run_feature_checks}}`, not repeated for each leaf or parent by
 default. Original feature criteria and all completed descendants remain intact.
 There is **no per-issue attempt limit**; evidence-backed stall detection and
 resource/infrastructure pauses govern continuation.
 
-## Checkpoints, recovery and final review
+## Checkpoints, recovery and final checks
 
 Feature delivery ensures each dependency and parent issue is independently
-completed and checkpointed before final validation. Per-task Git tree and
+completed and checkpointed before the final checks. Per-task Git tree and
 index recovery is delegated to `{{skill:implement-task}}` and its native tools.
 Feature-level suspension, dependency changes, rebase reconciliation and
-final validation remain this workflow's responsibility.
+the final checks remain this workflow's responsibility.
 
-## Final feature verification
+## Final feature checks
 
-After every leaf and parent is completed and checkpointed, run `{{tool:validate_feature}}`
+After every leaf and parent is completed and checkpointed, run `{{tool:run_feature_checks}}`
 against the original baseline and original approved direction with meaningful full
-project checks and bounded independent review. The feature authority covers this
-verification without another confirmation. Review receives actual diagnostics,
-original criteria and issue contracts. Zero exit status alone never establishes
-coverage; require concrete successful test output. INDETERMINATE is BLOCKED.
-Final feature review is mandatory even when all individual issues have passed.
+project build and test commands. The feature authority covers these checks without
+another confirmation. Zero exit status alone never establishes coverage; require
+concrete successful test output (the approved `testSuccessPattern`). INDETERMINATE
+or BLOCKED is BLOCKED.
 
-Resolve in-scope findings through corrective issues, redesign/implement/checkpoint
-without further approval prompts, then rerun the full gate. Preserve original
-criteria and every historical failure. Stop on material scope changes as above.
-Report actual tests, unresolved findings, feature review outcome and reviewable
-commits/PR to the user. Do not declare completion from `select: null` alone.
+This gate is mechanical. It performs **no independent or agent-based feature review**
+and records nothing in Scaffold's `validation` state, so do not call
+`{{tool:validate_feature}}` from this workflow. Per-issue review during
+`{{tool:execute_and_review}}` is unchanged. Do not describe the feature as
+independently reviewed as a whole.
+
+Resolve a failed check through a corrective issue (design, implement, checkpoint)
+without further approval prompts, then rerun the checks. Preserve original criteria
+and every historical failure. Stop on material scope changes as above.
+Report the actual checks run and their output, any unresolved failures and the
+reviewable commits/PR to the user. Tell the user that
+`{{skill:feature-questions}}` is available to generate verification questions for the
+finished feature if they want a manual review. Do not invoke it yourself. Do not
+declare completion from `select: null` alone.
 
 If a clean user commit lands after authorization but before any task starts, or Git no longer matches the feature boundary, run `{{tool:inspect_feature_drift}}`; for clean user commits between tasks it directs you to `{{tool:adopt_foreign_commits}}`, which needs the user's explicit approval of the exact recorded head and new head and is not rebase recovery. Never edit Scaffold or recreate the feature to bypass a baseline mismatch.
 
@@ -168,4 +176,4 @@ completion. Within a selected issue, `{{skill:implement-task}}` owns detailed
 and retained evidence inspection. Only Scaffold owns graph lifecycle state;
 returning from task implementation does not authorize creation of unrelated
 work. Feature delivery coordinates material approval amendments, suspended
-issue prerequisites and final review corrective issues without losing history.
+issue prerequisites and final-check corrective issues without losing history.

@@ -113,6 +113,7 @@ export const NOT_FAILURE_CODES = new Set([
 export const NEEDS_DESIGN_GUIDANCE = {
   execute_and_review: { owner: A, next: ["Fix what the failed check or review findings describe, then continue with previousAttempt; consumed attempts are never reset."] },
   validate_feature: { owner: A, next: ["Resolve each finding through a corrective issue (design it, implement it, checkpoint it) without discarding history, then rerun validate_feature."] },
+  run_feature_checks: { owner: A, next: ["A project check failed. Resolve the failure through a corrective issue (design it, implement it, checkpoint it) without discarding history, then rerun run_feature_checks."] },
   rewrite_feature_history: { owner: U, next: ["The rebased branch fails its checks or review, and nothing was recorded. The rebase is the user's to fix; report the findings, then rerun rewrite_feature_history once the branch is corrected."] },
   default: { owner: A, next: ["Read the findings in message and cause, correct what they describe, then rerun this tool."] },
 };

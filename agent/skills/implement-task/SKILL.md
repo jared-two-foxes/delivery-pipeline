@@ -11,7 +11,7 @@ This is the task-scoped implementation and recovery workflow. Accept an existing
 Scaffold `featureId` and `taskId` with persisted design, criteria and authorized
 feature direction. The feature-level orchestrator (`/skill:feature-delivery`)
 selects eligible issues, orders dependencies and owns the overall approval, graph
-decomposition and final feature validation. This skill does not create a feature,
+decomposition and the final build/test checks. This skill does not create a feature,
 approve direction, choose the next task or run the feature-wide final gate.
 
 A direct invocation is valid for one already selected, approved, eligible issue.
@@ -39,7 +39,7 @@ verification plan. Prefer targeted regressions for leaves and scoped integration
 tests for intermediate parents; exclude the full repository/workspace test
 command whenever the runner supports meaningful selection. Retain exact commands
 and coverage in the issue design. Explain any unavoidable broader command.
-Reserve the full suite for final root verification through validate_feature
+Reserve the full suite for final root verification through run_feature_checks
 after checkpoints; corrective issues use targeted checks before rerunning that
 final gate. Keep ordered checks fixed across corrections except for explicit
 command invocation repairs described below. On a first attempt, `requirements`
@@ -126,9 +126,9 @@ If `implementationStatus: PASSED` but finalization is BLOCKED, preserve its evid
 and call checkpoint_verified_task with that receipt and matching feature/branch
 metadata. This resumes completion/commit only; never reapply operations or rerun
 review to recover a failed commit. Each parent needs its own original-criteria verification
-and commit after children, even if its commit is empty. Finish with validate_feature
-against the original baseline. Inspect actual meaningful checks and final review;
-add in-scope corrective issues and revalidate without additional permission prompts.
+and commit after children, even if its commit is empty. Finish with run_feature_checks
+against the original baseline. Inspect the actual meaningful check output;
+add in-scope corrective issues and rerun the checks without additional permission prompts.
 
 For missing prerequisites or oversized scope, retain the latest receipt and
 return NEEDS_DECOMPOSITION/NEEDS_DESIGN with a proposed prerequisite and
@@ -235,11 +235,12 @@ cannot select the needed tests, name the check in `broadCheckJustifications:
 record. Continuations inherit the retained plan and are not re-checked.
 
 Reserve the full test suite for the final root/feature verification through
-`validate_feature` after required issue checkpoints. The root's implementation
+`run_feature_checks` after required issue checkpoints. The root's implementation
 attempt may use focused integration checks; the final gate supplies full-project
-build/test commands and independently reviews the complete result. Avoid duplicating
-that expensive suite across each issue or parent. If final review creates corrective
-issues, use targeted checks for those issues, then rerun the full final gate.
+build/test commands and runs them mechanically, with no whole-feature agent review.
+Avoid duplicating that expensive suite across each issue or parent. If a final check
+fails and creates corrective issues, use targeted checks for those issues, then rerun
+the full final gate.
 
 The selected ordered plan stays fixed within a correction epoch. For an invocation
 error, use a structured `repair_check` update with equivalent commands, preserving names,
@@ -335,8 +336,8 @@ for additional coverage. Every update needs a reason. Removing obligations or
 material scope changes requires the explicit Design/approval transition.
 
 A proposed_addressed claim never closes a finding. Independent Review must return
-an explicit verified assessment for each open stable obligation ID. Final feature
-review carries original criteria, issue contexts and unresolved feature findings.
+an explicit verified assessment for each open stable obligation ID, as part of each
+issue's own review.
 
 Use checkEnvironmentInputs only when all relevant inputs of deterministic checks
 can be measured; otherwise omit it and rerun checks. No secrets belong in this
