@@ -44,8 +44,11 @@ correct, and nothing it produces is evidence of anything.
 
 ## Inputs
 
-1. The feature. Take the id from the user; if none is given, use
-   `scaffold_tasks` `summary` and ask only if more than one is plausible.
+1. The feature id. `scaffold_tasks` requires a `feature_id` for every
+   operation, even `summary`, so it cannot list features for you. Use an id that is
+   unambiguous from the conversation (the user named it, or this session just worked
+   on exactly one feature). Otherwise **ask the user for the feature id before
+   querying Scaffold**; do not guess one.
 2. Scaffold state from `scaffold_tasks` `list` and scoped `issue` queries: the
    approved direction (`context`), the feature `acceptance_criteria` and `constraints`,
    and for each issue its criteria, designs and contracts, delivery obligations and any

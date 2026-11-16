@@ -778,3 +778,40 @@ test("run_feature_checks refuses an unfinished feature and a head that is not th
   assert.equal(dirty.status, "BLOCKED", JSON.stringify(dirty));
   assert.match(dirty.message, /clean matching HEAD/);
 });
+
+test("run_feature_checks blocks source edited, or edited then restored, while a check runs, and keeps diagnostics", integration, async (t) => {
+  const passing = 'console.log("12 integration tests passed")';
+  const variants = {
+    edited: `require("fs").writeFileSync("source.txt","changed");${passing}`,
+    restored: `const fs=require("fs");const original=fs.readFileSync("source.txt");fs.writeFileSync("source.txt","transient");fs.writeFileSync("source.txt",original);${passing}`,
+  };
+  for (const [name, code] of Object.entries(variants)) {
+    const f = await fixture(t);
+    await f.add("one");
+    await f.finish("one");
+    await f.prepare();
+    const validationBefore = (await f.call("list")).feature.validation;
+    const r = await f.checks({ testCommand: [process.execPath, "-e", code] });
+    assert.equal(r.status, "BLOCKED", name + ": " + JSON.stringify(r));
+    assert.equal(r.schema, "pi.feature-checks/v1");
+    assert.equal(r.evidenceRef, undefined, name + ": a blocked run retains no success receipt");
+    // The interrupted run leaves a readable BLOCKED diagnostic receipt, never a PASSED one.
+    assert.ok(r.diagnosticEvidenceRef, name + ": diagnostic evidence retained");
+    const diagnostic = await readFeatureEvidence(f.dir, r.diagnosticEvidenceRef);
+    assert.equal(diagnostic.result.status, "BLOCKED");
+    assert.equal(diagnostic.review, null);
+    assert.ok(diagnostic.checks.some((c) => c.name === "test"), name + ": the offending check is recorded");
+    // Scaffold's validation state is exactly as it was: nothing started, recorded or invalidated.
+    assert.deepEqual((await f.call("list")).feature.validation, validationBefore, name);
+    assert.equal(await exists(f.capture), false, name + ": no reviewer ran");
+  }
+  // Ignored generated output is not a source change, as for validate_feature.
+  const g = await fixture(t);
+  await g.add("one");
+  await g.finish("one");
+  const generated = await g.checks({
+    testCommand: [process.execPath, "-e", `const fs=require("fs");fs.mkdirSync("output",{recursive:true});fs.writeFileSync("output/report.txt","generated");${passing}`],
+  });
+  assert.equal(generated.status, "PASSED", JSON.stringify(generated));
+  assert.equal(g.g("status", "--porcelain"), "");
+});
