@@ -111,6 +111,11 @@ test('verification failure names the unmet obligation and why a not_applicable a
     { obligation_id: 'c', disposition: 'verified', evidence: '  ' }] };
   assert.deepEqual(unverifiedObligations(args, review), [
     { id: 'b', assessed: 'not_applicable' }, { id: 'c', assessed: 'verified without evidence' }]);
+  // Task gate: evidenced not_applicable defers; it never counts as verified, so feature validation still requires it.
+  assert.deepEqual(unverifiedObligations(args, review, { deferNotApplicable: true }), [
+    { id: 'c', assessed: 'verified without evidence' }]);
+  const noEvidence = { ...review, obligation_assessments: [{ obligation_id: 'b', disposition: 'not_applicable' }] };
+  assert.equal(unverifiedObligations(args, noEvidence, { deferNotApplicable: true }).some(o => o.id === 'b'), true);
   assert.deepEqual(unverifiedObligations(args, { ...review, obligation_assessments: [] }).map(o => o.assessed),
     ['not assessed', 'not assessed', 'not assessed']);
   assert.match(verificationFailure({ status: 'BLOCKED' }, args), /result status is BLOCKED/);

@@ -48,7 +48,11 @@ export function findingObligations(records) {
 // Open obligations this review did not close, each with what the review actually said about it. Only an
 // explicit `verified` assessment with evidence closes one (or an approved amendment naming it); `unresolved`,
 // `not_applicable`, an assessment without evidence, or no assessment at all leave it open.
-export function unverifiedObligations(args, review) {
+//
+// With `deferNotApplicable` (the task-level commit gate only), a `not_applicable` assessment that carries evidence
+// does not block the task checkpoint: the obligation belongs to a later task. It is NOT marked verified, so it stays
+// open on this task and final feature validation (which never sets this option) must still verify it.
+export function unverifiedObligations(args, review, { deferNotApplicable = false } = {}) {
   return (args.deliveryContext?.obligations ?? [])
     .filter((o) => o.status !== "independently_verified")
     .filter(
@@ -56,6 +60,13 @@ export function unverifiedObligations(args, review) {
         !(args.deliveryContext?.amendments ?? []).some((a) =>
           a.ids.includes(o.id),
         ) &&
+        !(deferNotApplicable &&
+          review?.obligation_assessments?.some(
+            (a) =>
+              a.obligation_id === o.id &&
+              a.disposition === "not_applicable" &&
+              text(a.evidence),
+          )) &&
         !review?.obligation_assessments?.some(
           (a) =>
             a.obligation_id === o.id &&

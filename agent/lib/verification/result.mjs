@@ -37,10 +37,11 @@ export function verificationFailure(result, args, { noDelta = false } = {}) {
   }
   if (c.review?.status !== "APPROVED") return "review status is " + c.review?.status + ", not APPROVED";
   if (!noDelta) {
-    const open = unverifiedObligations(args ?? {}, c.review);
+    const open = unverifiedObligations(args ?? {}, c.review, { deferNotApplicable: true });
     if (open.length)
-      return open.length + " open obligation(s) not verified by this review (only a `verified` assessment with " +
-        "evidence, or an approved amendment naming the id, closes one): " +
+      return open.length + " open obligation(s) not resolved by this review (a `verified` assessment with evidence, " +
+        "a `not_applicable` one with evidence that defers it to feature validation, or an approved amendment " +
+        "naming the id): " +
         open.map((o) => o.id + " [" + o.assessed + "]").join(", ");
   }
   return null;
