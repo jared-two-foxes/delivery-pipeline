@@ -1,7 +1,7 @@
 import { authenticateAmendment } from '../authorization/amendment.mjs';
 import { authenticateAttemptChain } from './attempt-chain.mjs';
 import { readEvidence } from '../evidence/store.mjs';
-import { verifiedResult } from './result.mjs';
+import { verificationFailure } from './result.mjs';
 import { taskHasNoDelta } from './no-delta.mjs';
 import { isDeepStrictEqual as equal } from 'node:util';
 const requireValue = (ok, message) => { if (!ok) throw new Error(message); };
@@ -17,8 +17,11 @@ export async function authenticateTaskEvidence(repository, reference, binding) {
   for (const a of record.args.deliveryContext?.amendments ?? [])
     requireValue(equal(await authenticateAmendment(repository, a.reference, binding), a), 'Invalid amendment authority');
   requireValue(['featureId', 'taskId', 'designRef'].every(k => record.task[k] === binding[k]), 'Task/design identity mismatch');
-  requireValue(verifiedResult(record.result, record.args, { noDelta: taskHasNoDelta(repository, record.args?.baseRef, record.after?.tree) }) && record.before?.head === record.args?.baseRef &&
-    record.after?.head === record.before.head && sha(record.after?.tree), 'Missing successful task-bound verification or Git tree');
+  const failure = verificationFailure(record.result, record.args, { noDelta: taskHasNoDelta(repository, record.args?.baseRef, record.after?.tree) }) ??
+    (record.before?.head !== record.args?.baseRef ? 'the receipt started from ' + record.before?.head + ', not the task base ' + record.args?.baseRef
+      : record.after?.head !== record.before.head ? 'HEAD moved from ' + record.before.head + ' to ' + record.after?.head + ' during the attempt'
+      : !sha(record.after?.tree) ? 'the receipt carries no Git tree' : null);
+  requireValue(failure === null, 'Missing successful task-bound verification or Git tree: ' + failure);
   await authenticateAttemptChain(repository, reference, binding);
   return record;
 }

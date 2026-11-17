@@ -81,8 +81,10 @@ unresolved findings/check failures. Stable occurrence IDs retain provenance rath
 than silently merging similar findings. Agent claims do not establish resolution.
 Review returns `obligation_assessments` containing obligation_id, disposition and
 concrete evidence. Only explicit independent `verified` assessments satisfy open
-obligations; missing, unresolved or not_applicable assessments do not authorize a
-checkpoint. Final feature review also carries earlier feature findings and issue
+obligations. At the task checkpoint, a `not_applicable` assessment with evidence (the
+obligation belongs to a later task) does not block, but the obligation stays open and
+final feature validation must still verify it; missing, unresolved or evidence-free
+assessments do not authorize a checkpoint. Final feature review also carries earlier feature findings and issue
 contexts. Bookkeeping, READY and migration never mean PASSED.
 
 ## Pauses, infrastructure and resources
