@@ -99,3 +99,19 @@ test('unchanged source/check scope and source cycles stall even when diagnostic 
   const progress = [1, 2, 3, 4, 5, 6, 7].map(n => record('test', n, 'new substantive failure ' + n, 'source-' + n));
   assert.equal(stallDecision(progress, {}), null);
 });
+
+test('verification failure names the unmet obligation and why a not_applicable assessment does not close it', async () => {
+  const { verificationFailure } = await import('../agent/lib/verification/result.mjs');
+  const { unverifiedObligations } = await import('../agent/lib/verification/obligations.mjs');
+  const args = { checks: [{ name: 'u', command: ['x'] }], deliveryContext: { obligations: [
+    { id: 'a', status: 'open' }, { id: 'b', status: 'open' }, { id: 'c', status: 'open' }, { id: 'd', status: 'independently_verified' }] } };
+  const review = { status: 'APPROVED', obligation_assessments: [
+    { obligation_id: 'a', disposition: 'verified', evidence: 'inspected' },
+    { obligation_id: 'b', disposition: 'not_applicable', evidence: 'out of scope' },
+    { obligation_id: 'c', disposition: 'verified', evidence: '  ' }] };
+  assert.deepEqual(unverifiedObligations(args, review), [
+    { id: 'b', assessed: 'not_applicable' }, { id: 'c', assessed: 'verified without evidence' }]);
+  assert.deepEqual(unverifiedObligations(args, { ...review, obligation_assessments: [] }).map(o => o.assessed),
+    ['not assessed', 'not assessed', 'not assessed']);
+  assert.match(verificationFailure({ status: 'BLOCKED' }, args), /result status is BLOCKED/);
+});

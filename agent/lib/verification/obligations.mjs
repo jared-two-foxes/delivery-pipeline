@@ -45,19 +45,37 @@ export function findingObligations(records) {
 }
 
 
-export function obligationsVerified(args, review) {
+// Open obligations this review did not close, each with what the review actually said about it. Only an
+// explicit `verified` assessment with evidence closes one (or an approved amendment naming it); `unresolved`,
+// `not_applicable`, an assessment without evidence, or no assessment at all leave it open.
+export function unverifiedObligations(args, review) {
   return (args.deliveryContext?.obligations ?? [])
     .filter((o) => o.status !== "independently_verified")
-    .every(
+    .filter(
       (o) =>
-        (args.deliveryContext?.amendments ?? []).some((a) =>
+        !(args.deliveryContext?.amendments ?? []).some((a) =>
           a.ids.includes(o.id),
-        ) ||
-        review?.obligation_assessments?.some(
+        ) &&
+        !review?.obligation_assessments?.some(
           (a) =>
             a.obligation_id === o.id &&
             a.disposition === "verified" &&
             text(a.evidence),
         ),
-    );
+    )
+    .map((o) => {
+      const a = review?.obligation_assessments?.find((x) => x.obligation_id === o.id);
+      return {
+        id: o.id,
+        assessed: !a
+          ? "not assessed"
+          : a.disposition === "verified"
+            ? "verified without evidence"
+            : a.disposition,
+      };
+    });
+}
+
+export function obligationsVerified(args, review) {
+  return unverifiedObligations(args, review).length === 0;
 }

@@ -1,36 +1,51 @@
-import { obligationsVerified } from "./obligations.mjs";
+import { unverifiedObligations } from "./obligations.mjs";
 import { verificationChecks } from "./checks.mjs";
 import { authenticNormalized } from "./workflow.mjs";
+
+// The first unmet precondition of a verified result, as text a person can act on, or null when none is unmet.
 // Structural success is necessary, never proof that meaningful tests ran. Pi
 // must also inspect check output and the independently produced review content.
 // With `noDelta` (the task changed nothing relative to its base) open obligations are not required to be
 // verified by this task-level review: they stay open on the task, so final feature validation still must
 // verify every one of them before anything passes.
-export function verifiedResult(result, args, { noDelta = false } = {}) {
+export function verificationFailure(result, args, { noDelta = false } = {}) {
   let checks;
   try {
     checks = verificationChecks(args);
-  } catch {
-    return false;
+  } catch (error) {
+    return "verification checks are invalid: " + error.message;
   }
   const c = result?.conductor;
-  return (
-    result?.status === "PASSED" &&
-    c?.schema === "pi.conductor-result/v1" &&
-    authenticNormalized(c) &&
-    c.status === "PASSED" &&
-    c.phase === "review" &&
-    !c.error &&
-    c.execution?.success === true &&
-    Array.isArray(c.checks) &&
-    c.checks.length === checks.length &&
-    checks.every(
-      (check, index) =>
-        c.checks[index]?.name === check.name &&
-        c.checks[index].status === "PASSED" &&
-        (check.successCondition || c.checks[index].exit_code === 0),
-    ) &&
-    c.review?.status === "APPROVED" &&
-    (noDelta || obligationsVerified(args ?? {}, c.review))
-  );
+  if (result?.status !== "PASSED") return "result status is " + result?.status + ", not PASSED";
+  if (c?.schema !== "pi.conductor-result/v1") return "no pi.conductor-result/v1 in the result";
+  if (!authenticNormalized(c))
+    return "the retained Conductor result does not re-derive from its own request, receipts and tool outputs";
+  if (c.status !== "PASSED") return "Conductor status is " + c.status + ", not PASSED";
+  if (c.phase !== "review") return "Conductor stopped in phase " + c.phase + ", before review";
+  if (c.error) return "Conductor reported an error: " + JSON.stringify(c.error).slice(0, 300);
+  if (c.execution?.success !== true) return "Executor did not report success";
+  if (!Array.isArray(c.checks) || c.checks.length !== checks.length)
+    return "the receipt has " + (c.checks?.length ?? 0) + " check results but the verification plan has " +
+      checks.length + " (" + checks.map((k) => k.name).join(", ") + ")";
+  for (const [index, check] of checks.entries()) {
+    const got = c.checks[index];
+    if (got?.name !== check.name)
+      return "check " + index + " is " + got?.name + " in the receipt but " + check.name + " in the plan";
+    if (got.status !== "PASSED") return 'check "' + check.name + '" status is ' + got.status;
+    if (!check.successCondition && got.exit_code !== 0)
+      return 'check "' + check.name + '" exited ' + got.exit_code;
+  }
+  if (c.review?.status !== "APPROVED") return "review status is " + c.review?.status + ", not APPROVED";
+  if (!noDelta) {
+    const open = unverifiedObligations(args ?? {}, c.review);
+    if (open.length)
+      return open.length + " open obligation(s) not verified by this review (only a `verified` assessment with " +
+        "evidence, or an approved amendment naming the id, closes one): " +
+        open.map((o) => o.id + " [" + o.assessed + "]").join(", ");
+  }
+  return null;
+}
+
+export function verifiedResult(result, args, options) {
+  return verificationFailure(result, args, options) === null;
 }

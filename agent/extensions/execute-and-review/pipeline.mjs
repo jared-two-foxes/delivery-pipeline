@@ -24,7 +24,7 @@ import { normalizeWorkflow } from "../../lib/verification/workflow.mjs";
 import { snapshot } from "../../lib/git/snapshot.mjs";
 import { retainEvidence, readEvidence } from "../../lib/evidence/store.mjs";
 import { retainAttempt, taskReceipts } from "../../lib/evidence/attempts.mjs";
-import { verifiedResult } from "../../lib/verification/result.mjs";
+import { verificationFailure } from "../../lib/verification/result.mjs";
 import { taskHasNoDelta } from "../../lib/verification/no-delta.mjs";
 import { requireFeatureAuthorization } from "../scaffold/feature-authorization.mjs";
 import { assertLatestAttempt } from "../../lib/verification/attempt-chain.mjs";
@@ -393,11 +393,12 @@ export async function sealVerification(plan) {
       conductor,
     });
     const after = await snapshot(plan.repository);
+    const unmet = verificationFailure(verified, plan.args, {
+      noDelta: taskHasNoDelta(plan.repository, plan.args.baseRef, after.tree),
+    });
     requireValue(
-      verifiedResult(verified, plan.args, {
-        noDelta: taskHasNoDelta(plan.repository, plan.args.baseRef, after.tree),
-      }),
-      "Executor, checks and completed APPROVED review are required before commit",
+      unmet === null,
+      "Executor, checks and completed APPROVED review are required before commit: " + unmet,
     );
     const reviewSnapshot = JSON.parse(
       await readFile(plan.boundaryPath, "utf8"),
