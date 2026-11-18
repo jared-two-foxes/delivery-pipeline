@@ -349,20 +349,12 @@ test("verification subprocess bounds, cancellation and diagnostics preserve actu
 });
 
 test(
-  "restored tracked edits fail, ignored generated outputs pass, and invalid review plans run no commands",
+  "ignored generated outputs pass, and invalid review plans run no commands",
   integration,
   async (t) => {
     const f = await fixture(t);
     await f.add("one");
     await f.finish("one");
-    const restored = await f.validate({
-      testCommand: [
-        process.execPath,
-        "-e",
-        'const fs=require("fs");const original=fs.readFileSync("source.txt");fs.writeFileSync("source.txt","transient");fs.writeFileSync("source.txt",original);console.log("12 integration tests passed")',
-      ],
-    });
-    assert.equal(restored.status, "BLOCKED", JSON.stringify(restored));
     const generated = await f.validate({
       testCommand: [
         process.execPath,

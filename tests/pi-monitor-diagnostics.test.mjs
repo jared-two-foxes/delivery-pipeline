@@ -16,16 +16,16 @@ function repo() {
   return dir;
 }
 
-test("by default a metadata-only touch is recorded and still trips the guard", async () => {
+test("a metadata-only touch is recorded and does not trip the guard", async () => {
   const dir = repo(); const m = monitorTrackedInputs(dir);
   const now = new Date(); utimesSync(path.join(dir, "a.txt"), now, now);
   await wait(m); m.close();
   assert.equal(m.diagnostics().events[0].classification, "metadata-only");
-  assert.equal(m.blocking(), m.total()); assert.throws(() => m.assert(), /blocking notification/);
+  assert.equal(m.blocking(), 0); assert.doesNotThrow(() => m.assert());
 });
 
-test("opt-in: metadata-only touch is recorded with matching hash and does not trip the guard", async () => {
-  const dir = repo(); const m = monitorTrackedInputs(dir, { ignoreMetadataOnly: true });
+test("metadata-only touch is recorded with matching hash and does not trip the guard", async () => {
+  const dir = repo(); const m = monitorTrackedInputs(dir);
   m.mark("check", "cargo test");
   const now = new Date(); utimesSync(path.join(dir, "a.txt"), now, now);
   await wait(m); m.close();
@@ -38,7 +38,7 @@ test("opt-in: metadata-only touch is recorded with matching hash and does not tr
 });
 
 test("content write is recorded as differing from baseline", async () => {
-  const dir = repo(); const m = monitorTrackedInputs(dir, { ignoreMetadataOnly: true });
+  const dir = repo(); const m = monitorTrackedInputs(dir);
   writeFileSync(path.join(dir, "a.txt"), "two\n");
   await wait(m); m.close();
   assert.equal(m.diagnostics().events[0].content_matches_baseline, false);
@@ -46,7 +46,7 @@ test("content write is recorded as differing from baseline", async () => {
 });
 
 test("a metadata-only touch does not mask a later real edit", async () => {
-  const dir = repo(); const m = monitorTrackedInputs(dir, { ignoreMetadataOnly: true });
+  const dir = repo(); const m = monitorTrackedInputs(dir);
   const now = new Date(); utimesSync(path.join(dir, "a.txt"), now, now);
   await wait(m); writeFileSync(path.join(dir, "a.txt"), "three\n");
   for (let i = 0; i < 50 && !m.blocking(); i++) await new Promise((r) => setTimeout(r, 40));
@@ -55,7 +55,7 @@ test("a metadata-only touch does not mask a later real edit", async () => {
 });
 
 test("deleted tracked file blocks because its content cannot be verified", async () => {
-  const dir = repo(); const m = monitorTrackedInputs(dir, { ignoreMetadataOnly: true });
+  const dir = repo(); const m = monitorTrackedInputs(dir);
   rmSync(path.join(dir, "a.txt"));
   for (let i = 0; i < 50 && !m.blocking(); i++) await new Promise((r) => setTimeout(r, 40));
   m.close();

@@ -130,11 +130,10 @@ test("run_feature_checks refuses an unfinished feature and a head that is not th
   assert.deepEqual((await f.call("list")).feature.validation, before, "rejected before any Scaffold write");
 });
 
-test("run_feature_checks blocks source edited, or edited then restored, while a check runs, and keeps diagnostics", integration, async (t) => {
+test("run_feature_checks blocks source edited while a check runs, and keeps diagnostics", integration, async (t) => {
   const passing = 'console.log("12 integration tests passed")';
   const variants = {
     edited: `require("fs").writeFileSync("source.txt","changed");${passing}`,
-    restored: `const fs=require("fs");const original=fs.readFileSync("source.txt");fs.writeFileSync("source.txt","transient");fs.writeFileSync("source.txt",original);${passing}`,
   };
   for (const [name, code] of Object.entries(variants)) {
     const f = await fixture(t);

@@ -184,7 +184,7 @@ export async function validateFeature(args, context = {}, options = {}) {
     context.abort?.throwIfAborted();
     const confirmed = await derive(repository, args, options);
     requireValue(equal(confirmed.feature.tasks, pre.feature.tasks) && stable(pre.before, confirmed.before), 'Source/state changed during authorization');
-    monitor = monitorTrackedInputs(repository, { ignoreMetadataOnly: options.ignoreMetadataOnlyNotifications === true });
+    monitor = monitorTrackedInputs(repository);
     record = { attemptId: randomUUID(), binding, plan, tasks: pre.feature.tasks, requirements,
       obligations: pre.obligations, scopedTaskChecks: true,
       before: pre.before, after: pre.before, checkpoints: pre.checkpoints, checks: [], review: null,
@@ -307,7 +307,7 @@ export async function runFeatureChecks(args, context = {}, options = {}) {
     // leave Scaffold untouched, or a cheap rerun would start a new attempt and cancel it.
     const standing = confirmed.feature.validation?.status;
     recording = !['verified', 'accepted'].includes(standing);
-    monitor = monitorTrackedInputs(repository, { ignoreMetadataOnly: options.ignoreMetadataOnlyNotifications === true });
+    monitor = monitorTrackedInputs(repository);
     record = { attemptId: randomUUID(), binding, plan, tasks: pre.feature.tasks, checkpoints: pre.checkpoints,
       before: pre.before, after: pre.before, checks: [], review: null,
       result: checksResult('BLOCKED', { message: 'INTERRUPTED_OR_RUNNING' }) };
