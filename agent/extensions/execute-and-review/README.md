@@ -484,7 +484,7 @@ and task state, not the historical Scaffold status alone.
 Run the integration suite against the companion Scaffold checkout:
 
 ```sh
-SCAFFOLD_SOURCE=/path/to/scaffold node --test tests/pi-feature-validation.test.mjs tests/pi-checkpoint.test.mjs
+SCAFFOLD_SOURCE=/path/to/scaffold node --test tests/pi-feature-validation.test.mjs tests/pi-feature-checks.test.mjs tests/pi-feature-acceptance.test.mjs tests/pi-checkpoint.test.mjs
 ```
 
 No live AI calls are needed; temporary Git repositories, real Scaffold processes
