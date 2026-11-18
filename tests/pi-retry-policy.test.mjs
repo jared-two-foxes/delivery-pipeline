@@ -30,6 +30,15 @@ test('stall signatures remove timing noise, preserve substantive diagnostics and
   assert.equal(stallDecision([record('test', 1, 'compile'), record('test', 2, 'test'), record('review', 3, 'status finding')], {}), null);
 });
 
+test('a failure after an APPROVED review is not a recurring review finding', () => {
+  const approved = n => ({ ...record('review', n), result: { status: 'BLOCKED', reason: 'COMMIT_GATE_FAILED',
+    conductor: { phase: 'review', checks: [], review: { status: 'APPROVED', reason: 'REVIEW_COMPLETED', findings: [] } } } });
+  assert.equal(failureObservation(approved(1)).category, 'finalization');
+  assert.equal(stallDecision([1, 2, 3, 4].map(approved), { input: '{"operations":[]}' }), null);
+  // Real findings are still counted alongside them.
+  assert.equal(stallDecision([1, 2, 3].map(n => record('review', n)).concat([4, 5].map(approved)), {}).reason, 'DIAGNOSIS_REQUIRED');
+});
+
 test('infrastructure circuits require relevant repair and resource pauses retain their distinct reason', () => {
   const r = record('review', 1); r.result.conductor.review = { status: 'INDETERMINATE', reason: 'AUTHENTICATION_FAILURE' };
   assert.equal(infrastructureDecision([r], 'env', 1000000).reason, 'INFRASTRUCTURE_PAUSED');
