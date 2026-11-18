@@ -254,6 +254,29 @@ test("task receipts authenticate every selected check and snapshot only after th
   }
 });
 
+test("a receipt blocked only by the commit gate authenticates from its Conductor evidence", async (t) => {
+  const f = await fixture(t);
+  const result = await executeAndReview(f.args, { directory: f.dir }, { invokeConductor: respond });
+  assert.equal(result.status, "PASSED", JSON.stringify(result));
+  const { record } = await inspectEvidence(result.evidence.reference, { directory: f.dir });
+  const gate = { ...result, status: "BLOCKED", stage: "EVIDENCE", reason: "COMMIT_GATE_FAILED", message: "commit refused" };
+  const retain = (n, patch) => retainEvidence(f.dir, { ...record, recordedAt: "gate-" + n, ...patch });
+  const ok = await retain(0, { result: gate });
+  assert.equal((await authenticateTaskEvidence(f.dir, ok, f.args.task)).attempt, 1);
+  const rejected = {
+    "other blocked reason": { result: { ...gate, reason: "HEAD_CHANGED" } },
+    "other blocked stage": { result: { ...gate, stage: "CHECKPOINT" } },
+    "changes requested": { result: { ...gate, conductor: { ...gate.conductor, review: { ...gate.conductor.review, status: "CHANGES_REQUESTED" } } } },
+    "no review snapshot": { result: gate, reviewSnapshot: null },
+    "snapshot differs from reviewed tree": { result: gate, reviewSnapshot: { ...record.reviewSnapshot, digest: "0".repeat(64) } },
+    "bookkeeping visible to review": { result: gate, reviewSnapshot: { ...record.reviewSnapshot, bookkeepingVisible: true } },
+    "forged check result": { result: { ...gate, conductor: { ...gate.conductor, checks: gate.conductor.checks.slice(1) } } },
+  };
+  let n = 1;
+  for (const [name, patch] of Object.entries(rejected))
+    await assert.rejects(authenticateTaskEvidence(f.dir, await retain(n++, patch), f.args.task), undefined, name);
+});
+
 test("corrections retain the complete ordered plan and reject scope changes", async (t) => {
   const f = await fixture(t);
   const first = await executeAndReview(

@@ -23,6 +23,9 @@ export function failureObservation(record) {
       REVIEW_ENGINE_NOT_AVAILABLE: 'review_engine', SESSION_STALLED: 'review_engine' })[review.reason] ?? 'review_finding';
     diagnostics = review.status === 'CHANGES_REQUESTED' ? review.findings.filter(f => f.blocking)
       .map(f => [f.path, f.message, f.recommendation].join(':')).sort().join('\n') : review.reason;
+    // An APPROVED review that still ends in failure (commit gate, finalization) says nothing the code can fix:
+    // counting it as a review finding trips DIAGNOSIS_REQUIRED, which an empty-operations retry can never satisfy.
+    if (review.status === 'APPROVED') category = 'finalization';
   } else if (c?.phase === 'verification') {
     const check = c.checks.find(v => v.status !== 'PASSED');
     scope = check?.name ?? 'verification';
