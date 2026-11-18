@@ -35,6 +35,16 @@ External tools must be on `PATH`: `scaffold`, `conductor` (v2), `executor` and `
 The delivery guard is active only in repositories that have `.scaffold/features/*`. `PI_DELIVERY_GUARD=off`
 disables it; see [`agent/extensions/delivery-guard/README.md`](agent/extensions/delivery-guard/README.md).
 
+## Install in other agents
+
+```sh
+npx skills@latest add jared-two-foxes/delivery-pipeline -a <agent>   # omit -a to choose
+```
+
+This copies only the skills (`skills/`). They call the delivery tools (`scaffold_tasks`, `execute_and_review`, ...),
+which come from the Pi extensions or the MCP server in `mcp/` (see [`claude/README.md`](claude/README.md)), so the
+agent must also have those configured. Update with `npx skills@latest update`.
+
 ## Develop
 
 ```sh
@@ -42,11 +52,25 @@ npm ci
 npm test
 ```
 
-Skills live in `skills/` and are shared by every host: Claude Code loads them from the plugin root, Pi through
-`package.json` (`pi.skills`), and `npx skills add` can copy them for other agents. They are written host-neutrally, so
-there is no build step: refer to other skills by name (``the `implement-task` skill``) and to tools by their bare names
-(`execute_and_review`), never with a host's slash syntax or tool prefix. Host-specific notes belong in
-`agent/extensions/*/README.md` or `claude/README.md`.
+### Editing skills
+
+`skills/` is the only copy of the skills, and Claude Code, Pi and `npx skills add` all read it directly. There is no
+generated output and no build step, so edit the files in `skills/` and commit them. To keep one text valid for every
+host:
+
+- Refer to another skill by name: ``the `implement-task` skill``. Do not write `/skill:implement-task` or
+  `/delivery-pipeline:implement-task`.
+- Refer to tools by bare name: `execute_and_review`. Do not write Claude Code's
+  `mcp__plugin_delivery-pipeline_pidelivery__` prefix.
+- Say "the agent", not "Pi" or "Claude".
+- Put host-specific instructions in `agent/extensions/*/README.md` (Pi) or `claude/README.md` (Claude Code), not in a
+  skill.
+
+(`workflow-overview.md`, `delivery-rules.md` and the extension READMEs are Pi documentation and may use `/skill:`.)
+
+Claude Code resolves the bare names against the tool list it is shown, and a skill name to the plugin's
+`delivery-pipeline:<skill>`. After changing how a skill refers to a skill or tool, check it in a live session with
+`claude --plugin-dir /path/to/delivery-pipeline`.
 
 Tests that drive the real Scaffold CLI need it installed (CI checks out `jared-two-foxes/scaffold`; set
 `SCAFFOLD_SOURCE` to a checkout). Without it those tests fail or skip; the rest run standalone.
