@@ -9,7 +9,7 @@ description: >
 
 Use this skill for the generic runner. For Scaffold-bound implementation,
 verification, independent review, or checkpoint recovery, use
-/delivery-pipeline:implement-task and its native delivery tools.
+the `implement-task` skill and its native delivery tools.
 
 ### Prepare a request
 
@@ -34,7 +34,6 @@ The evaluator's zero exit lets the list advance. If the original command must
 also succeed, the evaluator must check its exit code explicitly.
 
 ### Run and inspect
-
 
 Use the structured result to locate the command that stopped the list. The
 result's `output_directory` identifies the per-run log directory. For complete

@@ -56,7 +56,7 @@ shared verification and authorization functions. Checkpoint creation lives in
 
 The tool itself never edits application source, invokes Conductor, automatically
 decomposes or sequences tasks, retries operations, or owns a second state store.
-Completion evidence is caller supplied, not authenticated. See [the Scaffold skill](../../skills/scaffold/SKILL.md)
+Completion evidence is caller supplied, not authenticated. See [the Scaffold skill](../../../skills/scaffold/SKILL.md)
 for the design and lifecycle operations, payloads, explicit lifecycle examples and resume guidance.
 The tool schema has an object root for provider compatibility; operation-specific
 required and forbidden arguments are validated again before launching Scaffold.

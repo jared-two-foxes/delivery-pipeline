@@ -36,10 +36,10 @@ workflow without registering a Scaffold feature.
 
 ## Integration with autonomous feature delivery
 
-When invoked within `/delivery-pipeline:init-feature` (or feature-level design recovery), design *one bounded selected
+When invoked within `init-feature` (or feature-level design recovery), design *one bounded selected
 issue* using its requirements, ancestor contracts and prerequisite context.
 Return a contract suitable for the delivery workflow to persist through
-`mcp__plugin_delivery-pipeline_pidelivery__scaffold_tasks design-record`, including a concise summary, verification
+`scaffold_tasks design-record`, including a concise summary, verification
 strategy, and whether to keep the issue as a leaf or decompose it. The caller
 owns feature approval, decomposition/persistence, `design-finish`, execution,
 review, checkpointing, recovery and final validation.

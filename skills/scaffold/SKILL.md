@@ -1,30 +1,30 @@
 ---
 name: scaffold
 description: >
-  Persist Claude's recursive issue graph, approved designs, dependencies, phase
-  transitions and verified lifecycle using native mcp__plugin_delivery-pipeline_pidelivery__scaffold_tasks. Scaffold stores
-  state; Claude designs and sequences; Conductor executes and verifies.
+  Persist the agent's recursive issue graph, approved designs, dependencies, phase
+  transitions and verified lifecycle using native scaffold_tasks. Scaffold stores
+  state; the agent designs and sequences; Conductor executes and verifies.
 ---
 
 # Persistent issue graph
 
-Use native **`mcp__plugin_delivery-pipeline_pidelivery__scaffold_tasks`**, backed by the installed `scaffold` executable.
-Claude owns reasoning, approvals, decomposition and sequencing. Scaffold owns its
+Use native **`scaffold_tasks`**, backed by the installed `scaffold` executable.
+The agent owns reasoning, approvals, decomposition and sequencing. Scaffold owns its
 task state as an append-only, hash-chained ledger per feature (`.scaffold/features/<feature>.<instance>/ledger.jsonl`, with receipts as artifacts beside it), protected by `.scaffold/.tasks.lock`, with dependencies and lifecycle history.
 Never edit state files directly.
 
 
 
 **Operator-only reset:** `scaffold clean --feature ID` (or explicit `--all`)
-is a destructive administrative CLI outside the native `mcp__plugin_delivery-pipeline_pidelivery__scaffold_tasks`
+is a destructive administrative CLI outside the native `scaffold_tasks`
 contract. Never invoke it autonomously, to recover blocked work, to bypass a
 checkpoint/review, or to clear execution attempts. Only an operator may run it
 after dry-run/confirmation or with their own explicit `--yes`. It only appends a
 `feature-close` entry to the selected feature's ledger: nothing is deleted, and the lock,
-Git work, source files and retained receipts are left intact. Cleaning invalidates active Claude workflow authority, so stop stale
+Git work, source files and retained receipts are left intact. Cleaning invalidates active agent workflow authority, so stop stale
 sessions/handoffs. A new `scaffold init` gets a distinct feature instance ID even
 if the ticket, design and Git baseline are identical; complete
-`/delivery-pipeline:init-feature` and obtain *fresh* direction approval before work.
+`init-feature` and obtain *fresh* direction approval before work.
 Never treat earlier receipts as eligible for checkpoint or continuation.
 
 
@@ -34,14 +34,14 @@ feature/task graph (a ledger per feature). The former LIFO criteria stack is ret
 alternate state source. Historical stack files are not migrated or deleted.
 The task-only CLI supports `scaffold summary --feature ID`,
 `scaffold issue --feature ID --task ID`, `scaffold design-select
---feature ID`, and `scaffold select --feature ID`. Inside Claude, use the
-matching native `mcp__plugin_delivery-pipeline_pidelivery__scaffold_tasks` operations rather than shelling out.
+--feature ID`, and `scaffold select --feature ID`. Inside the agent, use the
+matching native `scaffold_tasks` operations rather than shelling out.
  Native tools never automatically select the next
 issue, generate code, retry implementation or claim verification from bookkeeping.
-Use `/delivery-pipeline:init-feature` for ticket/requirements intake, approval, decomposition
-and `design-finish` without implementation. Use `/delivery-pipeline:feature-delivery` for
-multi-task implementation and final validation, `/delivery-pipeline:implement-task` for one
-eligible issue, and `/delivery-pipeline:design` for independently requested designs.
+Use `init-feature` for ticket/requirements intake, approval, decomposition
+and `design-finish` without implementation. Use `feature-delivery` for
+multi-task implementation and final validation, `implement-task` for one
+eligible issue, and `design` for independently requested designs.
 
 The user provides a ticket; a feature retains its original objective, criteria,
 branch and baseline; all graph nodes are issues. Existing API names remain
@@ -51,7 +51,7 @@ came from the ticket, design, review or an implementation discovery.
 ## Initialize and design downward
 
 Every call supplies `operation` and explicit `feature_id`. Repository scope is
-Claude's current Git root; there is no arbitrary repo path or implicit current issue.
+the agent's current Git root; there is no arbitrary repo path or implicit current issue.
 
 For a new feature initialize from the agreed ticket scope:
 
@@ -127,40 +127,40 @@ Scaffold validates structure and association, not evidence authenticity.
 **Scaffold's deterministic validation is not trusted Conductor verification.**
 Inspect actual successful execution, checks with meaningful coverage, independent
 APPROVED review and exact feature/issue/design/tree through
-`mcp__plugin_delivery-pipeline_pidelivery__inspect_conductor_evidence`. Missing/tampered/uncertain evidence leaves work open.
+`inspect_conductor_evidence`. Missing/tampered/uncertain evidence leaves work open.
 Complete using the actual receipt:
 
 ```json
 {"operation":"complete","feature_id":"F1","task_id":"storage","payload":{"feature_id":"F1","task_id":"storage","result":"PASSED","source":"conductor","reference":"<actual retained reference>","summary":"Actual checks and independent review passed"}}
 ```
 
-Then call feature-authorized `mcp__plugin_delivery-pipeline_pidelivery__checkpoint_verified_task`. It authenticates the receipt,
+Then call feature-authorized `checkpoint_verified_task`. It authenticates the receipt,
 commits the exact tree with Git provenance and records the checkpoint in Scaffold.
 Do not invoke `checkpoint-record` manually as a substitute. If bookkeeping was
 interrupted after committing, retry the native checkpoint with the same reference.
 A checkpoint grants no execution, push or publishing authority. After all nodes
-are completed/checkpointed, use approved `mcp__plugin_delivery-pipeline_pidelivery__run_feature_checks`; all completed nodes
+are completed/checkpointed, use approved `run_feature_checks`; all completed nodes
 or `next: null` alone do not prove the root ticket has been delivered.
 
 ## Discoveries and interrupted work
 
 Review findings within the approved solution stay in the same issue's correction
 chain. New responsibilities/prerequisites return to Design. For unfinished active,
-blocked or failed attempts use native feature-authorized `mcp__plugin_delivery-pipeline_pidelivery__suspend_issue`: it preserves
+blocked or failed attempts use native feature-authorized `suspend_issue`: it preserves
 source, staging, untracked files, all receipts and attempt counts in saved Git refs
 and a retained stash, then reopens design on a clean baseline. Never stash/reset
 from Bash or invoke `design-reopen` with a fabricated suspension reference.
 
 Decompose the remaining work, redesign the affected contract within scope, design new issues,
 finish the graph design and implement/checkpoint eligible prerequisites. Use
-`mcp__plugin_delivery-pipeline_pidelivery__resume_issue` to restore the saved work onto authenticated checkpoints; it returns
+`resume_issue` to restore the saved work onto authenticated checkpoints; it returns
 an explicit handoff and inherited continuation context. Complete native bookkeeping,
 `start` the same issue, continue within the retained overall feature authority and use that handoff as
 `previousAttempt`. Three consumed attempts mean attempt four next. READY never
 means PASSED. Conflicts or exhausted budgets block with evidence retained.
 
 The execution `handoffRef` is an authenticated receipt, separate from a
-`mcp__plugin_delivery-pipeline_pidelivery__prepare_issue_handoff` context capsule. `start` may increment task_revision and
+`prepare_issue_handoff` context capsule. `start` may increment task_revision and
 stale the context capsule; refresh it after the transition. Continue execution
 with the same resume receipt, not a context reference. For ordinary check/source
 failures, use the latest attempt receipt directly; suspension is for new design
@@ -182,12 +182,12 @@ initialize a replacement feature to hide failures.
 ## Supported contract
 
 Require the recursive issue graph and the schema-3 ledger. Older state is ignored and CLI
-operations it does not know are rejected without modification. Install Scaffold and the delivery-pipeline plugin together;
+operations it does not know are rejected without modification. Install Scaffold and the delivery tools together;
 there is no legacy-stack or task-state migration path in this workflow.
 
 ## Scoped context and persisted issue handoff
 
-Use `mcp__plugin_delivery-pipeline_pidelivery__scaffold_tasks` `summary` for phase, counts and state digest; `design-select`
+Use `scaffold_tasks` `summary` for phase, counts and state digest; `design-select`
 for the next design issue; `select` for the next implementable issue; and `issue`
 with explicit task_id to fetch one issue. Scoped context includes its approved
 design, ancestor contracts, inherited prerequisite contracts and immediate children.
@@ -196,20 +196,20 @@ is read-only and null never proves completion. The native tool accepts only `sel
 mutation acknowledgements. Full `list` remains an explicit diagnostic operation; native
 verification continues to inspect complete state and receipts internally.
 
-After selecting an issue, use native `mcp__plugin_delivery-pipeline_pidelivery__prepare_issue_handoff` with featureId/taskId
+After selecting an issue, use native `prepare_issue_handoff` with featureId/taskId
 and optional notes `{next_action, source_locations, open_questions}`. Save useful
 navigation notes before ending the issue session. The returned reference identifies
 an immutable context capsule bound to graph state, approved contracts, Git source,
 index/HEAD and latest authenticated attempt. No implementation or graph transition
 occurs. Notes are agent-authored reminders, never user approval or verification.
 
-On a fresh context use `mcp__plugin_delivery-pipeline_pidelivery__inspect_issue_handoff` with reference, or featureId/taskId
+On a fresh context use `inspect_issue_handoff` with reference, or featureId/taskId
 to discover the newest saved handoff. Inspect `applicable`; stale context is omitted
 and a refresh instruction is returned. Prepare a fresh handoff after graph, source
 or attempt changes. Refresh does not carry old notes automatically: inspect actual
-state and reconcile open questions. `mcp__plugin_delivery-pipeline_pidelivery__inspect_issue_attempt` retrieves exact retained
+state and reconcile open questions. `inspect_issue_attempt` retrieves exact retained
 requirements/checks and consumed attempts without loading raw logs or executor
-input. Retrieve full diagnostics through mcp__plugin_delivery-pipeline_pidelivery__inspect_conductor_evidence only when needed.
+input. Retrieve full diagnostics through inspect_conductor_evidence only when needed.
 Latest finding excerpts never establish that earlier findings were resolved.
 These context tools grant no design/execution/checkpoint authority and never replace
 receipt authentication, original obligations or invocation history.
@@ -217,7 +217,7 @@ receipt authentication, original obligations or invocation history.
 
 ## Single feature direction authority
 
-Use mcp__plugin_delivery-pipeline_pidelivery__approve_feature_direction once after presenting the overall direction and local
+Use approve_feature_direction once after presenting the overall direction and local
 delivery scope. This is the sole confirmation; no separate conversational yes/no,
 per-issue design approval or implementation confirmation. All design-record approval
 strings must identify delegated authority and the actual reference, never claim the

@@ -360,20 +360,20 @@ test('real Scaffold clean invalidates old feature state and reinit changes ident
 });
 
 test('Pi policies allow only scoped state tracking and preserve separate execution gates', async () => {
-  for (const file of ['delivery-rules.md', 'agent/skills/init-feature/SKILL.md']) {
+  for (const file of ['delivery-rules.md', 'skills/init-feature/SKILL.md']) {
     const text = (await readFile(path.join(root, file), 'utf8')).replace(/\s+/g, ' ');
     assert.match(text, /scaffold_tasks/);
     assert.match(text, /overall (?:feature )?direction|overall feature/);
     assert.match(text, /Scaffold (?:validates structure and association|does not authenticate)/);
   }
-  const delivery = (await readFile(path.join(root, 'agent/skills/feature-delivery/SKILL.md'), 'utf8')).replace(/\s+/g, ' ');
+  const delivery = (await readFile(path.join(root, 'skills/feature-delivery/SKILL.md'), 'utf8')).replace(/\s+/g, ' ');
   assert.match(delivery, /scaffold_tasks/);
-  assert.match(delivery, /\/skill:init-feature/);
+  assert.match(delivery, /`init-feature`/);
   assert.match(delivery, /Only native `execute_and_review`/);
-  const skill = await readFile(path.join(root, 'agent/skills/scaffold/SKILL.md'), 'utf8');
+  const skill = await readFile(path.join(root, 'skills/scaffold/SKILL.md'), 'utf8');
   assert.match(skill, /select` returning null does not/);
   assert.match(skill, /not trusted Conductor verification/);
-  for (const file of ['agent/skills/scaffold/SKILL.md',
+  for (const file of ['skills/scaffold/SKILL.md',
     'agent/extensions/plan/index.ts', 'agent/extensions/linear/index.ts']) {
     assert.doesNotMatch(await readFile(path.join(root, file), 'utf8'), /scaffold_run|push-ticket|next-step|\/skill:tdd/);
   }

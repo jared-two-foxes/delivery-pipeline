@@ -84,8 +84,8 @@ are **retired**, not alternate work-tracking interfaces. Historical
 migrated or deleted automatically. Do not manually edit persistent state or
 introduce compatibility paths for the former stack model.
 
-See `agent/skills/init-feature/SKILL.md`,
-`agent/skills/design/SKILL.md`,
-`agent/skills/implement-task/SKILL.md`,
-`agent/skills/feature-delivery/SKILL.md` and
+See `skills/init-feature/SKILL.md`,
+`skills/design/SKILL.md`,
+`skills/implement-task/SKILL.md`,
+`skills/feature-delivery/SKILL.md` and
 `agent/extensions/scaffold/README.md` for exact workflow contracts.

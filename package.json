@@ -13,7 +13,7 @@
       "./agent/extensions/*/index.ts"
     ],
     "skills": [
-      "./agent/skills"
+      "./skills"
     ]
   },
   "peerDependencies": {

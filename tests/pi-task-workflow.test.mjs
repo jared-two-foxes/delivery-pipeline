@@ -564,11 +564,11 @@ test(
 
 test("workflow guidance separates preparation, feature delivery and one-task execution", async () => {
   const init = await readFile(
-    new URL("../agent/skills/init-feature/SKILL.md", import.meta.url), "utf8");
+    new URL("../skills/init-feature/SKILL.md", import.meta.url), "utf8");
   const delivery = await readFile(
-    new URL("../agent/skills/feature-delivery/SKILL.md", import.meta.url), "utf8");
+    new URL("../skills/feature-delivery/SKILL.md", import.meta.url), "utf8");
   const task = await readFile(
-    new URL("../agent/skills/implement-task/SKILL.md", import.meta.url), "utf8");
+    new URL("../skills/implement-task/SKILL.md", import.meta.url), "utf8");
   for (const phrase of [
     "Mandatory decomposition", "approve_feature_direction", "Verification:",
     "ancestor dependencies", "original feature context",
@@ -578,8 +578,8 @@ test("workflow guidance separates preparation, feature delivery and one-task exe
     assert.ok(init.includes(phrase), `init-feature missing: ${phrase}`);
   }
   for (const phrase of [
-    "/skill:init-feature", "oversized scope", "validate_feature",
-    "original feature criteria", "/skill:implement-task",
+    "`init-feature`", "oversized scope", "validate_feature",
+    "original feature criteria", "`implement-task`",
     "no per-issue attempt limit", "completed descendants",
   ]) {
     assert.ok(delivery.includes(phrase), `feature-delivery missing: ${phrase}`);
