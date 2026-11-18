@@ -9,7 +9,7 @@ description: >
 
 This is the task-scoped implementation and recovery workflow. Accept an existing
 Scaffold `featureId` and `taskId` with persisted design, criteria and authorized
-feature direction. The feature-level orchestrator (`/delivery-pipeline:feature-delivery`)
+feature direction. The feature-level orchestrator (`{{skill:feature-delivery}}`)
 selects eligible issues, orders dependencies and owns the overall approval, graph
 decomposition and the final build/test checks. This skill does not create a feature,
 approve direction, choose the next task or run the feature-wide final gate.
@@ -17,8 +17,8 @@ approve direction, choose the next task or run the feature-wide final gate.
 A direct invocation is valid for one already selected, approved, eligible issue.
 Fetch scoped issue state and retain exact task identity, baseline, branch and
 previous evidence. Where permission or an approved design is missing, return a
-clear blocker and direct the caller to `/delivery-pipeline:init-feature` for preparation; do not infer approval from a chat summary.
-Use `/delivery-pipeline:design` only for engineering design, not execution authority.
+clear blocker and direct the caller to `{{skill:init-feature}}` for preparation; do not infer approval from a chat summary.
+Use `{{skill:design}}` only for engineering design, not execution authority.
 The retained overall feature direction covers in-scope task implementation,
 checks, independent review, verified checkpoints and recovery across sessions.
 Do not request a second per-task confirmation. Stop and return control for
@@ -30,8 +30,8 @@ NEEDS_DESIGN or BLOCKED, diagnose evidence and either perform an allowed
 in-scope correction or return the authenticated blocking state to the feature
 orchestrator. Never silently expand the Scaffold graph.
 
-Before mcp__plugin_delivery-pipeline_pidelivery__execute_and_review, inspect current source and the caller-selected issue's
-persisted design and prepare complete executor JSON using /delivery-pipeline:executor.
+Before {{tool:execute_and_review}}, inspect current source and the caller-selected issue's
+persisted design and prepare complete executor JSON using {{skill:executor}}.
 The removed `patch` variants are unsupported. Pass exact input, task identity,
 initial additional requirements and baseRef. Supply an explicit `checks` array
 on the first attempt. Continuations may omit `checks` to inherit the retained
@@ -39,7 +39,7 @@ verification plan. Prefer targeted regressions for leaves and scoped integration
 tests for intermediate parents; exclude the full repository/workspace test
 command whenever the runner supports meaningful selection. Retain exact commands
 and coverage in the issue design. Explain any unavoidable broader command.
-Reserve the full suite for final root verification through mcp__plugin_delivery-pipeline_pidelivery__run_feature_checks
+Reserve the full suite for final root verification through {{tool:run_feature_checks}}
 after checkpoints; corrective issues use targeted checks before rerunning that
 final gate. Keep ordered checks fixed across corrections except for explicit
 command invocation repairs described below. On a first attempt, `requirements`
@@ -52,9 +52,9 @@ and repairs. Branch and design-reference mismatches require correcting the
 context, not reapproval. Named checks may include
 `successCondition: [program, ...args]` for a known tool-specific output
 contract. Omit it for ordinary Cargo compile/test commands so the adapter can
-apply its defaults. See /delivery-pipeline:conductor for the runner's evaluator protocol.
+apply its defaults. See {{skill:conductor}} for the runner's evaluator protocol.
 
-Supply operations, checks and review settings to `mcp__plugin_delivery-pipeline_pidelivery__execute_and_review`. The
+Supply operations, checks and review settings to `{{tool:execute_and_review}}`. The
 adapter prepares the exact Executor and Review inputs and submits the ordered
 workflow to Conductor. Use the native delivery tool for this workflow. Review
 model and budget overrides become CLI flags; defaults are 180 seconds and 20 turns.
@@ -74,7 +74,7 @@ Conductor's generic FAILED is interpreted by the adapter. A failed application o
 check and a completed CHANGES_REQUESTED review mean NEEDS_DESIGN; unavailable,
 malformed, mismatched or INDETERMINATE review output means BLOCKED. A zero runner
 exit alone is insufficient. Complete stdout/stderr paths are retained outside the
-source tree; inspect full files or mcp__plugin_delivery-pipeline_pidelivery__inspect_conductor_evidence when previews are
+source tree; inspect full files or {{tool:inspect_conductor_evidence}} when previews are
 truncated, especially for structured Review JSON. Do not parse truncated JSON or
 interpret an absent review as approval.
 
@@ -87,9 +87,9 @@ One call performs one attempt. If the attempt returns `NEEDS_DESIGN` or
 `BLOCKED`, inspect the retained evidence and read
 [Retry policy](references/retry-policy.md) before deciding whether to continue.
 For an allowed correction, prepare new operations against the current tree and
-call `mcp__plugin_delivery-pipeline_pidelivery__execute_and_review` with the continuation reference.
+call `{{tool:execute_and_review}}` with the continuation reference.
 
-Inspect the returned receipt with `mcp__plugin_delivery-pipeline_pidelivery__inspect_issue_attempt`; use its minimal `continuation`
+Inspect the returned receipt with `{{tool:inspect_issue_attempt}}`; use its minimal `continuation`
 receipt reference and supply new operations against the current source. The prior
 attempt's `after` snapshot includes successfully applied edits even when checks
 or Review failed. Keep `baseRef` at the original HEAD: the review covers the entire
@@ -112,28 +112,28 @@ Windows, `sh -c` only where installed). Preserve environment assignment/quoting 
 If Scaffold is blocked/failed, inspect its state, `retry` with the recovery reason,
 then `start` the same issue. Those transitions do not reset receipts or consumed
 attempts. A fresh context may discover the latest receipt through
-`mcp__plugin_delivery-pipeline_pidelivery__prepare_issue_handoff`. Inspect the receipt details with `mcp__plugin_delivery-pipeline_pidelivery__inspect_issue_attempt`
+`{{tool:prepare_issue_handoff}}`. Inspect the receipt details with `{{tool:inspect_issue_attempt}}`
 when diagnosing a correction. Pass the applicable saved context reference as
 `issueHandoffRef` to continue without copying the receipt hash. For stale context
-or receipt prechecks, use the returned `mcp__plugin_delivery-pipeline_pidelivery__prepare_issue_handoff` recovery action
-and inspect the latest attempt before retrying. After `mcp__plugin_delivery-pipeline_pidelivery__resume_issue` and the
+or receipt prechecks, use the returned `{{tool:prepare_issue_handoff}}` recovery action
+and inspect the latest attempt before retrying. After `{{tool:resume_issue}}` and the
 required `start`, pass its execution receipt `handoffRef` as `previousAttempt`.
 
 On `stage: COMMITTED`, completion and the local checkpoint are already recorded.
 Automatic finalization follows the receipt ending the active verification/correction loop.
 Use `nextBaseRef` for the next issue; do not repeat completion or commit commands.
 If `implementationStatus: PASSED` but finalization is BLOCKED, preserve its evidence
-and call mcp__plugin_delivery-pipeline_pidelivery__checkpoint_verified_task with that receipt and matching feature/branch
+and call {{tool:checkpoint_verified_task}} with that receipt and matching feature/branch
 metadata. This resumes completion/commit only; never reapply operations or rerun
 review to recover a failed commit. Each parent needs its own original-criteria verification
-and commit after children, even if its commit is empty. Finish with mcp__plugin_delivery-pipeline_pidelivery__run_feature_checks
+and commit after children, even if its commit is empty. Finish with {{tool:run_feature_checks}}
 against the original baseline. Inspect the actual meaningful check output;
 add in-scope corrective issues and rerun the checks without additional permission prompts.
 
 For missing prerequisites or oversized scope, retain the latest receipt and
 return NEEDS_DECOMPOSITION/NEEDS_DESIGN with a proposed prerequisite and
-reconciliation reference to feature-delivery. That orchestrator owns mcp__plugin_delivery-pipeline_pidelivery__suspend_issue,
-graph redesign, dependency implementation and mcp__plugin_delivery-pipeline_pidelivery__resume_issue. Do not create
+reconciliation reference to feature-delivery. That orchestrator owns {{tool:suspend_issue}},
+graph redesign, dependency implementation and {{tool:resume_issue}}. Do not create
 new Scaffold issues or silently change the approved task boundary.
 Conflicts block with saved work intact. Rebase recovery uses its separate native
 verification and handoff tools. The retained direction covers these actions without
@@ -169,7 +169,7 @@ missing evidence from looking like a new run. A missing or contradictory anchor,
 in-flight intent or receipt requires explicit recovery; no reset or reapproval.
 See extensions/execute-and-review/RECOVERY.md for runtime details and current limitations.
 
-Material contract amendments use mcp__plugin_delivery-pipeline_pidelivery__approve_delivery_amendment with the latest receipt
+Material contract amendments use {{tool:approve_delivery_amendment}} with the latest receipt
 (or, before the issue's first attempt, its task identity instead of a receipt),
 concrete original criterion/finding/constraint IDs, replacement and reason. A recorded
 obligation that is wrong or stricter than the ticket must never leave the pipeline
@@ -186,10 +186,10 @@ and replacement behavior requires independent verification.
 ### Prepare executor handoff
 
 Before generating Executor input, inspect exact current source and load
-`/delivery-pipeline:executor`. Prepare and retain the complete executor input. Use `edit_file` for in-place text changes as documented there; never send unified diffs as operations.
+`{{skill:executor}}`. Prepare and retain the complete executor input. Use `edit_file` for in-place text changes as documented there; never send unified diffs as operations.
 Generate only the selected issue's complete operations, not a feature-wide operation
 set split afterwards. Pass exact JSON and meaningful verification commands as
-executable/argument arrays to `mcp__plugin_delivery-pipeline_pidelivery__execute_and_review`, plus
+executable/argument arrays to `{{tool:execute_and_review}}`, plus
 `checkpoint: {defaultBranch, protectedBranches}` with known repository branch
 protection metadata. A successful review automatically records completion and
 creates a local commit of the exact reviewed tree. Retained feature direction
@@ -235,7 +235,7 @@ cannot select the needed tests, name the check in `broadCheckJustifications:
 record. Continuations inherit the retained plan and are not re-checked.
 
 Reserve the full test suite for the final root/feature verification through
-`mcp__plugin_delivery-pipeline_pidelivery__run_feature_checks` after required issue checkpoints. The root's implementation
+`{{tool:run_feature_checks}}` after required issue checkpoints. The root's implementation
 attempt may use focused integration checks; the final gate supplies full-project
 build/test commands and runs them mechanically, with no whole-feature agent review.
 Avoid duplicating that expensive suite across each issue or parent. If a final check
@@ -251,19 +251,19 @@ verification contracts require Design recovery retaining criteria, history and c
 
 Capture the current checkpoint HEAD once as the issue's baseRef and retain that
 baseline within its correction epoch. The adapter versions and assembles context. Preserve the check contract; explicit
-invocation repairs follow /delivery-pipeline:implement-task. Start the explicit
+invocation repairs follow {{skill:implement-task}}. Start the explicit
 Scaffold issue before execution. Supply task identity and the previousAttempt for
 corrections. Use `previousAttempt`, fresh `input` and structured `contextUpdates`; inspect
-`mcp__plugin_delivery-pipeline_pidelivery__inspect_issue_attempt` for the authoritative context; inspect full logs
-through `mcp__plugin_delivery-pipeline_pidelivery__inspect_conductor_evidence` only when needed. Do not hide Scaffold state in
+`{{tool:inspect_issue_attempt}}` for the authoritative context; inspect full logs
+through `{{tool:inspect_conductor_evidence}}` only when needed. Do not hide Scaffold state in
 the review diff: bookkeeping must be ignored and untracked.
 
 - PASSED: inspect authentic execution, meaningful check output, APPROVED independent
-  review and exact tree/task binding. Native `mcp__plugin_delivery-pipeline_pidelivery__execute_and_review` automatically
+  review and exact tree/task binding. Native `{{tool:execute_and_review}}` automatically
   records Scaffold completion and runs the verified Git commit command. On
   `stage: COMMITTED`, use `nextBaseRef`; do not repeat completion or checkpointing.
   If implementation passed but commit finalization blocked, use
-  `mcp__plugin_delivery-pipeline_pidelivery__checkpoint_verified_task` with the same successful receipt and matching scope.
+  `{{tool:checkpoint_verified_task}}` with the same successful receipt and matching scope.
   Never reapply operations or rerun review to recover a failed commit. Each resolved node gets its own
   commit, including an empty commit for parent verification. A parent remains incomplete
   after children finish until its original integrated criteria pass independently.
@@ -272,7 +272,7 @@ the review diff: bookkeeping must be ignored and untracked.
   exit hatch for additional issues. Never replay the original operations.
 - BLOCKED: stop the current command list, retain evidence and partial work, inspect
   the actual cause and continue an in-scope recoverable correction under the existing
-  approval. Follow /delivery-pipeline:implement-task's recovery procedure. An environment failure is
+  approval. Follow {{skill:implement-task}}'s recovery procedure. An environment failure is
   not a code defect. Keep the prior after-tree; a checks-only retry uses an empty
   operations array. Stop only for a concrete unresolved blocker or loop limit.
 - Oversized task: suspend and decompose only the remaining unverified responsibilities.
@@ -318,7 +318,7 @@ arguments, preserving its output and exit code. A successful test captures the
 full Git tree/fingerprint immediately before Conductor starts independent review.
 A missing boundary or any final source/index mismatch blocks PASSED and checkpoints.
 The receipt retains both boundary and final snapshots, plus the actual request.
-This is a narrow adapter addition; Conductor still performs one attempt and
+This is a narrow {{pi:Pi }}adapter addition; Conductor still performs one attempt and
 never commits. Checkpoint scope comes from actual Git state and the full review
 baseline, not Executor paths. Concurrent external writers remain unsupported:
 endpoint fingerprints cannot detect transient changes restored during review.
@@ -352,7 +352,7 @@ progress do not reset it. EVIDENCE_RECOVERY_REQUIRED means restore authoritative
 proof or report the exact blocker. Preserve files, index, original baseline, Git
 audit anchors and all receipts. Never reapprove unchanged direction to recover.
 
-Material contract amendments use mcp__plugin_delivery-pipeline_pidelivery__approve_delivery_amendment with the latest receipt
+Material contract amendments use {{tool:approve_delivery_amendment}} with the latest receipt
 (or, before the issue's first attempt, its task identity instead of a receipt),
 concrete original criterion/finding/constraint IDs, replacement and reason. A recorded
 obligation that is wrong or stricter than the ticket must never leave the pipeline

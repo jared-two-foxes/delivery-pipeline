@@ -1,10 +1,15 @@
 #!/usr/bin/env node
-// Renders the single skill source (skills-src/) into one committed variant per host.
+// Renders the single skill source (skills/) into one variant per host.
 //
-//   node scripts/build-skills.mjs            write the variants
-//   node scripts/build-skills.mjs --check    exit 1 if a committed variant differs from its source
+//   node scripts/build-skills.mjs               write every variant
+//   node scripts/build-skills.mjs --host pi     write one host's variant (npm runs this on install)
+//   node scripts/build-skills.mjs --check       exit 1 if a committed variant differs from its source
 //
-// Source syntax, in any .md file under skills-src/:
+// skills/ is the only hand-edited copy and holds template tokens, so no host loads it directly.
+// Claude Code's variant (claude/skills/) is committed because a marketplace install is a plain git
+// clone with no build step. Pi's (agent/skills/) is gitignored and built by `npm install`.
+//
+// Source syntax, in any .md file under skills/:
 //   {{skill:NAME}}                     how the host invokes skill NAME
 //   {{tool:NAME}}                      how the host names delivery tool NAME
 //   {{agent}}                          the host's agent name (Pi, Claude)
@@ -17,18 +22,20 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 export const root = fileURLToPath(new URL("../", import.meta.url));
-export const sourceDir = path.join(root, "skills-src");
+export const sourceDir = path.join(root, "skills");
 
 /** Output directory and naming rules for each host. */
 export const HOSTS = {
   pi: {
     outDir: "agent/skills",
+    committed: false,
     skill: (name) => `/skill:${name}`,
     tool: (name) => name,
     agent: "Pi",
   },
   claude: {
-    outDir: "skills",
+    outDir: "claude/skills",
+    committed: true,
     skill: (name) => `/delivery-pipeline:${name}`,
     // Claude Code names plugin MCP tools mcp__plugin_<plugin>_<server>__<tool>.
     tool: (name) => `mcp__plugin_delivery-pipeline_pidelivery__${name}`,
@@ -98,13 +105,15 @@ export function write(hostName) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+  const hostFlag = process.argv.indexOf("--host");
+  const selected = hostFlag === -1 ? Object.keys(HOSTS) : [process.argv[hostFlag + 1]];
   if (process.argv.includes("--check")) {
-    const problems = Object.keys(HOSTS).flatMap(diff);
+    const problems = selected.filter((name) => HOSTS[name]?.committed).flatMap(diff);
     if (problems.length) {
       process.stderr.write(`${problems.join("\n")}\nSkill variants are out of date. Run: node scripts/build-skills.mjs\n`);
       process.exit(1);
     }
   } else {
-    for (const hostName of Object.keys(HOSTS)) write(hostName);
+    for (const hostName of selected) write(hostName);
   }
 }

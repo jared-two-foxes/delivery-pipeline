@@ -69,11 +69,11 @@ test('delegated issue designs remain explicit and the final gate is mechanical, 
   assert.match(delivery, /accept_feature/);
   assert.match(delivery, /Call it only when the user explicitly asks/);
   // The manual question skill exists and is never invoked by the delivery workflows.
-  const questions = read('skills-src/feature-questions/SKILL.md');
+  const questions = read('skills/feature-questions/SKILL.md');
   assert.match(questions, /disable-model-invocation: true/);
   assert.match(questions, /Ask, never answer/);
   for (const file of ['feature-delivery', 'implement-task', 'init-feature', 'scaffold'])
-    assert.doesNotMatch(read(`skills-src/${file}/SKILL.md`), /Run the \{\{skill:feature-questions\}\}|invoke \{\{skill:feature-questions\}\}/i, file);
+    assert.doesNotMatch(read(`skills/${file}/SKILL.md`), /Run the \{\{skill:feature-questions\}\}|invoke \{\{skill:feature-questions\}\}/i, file);
   assert.match(delivery, /material scope changes|material commitments|material departures|material changes/);
 });
 

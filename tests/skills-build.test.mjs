@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { HOSTS, diff, render } from "../scripts/build-skills.mjs";
 
-test("committed skill variants match skills-src for every host", () => {
-  for (const host of Object.keys(HOSTS)) assert.deepEqual(diff(host), [], `${host} variant is out of date; run node scripts/build-skills.mjs`);
+test("committed skill variants match skills/ for every committed host", () => {
+  for (const host of Object.keys(HOSTS).filter((name) => HOSTS[name].committed)) assert.deepEqual(diff(host), [], `${host} variant is out of date; run node scripts/build-skills.mjs`);
 });
 
 test("render substitutes tokens and keeps only the matching host block", () => {
@@ -31,6 +31,7 @@ test("a rejected source leaves the existing variant intact", async () => {
   const { write, HOSTS, sourceDir } = await import("../scripts/build-skills.mjs");
   // write() resolves both directories from the repository root, so exercise the ordering through a failing render.
   const dir = new URL("../" + HOSTS.pi.outDir + "/", import.meta.url);
+  write("pi");
   assert.ok(existsSync(dir), "Pi variant exists");
   const bad = path.join(sourceDir, "zz-bad-test.md");
   writeFileSync(bad, "{{bogus}}\n");

@@ -42,8 +42,9 @@ npm ci
 npm test
 ```
 
-Skills are written once in `skills-src/` and rendered per host: `agent/skills/` (Pi) and `skills/` (Claude Code).
-Edit `skills-src/`, then run `node scripts/build-skills.mjs`; `npm test` fails if a committed variant is stale.
+Skills are written once in `skills/` (template tokens, never loaded directly) and rendered per host: `agent/skills/`
+(Pi, gitignored, built by `npm install`) and `claude/skills/` (Claude Code, committed because a marketplace install is a
+plain git clone). Edit `skills/`, then run `npm run build:skills`; `npm test` fails if the committed Claude variant is stale.
 
 Tests that drive the real Scaffold CLI need it installed (CI checks out `jared-two-foxes/scaffold`; set
 `SCAFFOLD_SOURCE` to a checkout). Without it those tests fail or skip; the rest run standalone.

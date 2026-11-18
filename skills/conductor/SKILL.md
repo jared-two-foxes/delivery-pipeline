@@ -9,7 +9,7 @@ description: >
 
 Use this skill for the generic runner. For Scaffold-bound implementation,
 verification, independent review, or checkpoint recovery, use
-/delivery-pipeline:implement-task and its native delivery tools.
+{{skill:implement-task}} and its native delivery tools.
 
 ### Prepare a request
 
@@ -35,6 +35,11 @@ also succeed, the evaluator must check its exit code explicitly.
 
 ### Run and inspect
 
+{{#pi}}
+The Conductor extension provides the user-invoked `/conductor <request-file>`
+command. It reports the runner status and log directory. Relative request-file
+paths resolve from Pi's current working directory.
+{{/pi}}
 
 Use the structured result to locate the command that stopped the list. The
 result's `output_directory` identifies the per-run log directory. For complete
@@ -42,3 +47,6 @@ output, use each command's `stdout_path` and `stderr_path`; inline previews may
 be truncated. A runner result describes command execution. Task completion and
 review approval are interpreted by the delivery workflow.
 
+{{#pi}}
+See extensions/conductor/README.md for the Pi integration.
+{{/pi}}
