@@ -13,7 +13,7 @@
       "./agent/extensions/*/index.ts"
     ],
     "skills": [
-      "./agent/skills"
+      "./skills"
     ]
   },
   "peerDependencies": {
@@ -24,8 +24,6 @@
     "mcp"
   ],
   "scripts": {
-    "build:skills": "node scripts/build-skills.mjs",
-    "prepare": "node scripts/build-skills.mjs --host pi",
     "test": "node --test tests/*.test.mjs",
     "test:mocks": "node --experimental-test-module-mocks --test tests/pi-amendment.test.mjs"
   },

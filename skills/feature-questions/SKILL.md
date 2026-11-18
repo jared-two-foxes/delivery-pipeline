@@ -10,8 +10,8 @@ disable-model-invocation: true
 
 # Feature questions
 
-Use this skill **only when the user explicitly invokes it**. `{{skill:feature-delivery}}`,
-`{{skill:implement-task}}` and every other workflow must never call it, and finishing a
+Use this skill **only when the user explicitly invokes it**. `feature-delivery`,
+`implement-task` and every other workflow must never call it, and finishing a
 feature does not trigger it.
 
 ## Purpose
@@ -30,11 +30,11 @@ correct, and nothing it produces is evidence of anything.
   code handles a case, say whether a test exists, or rate severity or risk. If you can
   see the answer in the code, either ask the question in a form that does not reveal it
   or drop it.
-- **Read-only.** Use `{{tool:scaffold_tasks}}` only with read operations (`summary`,
+- **Read-only.** Use `scaffold_tasks` only with read operations (`summary`,
   `list`, a scoped `issue` query) and Git only to read (`diff`, `log`, `show`,
   `rev-parse`, `ls-files`) plus file reads and searches. Never call
-  `{{tool:execute_and_review}}`, `{{tool:run_feature_checks}}`, `{{tool:validate_feature}}`,
-  `{{tool:review_changes}}`, any approval, checkpoint or recovery tool, and never
+  `execute_and_review`, `run_feature_checks`, `validate_feature`,
+  `review_changes`, any approval, checkpoint or recovery tool, and never
   change source, Scaffold state, Git state or evidence.
 - **No new work.** Do not start, create, reorder or complete issues, and do not suggest
   that a question blocks completion.
@@ -44,12 +44,12 @@ correct, and nothing it produces is evidence of anything.
 
 ## Inputs
 
-1. The feature id. `{{tool:scaffold_tasks}}` requires a `feature_id` for every
+1. The feature id. `scaffold_tasks` requires a `feature_id` for every
    operation, even `summary`, so it cannot list features for you. Use an id that is
    unambiguous from the conversation (the user named it, or this session just worked
    on exactly one feature). Otherwise **ask the user for the feature id before
    querying Scaffold**; do not guess one.
-2. Scaffold state from `{{tool:scaffold_tasks}}` `list` and scoped `issue` queries: the
+2. Scaffold state from `scaffold_tasks` `list` and scoped `issue` queries: the
    approved direction (`context`), the feature `acceptance_criteria` and `constraints`,
    and for each issue its criteria, designs and contracts, delivery obligations and any
    amendments. Treat these as the *stated intent*.

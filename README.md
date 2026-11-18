@@ -42,9 +42,11 @@ npm ci
 npm test
 ```
 
-Skills are written once in `skills/` (template tokens, never loaded directly) and rendered per host: `agent/skills/`
-(Pi, gitignored, built by `npm install`) and `claude/skills/` (Claude Code, committed because a marketplace install is a
-plain git clone). Edit `skills/`, then run `npm run build:skills`; `npm test` fails if the committed Claude variant is stale.
+Skills live in `skills/` and are shared by every host: Claude Code loads them from the plugin root, Pi through
+`package.json` (`pi.skills`), and `npx skills add` can copy them for other agents. They are written host-neutrally, so
+there is no build step: refer to other skills by name (``the `implement-task` skill``) and to tools by their bare names
+(`execute_and_review`), never with a host's slash syntax or tool prefix. Host-specific notes belong in
+`agent/extensions/*/README.md` or `claude/README.md`.
 
 Tests that drive the real Scaffold CLI need it installed (CI checks out `jared-two-foxes/scaffold`; set
 `SCAFFOLD_SOURCE` to a checkout). Without it those tests fail or skip; the rest run standalone.

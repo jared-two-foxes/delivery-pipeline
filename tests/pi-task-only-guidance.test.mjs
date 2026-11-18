@@ -34,7 +34,7 @@ test("feature workflow documents one task graph and distinct Pi skill boundaries
 test("Scaffold guidance provides only task-state CLI inspection and no stack commands", async () => {
   const documents = [
     await read("workflow-overview.md"),
-    await read("agent/skills/scaffold/SKILL.md"),
+    await read("skills/scaffold/SKILL.md"),
     await read("agent/extensions/scaffold/README.md"),
   ];
   for (const body of documents) {

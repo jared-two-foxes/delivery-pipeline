@@ -10,10 +10,7 @@
     {
       "name": "delivery-pipeline",
       "source": "./",
-      "description": "Scaffold/execute_and_review delivery tools over MCP, plus a guard that blocks direct source edits and unsafe shell commands while a delivery is active.",
-      "skills": [
-        "./claude/skills/"
-      ]
+      "description": "Scaffold/execute_and_review delivery tools over MCP, plus a guard that blocks direct source edits and unsafe shell commands while a delivery is active."
     }
   ]
 }

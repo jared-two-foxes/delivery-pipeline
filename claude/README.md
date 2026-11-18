@@ -14,30 +14,22 @@ npm ci                                   # once, at the repository root; the plu
 claude --plugin-dir /absolute/path/to/delivery-pipeline
 ```
 
-`--plugin-dir` loads the plugin in place, but also loads the unrendered `skills/` source (see "Skills" below), so use it for the hooks and MCP tools only. Requires Claude Code 2.1.295 or later (the hook uses
+`--plugin-dir` loads the plugin in place. Requires Claude Code 2.1.295 or later (the hook uses
 `onFailure: "block"`). Validate it with `claude plugin validate .`.
 
 Tool names come from Claude Code's plugin naming rule, `mcp__plugin_<plugin>_<server>__<tool>`, so
 `execute_and_review` is `mcp__plugin_delivery-pipeline_pidelivery__execute_and_review`. Pi's names differ
-(`mcp__pidelivery__...`). The skills are generated per host, so the Claude Code variant in `claude/skills/` uses the
-plugin names and `/delivery-pipeline:<skill>` invocation; see "Skills" below.
+(`mcp__pidelivery__...`). The skills are generated per host, so the skills refer to tools by their bare names and rely on the model matching them against the tool list; see "Skills" below.
 
 Approvals (`approve_feature_direction` and the other two) appear as an MCP elicitation dialog in an
 interactive session. In a non-interactive (`-p`) run Claude Code cancels the request, so they fail closed.
 
 ## Skills
 
-The skills are written once in `../skills/` and rendered per host by `../scripts/build-skills.mjs`:
-`../agent/skills/` for Pi (gitignored, built by `npm install`) and `../claude/skills/` for this plugin (committed,
-because a marketplace install is a plain git clone with no build step). A test fails if the committed Claude output
-differs from its source. Edit `skills/`, then run `npm run build:skills`. The tokens and host blocks are documented at
-the top of the script.
-
-The plugin root also contains the raw `skills/` source, and Claude Code scans a plugin's `skills/` by default; a
-`skills` key in `plugin.json` only adds to that. So `.claude-plugin/marketplace.json` lists
-`"skills": ["./claude/skills/"]` on the entry, which makes a marketplace install load only the rendered skills.
-`--plugin-dir` ignores the marketplace entry and would load the unrendered source, so to try the skills locally add
-the checkout as a marketplace (`claude plugin marketplace add <path>`) instead.
+The skills in `../skills/` are shared with Pi and written host-neutrally: other skills are referred to by name and
+tools by bare name, so Claude Code loads them from the plugin root unchanged. Claude resolves a bare tool name such as
+`execute_and_review` to `mcp__plugin_delivery-pipeline_pidelivery__execute_and_review`, and a skill name such as
+`implement-task` to `delivery-pipeline:implement-task`. Users invoke them as `/delivery-pipeline:<skill>`.
 
 Not ported: `delivery-rules.md`. Pi injects it into the system prompt through the `delivery-prompt` extension and
 this plugin has no equivalent yet. The ported skills have **not** been exercised in a live Claude Code session.

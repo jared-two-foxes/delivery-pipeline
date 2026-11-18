@@ -22,9 +22,9 @@ structured JSON result contract.
 
 The binary is installed via `cargo install` and invoked as `review-cli run`.
 
-## {{agent}} standalone review
+## Standalone review
 
-Use the native `{{tool:review_changes}}` tool in Research mode when the user asks to
+Use the native `review_changes` tool in Research mode when the user asks to
 review existing changes. Loading this skill does not enter Design mode or
 authorize implementation. Do not invoke `review-cli` through Bash; the CLI
 reference and examples below describe the binary, not additional permissions.

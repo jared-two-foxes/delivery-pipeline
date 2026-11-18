@@ -7,8 +7,8 @@ const root = path.resolve(import.meta.dirname, '..');
 const read = p => readFileSync(path.join(root, p), 'utf8');
 
 test('feature initialization owns the single direction approval and design-finish', () => {
-  const init = read('agent/skills/init-feature/SKILL.md');
-  const delivery = read('agent/skills/feature-delivery/SKILL.md');
+  const init = read('skills/init-feature/SKILL.md');
+  const delivery = read('skills/feature-delivery/SKILL.md');
   const system = read('delivery-rules.md');
   for (const phrase of ['linear_get_ticket', 'scaffold_tasks', 'approve_feature_direction',
     'design-record', 'design-finish', 'summary', 'existing', 'baseline', 'branch']) {
@@ -17,7 +17,7 @@ test('feature initialization owns the single direction approval and design-finis
   assert.match(init, /do not ask the\s+user to approve individual issue designs/);
   assert.match(init, /across sessions|session changes/);
   assert.match(init, /never.*execute_and_review|never.*calls.*execute_and_review/is);
-  assert.match(delivery, /\/skill:init-feature/);
+  assert.match(delivery, /`init-feature`/);
   assert.match(delivery, /execute_and_review/);
   assert.match(delivery, /design-finish/);
   assert.match(system, /Only native `execute_and_review`/);
@@ -27,8 +27,8 @@ test('feature initialization owns the single direction approval and design-finis
 test('Pi workflow guidance retains implementation gates without blanket publishing bans', () => {
   for (const name of [
     'delivery-rules.md',
-    'agent/skills/feature-delivery/SKILL.md',
-    'agent/skills/implement-task/SKILL.md',
+    'skills/feature-delivery/SKILL.md',
+    'skills/implement-task/SKILL.md',
   ]) {
     const text = read(name).replace(/\s+/g, ' ');
     assert.match(text, /Git\/GitHub publishing|Git and GitHub publishing/, name);
@@ -40,7 +40,7 @@ test('Pi workflow guidance retains implementation gates without blanket publishi
 });
 
 test('Pi executor guide uses the merged exact-text edit operation', () => {
-  const pi = read('agent/skills/executor/SKILL.md');
+  const pi = read('skills/executor/SKILL.md');
   for (const [name, guide] of [['Pi', pi]]) {
     assert.ok(guide.includes('\"type\": \"edit_file\"'), name);
     assert.ok(guide.includes('\"oldText\"'), name);
@@ -49,15 +49,15 @@ test('Pi executor guide uses the merged exact-text edit operation', () => {
     assert.ok(!guide.includes('| `patch` |'), name);
     assert.ok(guide.includes('occur exactly once'), name);
   }
-  assert.ok(read('agent/skills/implement-task/SKILL.md').includes('Use `edit_file` for in-place text changes'));
-  assert.doesNotMatch(read('agent/skills/feature-delivery/SKILL.md'), /### Select checks for the current issue|#### Checkpoint recovery/);
-  assert.ok(read('agent/skills/implement-task/SKILL.md').includes('removed `patch` variants'));
+  assert.ok(read('skills/implement-task/SKILL.md').includes('Use `edit_file` for in-place text changes'));
+  assert.doesNotMatch(read('skills/feature-delivery/SKILL.md'), /### Select checks for the current issue|#### Checkpoint recovery/);
+  assert.ok(read('skills/implement-task/SKILL.md').includes('removed `patch` variants'));
 });
 
 
 test('delegated issue designs remain explicit and the final gate is mechanical, not an agent review', () => {
-  const init = read('agent/skills/init-feature/SKILL.md');
-  const delivery = read('agent/skills/feature-delivery/SKILL.md');
+  const init = read('skills/init-feature/SKILL.md');
+  const delivery = read('skills/feature-delivery/SKILL.md');
   for (const phrase of ['agent-authored', 'design-record', 'actual reference',
     'Never claim the user approved an individual issue', 'completed descendants']) assert.ok(init.includes(phrase), phrase);
   for (const phrase of ['no per-issue attempt limit', 'previousAttempt', 'completed descendants',
@@ -73,7 +73,7 @@ test('delegated issue designs remain explicit and the final gate is mechanical, 
   assert.match(questions, /disable-model-invocation: true/);
   assert.match(questions, /Ask, never answer/);
   for (const file of ['feature-delivery', 'implement-task', 'init-feature', 'scaffold'])
-    assert.doesNotMatch(read(`skills/${file}/SKILL.md`), /Run the \{\{skill:feature-questions\}\}|invoke \{\{skill:feature-questions\}\}/i, file);
+    assert.doesNotMatch(read(`skills/${file}/SKILL.md`), /Run the `feature-questions`|invoke `feature-questions`/i, file);
   assert.match(delivery, /material scope changes|material commitments|material departures|material changes/);
 });
 
@@ -99,7 +99,7 @@ test('native checkpoints, recovery and validation reuse the same durable directi
 });
 
 test('execution guides do not add a second approval after the overall direction', () => {
-  for (const file of ['agent/skills/feature-delivery/SKILL.md', 'agent/skills/executor/SKILL.md', 'agent/skills/implement-task/SKILL.md']) {
+  for (const file of ['skills/feature-delivery/SKILL.md', 'skills/executor/SKILL.md', 'skills/implement-task/SKILL.md']) {
     const text = read(file);
     assert.doesNotMatch(text, /After \*\*separate explicit execution approval|Explicitly ask the user whether to \*\*execute/);
     assert.match(text, /full operations on request/);
@@ -107,24 +107,24 @@ test('execution guides do not add a second approval after the overall direction'
 });
 
 test('standalone design contract is independent of delivery orchestration', () => {
-  const design = read('agent/skills/design/SKILL.md');
-  const delivery = read('agent/skills/feature-delivery/SKILL.md');
+  const design = read('skills/design/SKILL.md');
+  const delivery = read('skills/feature-delivery/SKILL.md');
   assert.match(design, /name: design/);
   assert.match(design, /inputs, outputs|Inputs, outputs/i);
   assert.match(design, /verification strategy/);
   assert.doesNotMatch(design, /approve_feature_direction|execute_and_review|checkpoint_verified_task|validate_feature/);
   assert.match(delivery, /name: feature-delivery/);
-  assert.match(read('agent/skills/init-feature/SKILL.md'), /\/skill:design/);
-  assert.match(delivery, /\/skill:init-feature/);
+  assert.match(read('skills/init-feature/SKILL.md'), /`design`/);
+  assert.match(delivery, /`init-feature`/);
   assert.match(delivery, /execute_and_review/);
   assert.match(read('delivery-rules.md'), /\/skill:feature-delivery/);
 });
 
 test('feature-delivery delegates exactly one task to implement-task without re-owning attempt internals', () => {
-  const delivery = read('agent/skills/feature-delivery/SKILL.md');
-  const task = read('agent/skills/implement-task/SKILL.md');
+  const delivery = read('skills/feature-delivery/SKILL.md');
+  const task = read('skills/implement-task/SKILL.md');
   const system = read('delivery-rules.md');
-  assert.match(delivery, /\/skill:implement-task/);
+  assert.match(delivery, /`implement-task`/);
   assert.match(delivery, /design-finish/);
   assert.match(delivery, /validate_feature/);
   assert.match(delivery, /discovery exit hatch/i);
@@ -138,12 +138,12 @@ test('feature-delivery delegates exactly one task to implement-task without re-o
   assert.match(task, /stage: COMMITTED/);
   assert.match(task, /missing prerequisites|NEEDS_DECOMPOSITION/i);
   assert.match(system, /\/skill:implement-task/);
-  assert.match(read('agent/skills/conductor/SKILL.md'), /\/skill:implement-task/);
+  assert.match(read('skills/conductor/SKILL.md'), /`implement-task`/);
   assert.match(read('agent/extensions/execute-and-review/README.md'), /\/skill:implement-task/);
 });
 
 test('init-feature keeps agent-added constraints out of the ticket and shows them for approval', () => {
-  const init = read('agent/skills/init-feature/SKILL.md').replace(/\s+/g, ' ');
+  const init = read('skills/init-feature/SKILL.md').replace(/\s+/g, ' ');
   assert.match(init, /do not strengthen them/);
   assert.match(init, /Agent-added constraints \(not in the ticket\)/);
   assert.match(init, /If the user has not seen it, it is not an approved constraint/);
@@ -151,8 +151,8 @@ test('init-feature keeps agent-added constraints out of the ticket and shows the
 });
 
 test('init-feature supports independent Linear preparation and safe reuse', () => {
-  const init = read('agent/skills/init-feature/SKILL.md');
-  const delivery = read('agent/skills/feature-delivery/SKILL.md');
+  const init = read('skills/init-feature/SKILL.md');
+  const delivery = read('skills/feature-delivery/SKILL.md');
   for (const phrase of ['Linear identifier', 'linear_get_ticket', 'origin:', 'init',
     'summary', 'design_ref', 'approval', 'design-finish',
     'original baseline', 'without implementing']) {
@@ -163,5 +163,5 @@ test('init-feature supports independent Linear preparation and safe reuse', () =
   assert.match(delivery, /prepared feature/);
   assert.match(delivery, /validate_feature/);
   assert.doesNotMatch(delivery, /### Feature planning and the single approval|## 2\. Design the issue graph downward/);
-  assert.match(read('agent/skills/scaffold/SKILL.md'), /\/skill:init-feature/);
+  assert.match(read('skills/scaffold/SKILL.md'), /`init-feature`/);
 });
