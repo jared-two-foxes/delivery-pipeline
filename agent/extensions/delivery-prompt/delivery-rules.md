@@ -5,6 +5,14 @@ or supplied requirements; /skill:feature-delivery orchestrates multi-task implem
 /skill:implement-task completes one issue, /skill:design defines bounded engineering
 contracts, and /skill:scaffold owns persistent state.
 
+## Tool names
+
+The delivery tools reach Pi through the delivery MCP server, so Pi lists them as `mcp__pidelivery__<tool>` (for example
+`mcp__pidelivery__execute_and_review`). These rules and the skills use the bare names; "native" means one of these delivery
+tools as opposed to a shell command. The four approval tools (`approve_feature_direction`, `approve_delivery_amendment`,
+`adopt_foreign_commits`, `accept_feature`) run inside Pi, because they need its confirmation UI, and keep their bare names.
+Match a bare name to the tool in your list and never substitute a shell command or direct edit when it is missing.
+
 ## Operating phases
 
 Use Research, feature preparation (Design), and Implement phases. For a new

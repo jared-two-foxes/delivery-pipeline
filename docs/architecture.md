@@ -159,8 +159,8 @@ Scaffold data and pass it in; libraries validate it.
 approves, when no human can be asked. No `.mjs` module may import a host SDK or touch `ctx.ui`; a test
 enforces this, so a second host (for example an MCP server) can load `tools.mjs` unchanged and write only
 its own adapter beside `lib/host/pi.mjs`. That second adapter now exists: `lib/host/mcp.mjs` plus the server in
-`mcp/` (see its README, including what it does not yet enforce). Pi can opt in to using that server for 14 of the 17
-tools (`PI_DELIVERY_TRANSPORT=mcp`); the three approval tools stay native because Pi's MCP client cannot elicit. Schemas are built with an injected TypeBox-style `Type`.
+`mcp/` (see its README, including what it does not yet enforce). Pi uses that server as the only transport for its delivery tools (the `delivery-mcp` extension); the four approval tools
+stay in-process because Pi's MCP client cannot elicit. Schemas are built with an injected TypeBox-style `Type`.
 **Enforcement versus detection.** Three layers keep the orchestrator honest, and they differ in kind:
 instructions (`delivery-rules.md`, skills: no enforcement), a guard that *prevents* (`lib/guard/`, applied in Pi by the
 `delivery-guard` extension's `tool_call` handler and in Claude Code by the plugin's `PreToolUse` hook), and the ledger

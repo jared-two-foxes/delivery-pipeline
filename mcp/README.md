@@ -1,7 +1,8 @@
 # Delivery tools over MCP
 
-`server.mjs` serves the same 21 delivery tools Pi registers (`scaffold_tasks`, `execute_and_review`,
+`server.mjs` serves the 21 delivery tools (`scaffold_tasks`, `execute_and_review`,
 `checkpoint_verified_task`, `validate_feature`, the recovery tools, `review_changes`, ...) to any MCP host.
+Pi is served all but the four approval tools, which it keeps in-process (see "Using it from Pi").
 It loads the host-neutral definitions in `agent/extensions/*/tools.mjs`; nothing is duplicated.
 The adapter logic is `agent/lib/host/mcp.mjs` (dependency-free and unit-tested); this directory only
 wires in the MCP SDK, TypeBox and a JSON Schema validator.
@@ -20,45 +21,38 @@ Claude Code: `claude mcp add delivery-pipeline -- node /absolute/path/to/mcp/sta
 you are delivering in. VS Code: add the same command to `.vscode/mcp.json` (`"type": "stdio"`).
 The external CLIs (`scaffold`, Conductor, Executor, Review) must be on `PATH`, as they are for Pi.
 
-## Using it from Pi (opt-in, experimental)
+## Using it from Pi
 
-Pi has a built-in MCP client. The `delivery-mcp` extension can register this server for a session, so Pi
-uses the same tool code as other hosts:
+Pi has a built-in MCP client, and MCP is the only way Pi gets the delivery tools. The `delivery-mcp` extension
+registers this server for every session, so Pi runs the same tool code as other hosts. There is no native
+fallback and no environment switch.
 
-```sh
-PI_DELIVERY_TRANSPORT=mcp pi
-```
-
-- **Default is unchanged.** Without the variable Pi registers all 21 tools natively, as before.
-- **Safe fallback.** Before choosing MCP, Pi's transport check actually starts the server
+- **Startup check.** Before registering, the extension actually starts the server
   (`node start.mjs --check` loads the whole module graph and exits). A missing file, missing or partial
   dependencies (including ones the direct packages need), a Node too old for the SDK, or no `node` on `PATH`
-  therefore all fall back to the native tools with a warning that names the cause. The result is cached, so
-  one Pi session spawns one check. `PI_DELIVERY_MCP_SERVER` points at `start.mjs` for non-standard layouts.
-  Both registration paths use `deliveryTransport()` in `agent/lib/host/pi.mjs`, so they always agree.
-  **Not covered:** a server that starts fine and dies later in a session. Pi shows it as disconnected and
-  reconnects on the next call; the native tools are not restored mid-session (Pi exposes no connection state
-  to extensions, only each server's config).
-- **Approvals stay native.** Pi 1.5.2's MCP client declares `{"roots":{}}` and no `elicitation`, so approvals
+  means the server is not registered and Pi shows an error that names the cause, with the fix where there is one
+  (`npm ci`). The result is cached, so one Pi session spawns one check. `PI_DELIVERY_MCP_SERVER` points at
+  `start.mjs` for non-standard layouts. **Not covered:** a server that starts fine and dies later in a session. Pi
+  shows it as disconnected and reconnects on the next call.
+- **Approvals stay in Pi.** Pi 1.5.2's MCP client declares `{"roots":{}}` and no `elicitation`, so approvals
   over MCP would always fail closed. The four tools marked `interactive` (`approve_feature_direction`,
-  `approve_delivery_amendment`, `adopt_foreign_commits`, `accept_feature`) therefore register natively and the server omits them
-  (`PI_DELIVERY_MCP_OMIT_INTERACTIVE=1`, set by the extension). This is safe because approvals are written to
-  the Scaffold ledger and every other tool reads them back from there; no state is shared in memory.
+  `approve_delivery_amendment`, `adopt_foreign_commits`, `accept_feature`) therefore register in-process and the
+  server omits them (`PI_DELIVERY_MCP_OMIT_INTERACTIVE=1`, set by the extension). This is safe because approvals
+  are written to the Scaffold ledger and every other tool reads them back from there; no state is shared in memory.
+  They can move to MCP when Pi's client supports elicitation.
 - **Settings the extension applies.** `exposure: "direct"` (Pi's default `codemode` would hide the tools from
   the model), `timeout: 3600` (Pi's 60 s default would cut off a 30-minute workflow), and `cwd: "."` (resolved
   against Pi's session directory, i.e. the repository being delivered). The server also sends a progress
   heartbeat every 15 s to clients that ask for progress; Pi resets its timeout on progress.
 - **Tool names differ.** MCP tools reach the model as `mcp__pidelivery__<tool>` (for example
-  `mcp__pidelivery__execute_and_review`), while the approval tools keep their bare names. `delivery-rules.md` and the
-  skills still say `execute_and_review`; whether a model maps that reliably is untested, which is why this is
-  opt-in. Do not rewrite the skills until it has run end to end in a real session.
+  `mcp__pidelivery__execute_and_review`), while the approval tools keep their bare names. `delivery-rules.md`
+  tells the model about the prefix; the skills still use bare names, as they do for Claude Code. Whether a
+  model maps them reliably in a long real session has not been verified.
 
-Verified against real Pi 1.5.2 without a model (extensions loaded explicitly, `PI_DELIVERY_TRANSPORT=mcp`):
-the server registers and connects; Pi's tool list becomes 14 `mcp__pidelivery__*` tools plus the 3 native
-approval tools; the server runs in the session directory; with the variable unset all 21 tools are native; with
-a missing server path, or a server whose direct dependencies are present but which cannot start, it falls
-back to all 17 native. **Not verified:** an actual tool call through Pi's MCP
-client (needs a model), and approvals and long runs in a live session.
+Verified against real Pi 1.5.2 without a model (extensions loaded explicitly, with the server's transport still
+opt-in at that time): the server registers and connects; Pi's tool list becomes 14 `mcp__pidelivery__*` tools
+plus the native approval tools; the server runs in the session directory. **Not verified:** an actual tool call
+through Pi's MCP client (needs a model), and approvals and long runs in a live session.
 
 ## What the adapter does that Pi did implicitly
 
