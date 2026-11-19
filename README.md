@@ -13,7 +13,7 @@ It runs in three hosts from one set of tool definitions:
 | **Claude Code** | Plugin: MCP server + `PreToolUse` guard | [`claude/README.md`](claude/README.md) |
 | **Any MCP host** (e.g. VS Code) | stdio MCP server | [`mcp/README.md`](mcp/README.md) |
 
-How it fits together, and what is and is not enforced: [`ARCHITECTURE.md`](ARCHITECTURE.md).
+How it fits together, and what is and is not enforced: [`docs/architecture.md`](docs/architecture.md).
 The workflow: [`docs/workflow-overview.md`](docs/workflow-overview.md).
 
 ## Install in Pi

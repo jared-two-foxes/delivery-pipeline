@@ -1,9 +1,9 @@
 # Pi delivery pipeline: component map
 
-**Status: describes the system after the Scaffold-ledger port (docs/ledger-design.md); the port has merged (#89). Derived from reading the code.** Items marked *(unverified)* were
-inferred, not traced. [`docs/workflow-overview.md`](docs/workflow-overview.md) describes
+**Status: describes the system after the Scaffold-ledger port (ledger-design.md); the port has merged (#89). Derived from reading the code.** Items marked *(unverified)* were
+inferred, not traced. [`workflow-overview.md`](workflow-overview.md) describes
 the *process*; this file describes the *parts*, where state lives, and what guards what.
-[`agent/lib/README.md`](agent/lib/README.md) describes library boundaries in more depth.
+[`agent/lib/README.md`](../agent/lib/README.md) describes library boundaries in more depth.
 
 ## 1. What the system is for
 
@@ -93,7 +93,7 @@ extensions, and the `comfyui-generate` skill.
 ## 4. Where state lives
 
 **One ledger per feature instance, owned by Scaffold.** Pi never reads Scaffold's files; it reads and writes
-only through the Scaffold CLI. See [`docs/ledger-design.md`](docs/ledger-design.md) for the design and its rationale.
+only through the Scaffold CLI. See [`ledger-design.md`](ledger-design.md) for the design and its rationale.
 
 ```
 .scaffold/                       ignored and untracked; Pi refuses to run if it is visible to Git

@@ -2,7 +2,7 @@
 
 **Status: approved. Scaffold half implemented and merged
 ([scaffold#22](https://github.com/jared-two-foxes/scaffold/pull/22)); Pi port merged ([#89](https://github.com/jared-two-foxes/dotfiles/pull/89)).**
-Describes the target that replaces the stores mapped in [`ARCHITECTURE.md`](../ARCHITECTURE.md) section 4.
+Describes the target that replaces the stores mapped in [`architecture.md`](architecture.md) section 4.
 Spans two repositories: `jared-two-foxes/scaffold` (Python CLI) and this one (`agent`).
 
 Section 9 lists where the implementation differs from the first draft of this design.
@@ -182,7 +182,7 @@ unreachable may be garbage-collected; the ledger still records what was verified
   reconciliation, adoption, suspension and amendment record formats; most of `checkpoint-history.mjs`.
 * In Scaffold: `tasks.json` and the per-task embedded histories (now a fold); reference-format regexes for
   `pi-evidence:`; the destructive `clean`.
-* Documentation: the multi-store explanations in `ARCHITECTURE.md` and `RECOVERY.md`.
+* Documentation: the multi-store explanations in `architecture.md` and `RECOVERY.md`.
 
 PR #87's `adopt_feature_baseline` is subsumed. Its eligibility rules and review-scope handling carry over
 unchanged; its storage and its special case in `checkpointHistory` do not.
@@ -206,7 +206,7 @@ feature. The cost is accepted by the user.
    and `history-rewrite`; the interrupted-task rebase flow becomes a combination of the two.
 4. **Pi, deletion:** the evidence store, every `refs/pi-*` family, `lib/authorization`, and the embedded
    feature copies.
-5. **Docs and CI:** update `ARCHITECTURE.md`, `RECOVERY.md`, skills and `SYSTEM.md`; point this repository's CI
+5. **Docs and CI:** update `architecture.md`, `RECOVERY.md`, skills and `SYSTEM.md`; point this repository's CI
    at Scaffold `main` (scaffold#22 has merged).
 
 **Sequencing:** this repository's CI checks out the latest Scaffold `main`. The two pull requests are
