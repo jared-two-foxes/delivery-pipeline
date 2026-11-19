@@ -178,7 +178,7 @@ If a clean user commit lands after authorization but before any task starts, or 
 
 For a user-performed rebase use `rewrite_feature_history` between tasks; if a task is active, `suspend_issue` it first and
 `resume_issue` it afterwards. Preserve original receipts, baseline, criteria and budget. The retained feature authority covers
-verification/recovery, not performing a rebase or arbitrary history rewriting. See extensions/execute-and-review/README.md for exact inputs.
+verification/recovery, not performing a rebase or arbitrary history rewriting. See extensions/execute-and-review/docs/rebase.md for exact inputs.
 
 
 ## Scoped feature state and handoffs
