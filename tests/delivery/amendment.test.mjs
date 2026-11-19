@@ -30,7 +30,7 @@ test("a user can override a recorded constraint before the first attempt", { ski
     constraints: [],
     tasks: { T: { acceptance_criteria: ["Issue works"], constraints: ["Resolve SA-588 final validation first"], attempts, delivery, designs: [design] } },
   });
-  suite.mock.module("../../agent/lib/scaffold/client.mjs", {
+  suite.mock.module("../../src/lib/scaffold/client.mjs", {
     namedExports: {
       openFeatureIds: async () => ["F"],
       scaffoldCall: async (_repo, params) => {
@@ -45,15 +45,15 @@ test("a user can override a recorded constraint before the first attempt", { ski
       },
     },
   });
-  suite.mock.module("../../agent/extensions/scaffold/adapter.mjs", {
+  suite.mock.module("../../src/tools/scaffold/adapter.mjs", {
     namedExports: { issueFeature: async () => feature(), scaffoldTasks: async () => ({ ok: true, data: { feature: feature() } }) },
   });
-  suite.mock.module("../../agent/extensions/scaffold/feature-authorization.mjs", {
+  suite.mock.module("../../src/tools/scaffold/feature-authorization.mjs", {
     namedExports: { requireFeatureAuthorization: async () => true },
   });
-  const { approveDeliveryAmendment, assertPreAttemptAmendmentApplies } = await import("../../agent/extensions/execute-and-review/context-amendment.mjs");
-  const { authenticateAmendment } = await import("../../agent/lib/authorization/amendment.mjs");
-  const { deliveryContractItems } = await import("../../agent/lib/delivery-state/delivery-context.mjs");
+  const { approveDeliveryAmendment, assertPreAttemptAmendmentApplies } = await import("../../src/tools/execute-and-review/context-amendment.mjs");
+  const { authenticateAmendment } = await import("../../src/lib/authorization/amendment.mjs");
+  const { deliveryContractItems } = await import("../../src/lib/delivery-state/delivery-context.mjs");
 
   const items = deliveryContractItems(feature(), feature().tasks.T, task);
   const gate = items.find((i) => i.text.startsWith("Resolve SA-588"));

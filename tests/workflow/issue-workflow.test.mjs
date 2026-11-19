@@ -1,35 +1,35 @@
 import {
   approveFeatureDirection,
   featureAuthorized,
-} from "../../agent/extensions/scaffold/feature-authorization.mjs";
-import { executeAndCheckpoint } from "../../agent/extensions/execute-and-review/delivery.mjs";
+} from "../../src/tools/scaffold/feature-authorization.mjs";
+import { executeAndCheckpoint } from "../../src/tools/execute-and-review/delivery.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { mkdtemp, writeFile, readFile, rm, readdir, realpath } from "node:fs/promises";
-import { workDirectory } from "../../agent/lib/git/workspace.mjs";
+import { workDirectory } from "../../src/lib/git/workspace.mjs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { git } from "../../agent/lib/git/tree.mjs";
-import { snapshot } from "../../agent/lib/git/snapshot.mjs";
-import { readEvidence } from "../../agent/lib/evidence/store.mjs";
+import { git } from "../../src/lib/git/tree.mjs";
+import { snapshot } from "../../src/lib/git/snapshot.mjs";
+import { readEvidence } from "../../src/lib/evidence/store.mjs";
 import { executeAndReview, requestView } from "../helpers/conductor-v2.mjs";
 import { spawnSync } from "node:child_process";
-import { checkpointVerifiedTask } from "../../agent/extensions/checkpoint/scaffold.mjs";
-import { scaffoldTasks } from "../../agent/extensions/scaffold/adapter.mjs";
-import { designReference } from "../../agent/lib/scaffold/contracts.mjs";
-import { issueDesignRequirements } from "../../agent/lib/scaffold/contracts.mjs";
-import { authenticateIssueMutation } from "../../agent/lib/verification/issue-mutation.mjs";
-import { suspendIssue, resumeIssue } from "../../agent/extensions/execution-recovery/issue-recovery.mjs";
-import { authenticateAttemptChain } from "../../agent/lib/verification/attempt-chain.mjs";
-import { reconcileExternalChanges } from "../../agent/extensions/execute-and-review/reconcile-attempt.mjs";
-import { validateFeature } from "../../agent/extensions/feature-validation/feature.mjs";
+import { checkpointVerifiedTask } from "../../src/tools/checkpoint/scaffold.mjs";
+import { scaffoldTasks } from "../../src/tools/scaffold/adapter.mjs";
+import { designReference } from "../../src/lib/scaffold/contracts.mjs";
+import { issueDesignRequirements } from "../../src/lib/scaffold/contracts.mjs";
+import { authenticateIssueMutation } from "../../src/lib/verification/issue-mutation.mjs";
+import { suspendIssue, resumeIssue } from "../../src/tools/execution-recovery/issue-recovery.mjs";
+import { authenticateAttemptChain } from "../../src/lib/verification/attempt-chain.mjs";
+import { reconcileExternalChanges } from "../../src/tools/execute-and-review/reconcile-attempt.mjs";
+import { validateFeature } from "../../src/tools/feature-validation/feature.mjs";
 import {
   prepareIssueHandoff,
   inspectIssueHandoff,
   inspectIssueAttempt,
-} from "../../agent/extensions/execution-recovery/issue-context.mjs";
-import { verifyHistory } from "../../agent/lib/verification/history.mjs";
+} from "../../src/tools/execution-recovery/issue-context.mjs";
+import { verifyHistory } from "../../src/lib/verification/history.mjs";
 const hasScaffold = spawnSync("scaffold", ["--help"], { encoding: "utf8" }).status === 0;
 const integration = { skip: !hasScaffold && "Real Scaffold (schema 3) is not on PATH" };
 async function fixture(t) {
@@ -946,7 +946,7 @@ test(
     // The handoff is an artifact; the task graph is untouched.
     assert.deepEqual((await f.call("list")).feature.tasks, tasksBefore);
     const fresh =
-      await import("../../agent/extensions/execution-recovery/issue-context.mjs?fresh");
+      await import("../../src/tools/execution-recovery/issue-context.mjs?fresh");
     assert.equal(
       (
         await fresh.inspectIssueHandoff(
@@ -1060,7 +1060,7 @@ test(
       (await f.call("list")).feature.workflow.root_id,
     );
     const { compactMutation } =
-      await import("../../agent/extensions/scaffold/compact-mutation.mjs");
+      await import("../../src/tools/scaffold/compact-mutation.mjs");
     const approved = await approveFeatureDirection({ featureId: "F" }, { directory: f.dir }, { confirm: async () => true });
     assert.equal(approved.ok, true, JSON.stringify(approved));
     const result = await scaffoldTasks(
@@ -1242,7 +1242,7 @@ test(
     );
     assert.equal(invocations, 1);
     const fresh =
-      await import("../../agent/extensions/scaffold/feature-authorization.mjs?fresh-session");
+      await import("../../src/tools/scaffold/feature-authorization.mjs?fresh-session");
     assert.equal(
       await fresh.featureAuthorized(f.scope("F"), context, options),
       true,
@@ -1288,7 +1288,7 @@ test(
     );
     f.g("symbolic-ref", "--delete", "refs/remotes/origin/HEAD");
     const { inspectFeatureValidation } =
-      await import("../../agent/extensions/feature-validation/feature.mjs");
+      await import("../../src/tools/feature-validation/feature.mjs");
     const inspected = await inspectFeatureValidation({ featureId: "F" }, context, options);
     assert.equal(inspected.ok, true, JSON.stringify(inspected));
     assert.equal(inspected.results.length, 0); // approval is never validation evidence
@@ -1463,7 +1463,7 @@ test(
   integration,
   async (t) => {
     const { approveDeliveryAmendment } =
-      await import("../../agent/extensions/execute-and-review/context-amendment.mjs");
+      await import("../../src/tools/execute-and-review/context-amendment.mjs");
     const f = await fixture(t);
     await f.approve("F");
     await f.call("design-finish");
@@ -1528,9 +1528,9 @@ test(
   integration,
   async (t) => {
     const { approveDeliveryAmendment } =
-      await import("../../agent/extensions/execute-and-review/context-amendment.mjs");
+      await import("../../src/tools/execute-and-review/context-amendment.mjs");
     const { deliveryContractItems } =
-      await import("../../agent/lib/delivery-state/delivery-context.mjs");
+      await import("../../src/lib/delivery-state/delivery-context.mjs");
     const f = await fixture(t);
     await f.approve("F");
     await f.call("design-finish");
@@ -1603,7 +1603,7 @@ test(
   integration,
   async (t) => {
     const { retainEvidence } =
-      await import("../../agent/lib/evidence/store.mjs");
+      await import("../../src/lib/evidence/store.mjs");
     for (const count of [5, 70]) {
       const f = await fixture(t);
       await f.approve("F");

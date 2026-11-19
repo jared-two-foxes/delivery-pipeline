@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { formatScope } from '../../agent/lib/host/format-scope.mjs';
+import { formatScope } from '../../src/lib/host/format-scope.mjs';
 
 test('approval scope renders as readable text, not escaped JSON', () => {
   const out = formatScope({
@@ -16,8 +16,8 @@ test('approval scope renders as readable text, not escaped JSON', () => {
   assert.doesNotMatch(out, /bbbb/);
 });
 
-import { createExecuteAndReviewTools } from '../../agent/extensions/execute-and-review/tools.mjs';
-import { validateRequest } from '../../agent/lib/scaffold/contracts.mjs';
+import { createExecuteAndReviewTools } from '../../src/tools/execute-and-review/tools.mjs';
+import { validateRequest } from '../../src/lib/scaffold/contracts.mjs';
 const Type = new Proxy({}, { get: (_t, kind) => (...args) => ({ kind, args }) });
 
 test('feature direction gate is a short Yes/No bound to the presented design', async () => {

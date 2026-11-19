@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, utimesSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { monitorTrackedInputs } from "../../agent/lib/git/monitor.mjs";
+import { monitorTrackedInputs } from "../../src/lib/git/monitor.mjs";
 
 const sh = (cwd, ...a) => execFileSync("git", a, { cwd, stdio: "pipe" });
 const wait = async (m) => { for (let i = 0; i < 50 && !m.total(); i++) await new Promise((r) => setTimeout(r, 40)); };

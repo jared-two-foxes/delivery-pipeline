@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { renderContext } from "../../agent/lib/delivery-state/delivery-context.mjs";
-import { reconcileExternalChanges, changedPaths } from "../../agent/extensions/execute-and-review/reconcile-attempt.mjs";
+import { renderContext } from "../../src/lib/delivery-state/delivery-context.mjs";
+import { reconcileExternalChanges, changedPaths } from "../../src/tools/execute-and-review/reconcile-attempt.mjs";
 
 const task = { featureId: "F", taskId: "T", designRef: "sha256:" + "a".repeat(64) };
 const PREV = "sha256:" + "1".repeat(64);

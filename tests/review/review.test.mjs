@@ -4,8 +4,8 @@ import { execFileSync } from 'node:child_process';
 import { mkdtemp, mkdir, writeFile, readFile, rm, access } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { reviewChanges } from '../../agent/lib/review/adapter.mjs';
-import { createReviewTool } from '../../agent/extensions/review/tool.mjs';
+import { reviewChanges } from '../../src/lib/review/adapter.mjs';
+import { createReviewTool } from '../../src/tools/review/tool.mjs';
 
 async function fixture(t, variant = 'APPROVED') {
   const root = await mkdtemp(path.join(tmpdir(), 'pi-review-test-'));
@@ -183,12 +183,12 @@ test('native tool exposes review-only parameters, propagates context and disting
 });
 test('Pi and shared policies allow standalone review without weakening implementation gates', async () => {
   const read = async name => readFile(new URL('../../' + name, import.meta.url), 'utf8');
-  const system = await read('agent/extensions/delivery-prompt/delivery-rules.md');
+  const system = await read('pi/delivery-prompt/delivery-rules.md');
   const skill = await read('skills/review/SKILL.md');
   assert.match(system, /Standalone\s+review stays in Research mode/);
   assert.match(system, /review_changes/); assert.match(system, /Only native `execute_and_review`/);
   assert.match(system, /Do not run builds, tests, review-cli, executor, Conductor/);
   assert.match(skill, /Use the native `review_changes` tool/);
-  assert.match(await read('agent/extensions/review/index.ts'), /registerPiTools\(pi, \[createReviewTool\(Type\)\]\)/);
+  assert.match(await read('pi/review/index.ts'), /registerPiTools\(pi, \[createReviewTool\(Type\)\]\)/);
   assert.match(await read('.github/workflows/ci.yml'), /tests\/review\/review\.test\.mjs/);
 });

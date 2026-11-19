@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { abandonInflightAttempt } from "../../agent/extensions/execute-and-review/abandon-attempt.mjs";
+import { abandonInflightAttempt } from "../../src/tools/execute-and-review/abandon-attempt.mjs";
 
 const task = { featureId: "F", taskId: "T", designRef: "sha256:" + "a".repeat(64) };
 const REF = "sha256:" + "1".repeat(64);

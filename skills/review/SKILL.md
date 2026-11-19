@@ -41,7 +41,7 @@ The native default model is `opencode/gpt-6.1-sol`, overridden by `REVIEW_MODEL`
 and then an explicit `model`. Defaults are 180 seconds and 20 turns, with
 `wallClockBudgetSecs` and `maxTurns` overrides. Optional `maxCostUsd`,
 `maxToolCalls`, `maxRepeatedActions` and `maxCompletionAttempts` are forwarded
-when supplied. See `../../extensions/review/README.md` for ranges, deployment,
+when supplied. See `../../src/tools/review/README.md` for ranges, deployment,
 credentials and safety limitations. The extension is self-contained and
 requires `review-cli` on PATH or an explicit `REVIEW_CLI_BIN`.
 

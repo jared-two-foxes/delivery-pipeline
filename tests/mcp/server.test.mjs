@@ -5,9 +5,9 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { missingDependencies } from "../../agent/lib/host/dependencies.mjs";
-import { createMcpCaller, mcpToolList } from "../../agent/lib/host/mcp.mjs";
-import { defineTool, toolResult, withApprovalReason } from "../../agent/lib/host/tool.mjs";
+import { missingDependencies } from "../../src/lib/host/dependencies.mjs";
+import { createMcpCaller, mcpToolList } from "../../src/lib/host/mcp.mjs";
+import { defineTool, toolResult, withApprovalReason } from "../../src/lib/host/tool.mjs";
 
 const schema = { type: "object", properties: { n: { type: "integer" } }, required: ["n"], additionalProperties: false };
 const ok = () => true;
@@ -161,9 +161,9 @@ test("launcher without dependencies exits 1 with a one-line fix on stderr and no
   const root = mkdtempSync(path.join(tmpdir(), "pi-mcp-nodeps-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   mkdirSync(path.join(root, "mcp"), { recursive: true });
-  mkdirSync(path.join(root, "agent/lib/host"), { recursive: true });
+  mkdirSync(path.join(root, "src/lib/host"), { recursive: true });
   for (const file of ["start.mjs", "package.json"]) copyFileSync(new URL(`../../mcp/${file}`, import.meta.url), path.join(root, "mcp", file));
-  copyFileSync(new URL("../../agent/lib/host/dependencies.mjs", import.meta.url), path.join(root, "agent/lib/host/dependencies.mjs"));
+  copyFileSync(new URL("../../src/lib/host/dependencies.mjs", import.meta.url), path.join(root, "src/lib/host/dependencies.mjs"));
   const run = spawnSync(process.execPath, [path.join(root, "mcp/start.mjs")], { encoding: "utf8", timeout: 30000 });
   assert.equal(run.status, 1);
   assert.equal(run.stdout, "", "stdout is the MCP protocol channel and must stay clean");
@@ -275,9 +275,9 @@ test("start.mjs --check fails with the same one-line fix when dependencies are m
   const root = mkdtempSync(path.join(tmpdir(), "pi-mcp-check-nodeps-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   mkdirSync(path.join(root, "mcp"), { recursive: true });
-  mkdirSync(path.join(root, "agent/lib/host"), { recursive: true });
+  mkdirSync(path.join(root, "src/lib/host"), { recursive: true });
   for (const file of ["start.mjs", "package.json"]) copyFileSync(new URL(`../../mcp/${file}`, import.meta.url), path.join(root, "mcp", file));
-  copyFileSync(new URL("../../agent/lib/host/dependencies.mjs", import.meta.url), path.join(root, "agent/lib/host/dependencies.mjs"));
+  copyFileSync(new URL("../../src/lib/host/dependencies.mjs", import.meta.url), path.join(root, "src/lib/host/dependencies.mjs"));
   const run = spawnSync(process.execPath, [path.join(root, "mcp/start.mjs"), "--check"], { encoding: "utf8", timeout: 30000 });
   assert.equal(run.status, 1);
   assert.match(run.stderr, /dependencies are not installed/);

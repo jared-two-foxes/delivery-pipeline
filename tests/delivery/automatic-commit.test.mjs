@@ -12,29 +12,29 @@ import {
 } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
-import { failureEnvelope } from "../../agent/lib/failure/report.mjs";
-import { stageStderrEnd } from "../../agent/extensions/execute-and-review/pipeline.mjs";
-import { executeAndCheckpoint } from "../../agent/extensions/execute-and-review/delivery.mjs";
-import { finalizeVerifiedTask } from "../../agent/extensions/execution-recovery/checkpoint-recovery.mjs";
-import { invoke } from "../../agent/lib/conductor/client.mjs";
-import { scaffoldTasks } from "../../agent/extensions/scaffold/adapter.mjs";
-import { designReference } from "../../agent/lib/scaffold/contracts.mjs";
+import { failureEnvelope } from "../../src/lib/failure/report.mjs";
+import { stageStderrEnd } from "../../src/tools/execute-and-review/pipeline.mjs";
+import { executeAndCheckpoint } from "../../src/tools/execute-and-review/delivery.mjs";
+import { finalizeVerifiedTask } from "../../src/tools/execution-recovery/checkpoint-recovery.mjs";
+import { invoke } from "../../src/lib/conductor/client.mjs";
+import { scaffoldTasks } from "../../src/tools/scaffold/adapter.mjs";
+import { designReference } from "../../src/lib/scaffold/contracts.mjs";
 import {
   approveFeatureDirection,
   featureAuthorized,
-} from "../../agent/extensions/scaffold/feature-authorization.mjs";
-import { validateFeature } from "../../agent/extensions/feature-validation/feature.mjs";
-import { issueDesignRequirements, issueRequirements } from "../../agent/lib/scaffold/contracts.mjs";
-import { digest, readEvidence, retainEvidence } from "../../agent/lib/evidence/store.mjs";
-import { authenticateTaskEvidence } from "../../agent/lib/verification/task-evidence.mjs";
+} from "../../src/tools/scaffold/feature-authorization.mjs";
+import { validateFeature } from "../../src/tools/feature-validation/feature.mjs";
+import { issueDesignRequirements, issueRequirements } from "../../src/lib/scaffold/contracts.mjs";
+import { digest, readEvidence, retainEvidence } from "../../src/lib/evidence/store.mjs";
+import { authenticateTaskEvidence } from "../../src/lib/verification/task-evidence.mjs";
 import { conductorFixture, executorFixture, reviewFixture } from "../helpers/conductor-executables.mjs";
 import { approveGraph } from "../helpers/issue-plan.mjs";
 import {
   inspectIssueAttempt,
   prepareIssueHandoff,
-} from "../../agent/extensions/execution-recovery/issue-context.mjs";
-import { suspendIssue, resumeIssue } from "../../agent/extensions/execution-recovery/issue-recovery.mjs";
-import { authenticateAttemptChain } from "../../agent/lib/verification/attempt-chain.mjs";
+} from "../../src/tools/execution-recovery/issue-context.mjs";
+import { suspendIssue, resumeIssue } from "../../src/tools/execution-recovery/issue-recovery.mjs";
+import { authenticateAttemptChain } from "../../src/lib/verification/attempt-chain.mjs";
 
 const integration = {
   skip:
@@ -1238,7 +1238,7 @@ test(
     const validateTests = [
       process.execPath,
       new URL(
-        "../../agent/lib/verification/meaningful-test-condition.mjs",
+        "../../src/lib/verification/meaningful-test-condition.mjs",
         import.meta.url,
       ).pathname,
     ];

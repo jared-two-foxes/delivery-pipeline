@@ -88,4 +88,4 @@ See `skills/init-feature/SKILL.md`,
 `skills/design/SKILL.md`,
 `skills/implement-task/SKILL.md`,
 `skills/feature-delivery/SKILL.md` and
-`agent/extensions/scaffold/README.md` for exact workflow contracts.
+`src/tools/scaffold/README.md` for exact workflow contracts.

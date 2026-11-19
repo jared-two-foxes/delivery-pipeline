@@ -3,11 +3,11 @@ import assert from "node:assert/strict";
 import { mkdtemp, mkdir, writeFile, rm, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { reviewStep, deliveryReviewSettings } from "../../agent/lib/review/client.mjs";
-import { deliveryReviewStep } from "../../agent/lib/verification/workflow.mjs";
+import { reviewStep, deliveryReviewSettings } from "../../src/lib/review/client.mjs";
+import { deliveryReviewStep } from "../../src/lib/verification/workflow.mjs";
 import {
   REVIEW_CHECKPOINT_FILE, inspectReviewCheckpoint, reviewCheckpointPath, withReviewCheckpoint,
-} from "../../agent/lib/review/checkpoint.mjs";
+} from "../../src/lib/review/checkpoint.mjs";
 
 const inputs = { review: { requirements: "/out/requirements.md" }, requirements: "criteria" };
 const flagValue = (args, flag) => args[args.indexOf(flag) + 1];
@@ -117,8 +117,8 @@ test("inspectReviewCheckpoint tolerates absent, corrupt and partial files", asyn
   assert.deepEqual(bare.progress, { turns: 0, toolCalls: 0, distinctToolCalls: 0, completionAttempts: 0 });
 });
 
-import { prepareWorkflow } from "../../agent/extensions/execute-and-review/workflow.mjs";
-import { authenticateWorkflow } from "../../agent/lib/verification/workflow.mjs";
+import { prepareWorkflow } from "../../src/tools/execute-and-review/workflow.mjs";
+import { authenticateWorkflow } from "../../src/lib/verification/workflow.mjs";
 
 async function prepared(t, extra) {
   const repository = await realpath(await scratch(t));
@@ -155,9 +155,9 @@ test("an attempt retained before checkpoints existed still authenticates", async
 });
 
 import { createHash } from "node:crypto";
-import { reviewHandoff } from "../../agent/lib/verification/review-evidence.mjs";
-import { stripInternalReviewArgs } from "../../agent/lib/review/checkpoint.mjs";
-import { executeAndReview } from "../../agent/extensions/execute-and-review/adapter.mjs";
+import { reviewHandoff } from "../../src/lib/verification/review-evidence.mjs";
+import { stripInternalReviewArgs } from "../../src/lib/review/checkpoint.mjs";
+import { executeAndReview } from "../../src/tools/execute-and-review/adapter.mjs";
 
 const sha = (text) => "sha256:" + createHash("sha256").update(text).digest("hex");
 const evidenceOf = (attempt) => ({

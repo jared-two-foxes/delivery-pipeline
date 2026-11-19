@@ -5,7 +5,7 @@
 // `node start.mjs --check` exits 0 if the server could start, without serving.
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { missingDependencies } from "../agent/lib/host/dependencies.mjs";
+import { missingDependencies } from "../src/lib/host/dependencies.mjs";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 const missing = missingDependencies(here);

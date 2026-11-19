@@ -4,9 +4,9 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { authenticateWorkflow } from '../../agent/lib/verification/workflow.mjs';
-import { prepareWorkflow } from '../../agent/extensions/execute-and-review/workflow.mjs';
-import { executeAndReview } from '../../agent/extensions/execute-and-review/adapter.mjs';
+import { authenticateWorkflow } from '../../src/lib/verification/workflow.mjs';
+import { prepareWorkflow } from '../../src/tools/execute-and-review/workflow.mjs';
+import { executeAndReview } from '../../src/tools/execute-and-review/adapter.mjs';
 import { contract } from '../helpers/conductor-contract.mjs';
 contract('Pi', executeAndReview);
 
@@ -18,8 +18,8 @@ test('delivery rejects workflows from obsolete extension layouts', async t => {
   const workflow = await prepareWorkflow(root, root, args, checks);
   const executor = workflow.request.commands[0];
   const review = workflow.request.commands.at(-1);
-  assert.equal(executor.args[0], fileURLToPath(new URL('../../agent/lib/verification/input-guard.mjs', import.meta.url)));
-  assert.equal(review.success_condition.args[0], fileURLToPath(new URL('../../agent/lib/verification/review-condition.mjs', import.meta.url)));
+  assert.equal(executor.args[0], fileURLToPath(new URL('../../src/lib/verification/input-guard.mjs', import.meta.url)));
+  assert.equal(review.success_condition.args[0], fileURLToPath(new URL('../../src/lib/verification/review-condition.mjs', import.meta.url)));
   for (const extension of ['conductor', 'execute-and-review']) {
     const legacyPath = file => fileURLToPath(new URL(`../../agent/extensions/${extension}/${file}`, import.meta.url));
     executor.args[0] = legacyPath('input-guard.mjs');

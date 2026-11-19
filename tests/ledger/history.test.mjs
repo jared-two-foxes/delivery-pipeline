@@ -5,15 +5,15 @@ import { spawnSync } from "node:child_process";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { git } from "../../agent/lib/git/tree.mjs";
-import { scaffoldTasks } from "../../agent/extensions/scaffold/adapter.mjs";
+import { git } from "../../src/lib/git/tree.mjs";
+import { scaffoldTasks } from "../../src/tools/scaffold/adapter.mjs";
 import {
   approveFeatureDirection,
   featureAuthorized,
   requireFeatureAuthorization,
-} from "../../agent/extensions/scaffold/feature-authorization.mjs";
-import { adoptCommits, inspectDrift } from "../../agent/extensions/execution-recovery/foreign-history.mjs";
-import { verifyHistory, foreignHistoryRequirements } from "../../agent/lib/verification/history.mjs";
+} from "../../src/tools/scaffold/feature-authorization.mjs";
+import { adoptCommits, inspectDrift } from "../../src/tools/execution-recovery/foreign-history.mjs";
+import { verifyHistory, foreignHistoryRequirements } from "../../src/lib/verification/history.mjs";
 
 const hasScaffold = spawnSync("scaffold", ["--help"], { encoding: "utf8" }).status === 0;
 const real = { skip: !hasScaffold && "Real Scaffold (schema 3) is not on PATH" };

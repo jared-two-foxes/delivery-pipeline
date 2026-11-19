@@ -10,8 +10,8 @@ import {
   classifyBroadCheck,
   parseJustifications,
   requireBroadCheckJustifications,
-} from "../../agent/lib/verification/check-scope.mjs";
-import { executeAndReview } from "../../agent/extensions/execute-and-review/adapter.mjs";
+} from "../../src/lib/verification/check-scope.mjs";
+import { executeAndReview } from "../../src/tools/execute-and-review/adapter.mjs";
 
 const SHA = "a".repeat(40);
 const REASON = "The runner cannot select the necessary tests individually";

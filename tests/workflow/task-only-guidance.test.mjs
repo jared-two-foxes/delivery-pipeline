@@ -35,7 +35,7 @@ test("Scaffold guidance provides only task-state CLI inspection and no stack com
   const documents = [
     await read("docs/workflow-overview.md"),
     await read("skills/scaffold/SKILL.md"),
-    await read("agent/extensions/scaffold/README.md"),
+    await read("src/tools/scaffold/README.md"),
   ];
   for (const body of documents) {
     assert.match(body, /scaffold summary --feature/);

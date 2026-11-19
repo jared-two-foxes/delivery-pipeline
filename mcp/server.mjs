@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 // MCP server for the Pi delivery tools. Serves the same host-neutral definitions Pi registers
-// (agent/extensions/*/tools.mjs) over MCP stdio, so Claude Code and VS Code can use them.
+// (src/tools/*/tools.mjs) over MCP stdio, so Claude Code and VS Code can use them.
 //
 //   node mcp/server.mjs            runs in the current directory (the repository to deliver in)
 //
 // Approvals (`approve_feature_direction`, `approve_delivery_amendment`, `adopt_foreign_commits`) are asked
 // through MCP elicitation, which the host shows to the human. A client without elicitation cannot approve:
-// the tools fail closed. See ../agent/lib/host/mcp.mjs.
+// the tools fail closed. See ../src/lib/host/mcp.mjs.
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import Ajv from "ajv";
@@ -14,13 +14,13 @@ import { Type } from "typebox";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { createMcpCaller, mcpToolList, projectDirectory } from "../agent/lib/host/mcp.mjs";
-import { createCheckpointTools } from "../agent/extensions/checkpoint/tools.mjs";
-import { createExecuteAndReviewTools } from "../agent/extensions/execute-and-review/tools.mjs";
-import { createExecutionRecoveryTools } from "../agent/extensions/execution-recovery/tools.mjs";
-import { createFeatureValidationTools } from "../agent/extensions/feature-validation/tools.mjs";
-import { createReviewTool } from "../agent/extensions/review/tool.mjs";
-import { createScaffoldTools } from "../agent/extensions/scaffold/tools.mjs";
+import { createMcpCaller, mcpToolList, projectDirectory } from "../src/lib/host/mcp.mjs";
+import { createCheckpointTools } from "../src/tools/checkpoint/tools.mjs";
+import { createExecuteAndReviewTools } from "../src/tools/execute-and-review/tools.mjs";
+import { createExecutionRecoveryTools } from "../src/tools/execution-recovery/tools.mjs";
+import { createFeatureValidationTools } from "../src/tools/feature-validation/tools.mjs";
+import { createReviewTool } from "../src/tools/review/tool.mjs";
+import { createScaffoldTools } from "../src/tools/scaffold/tools.mjs";
 
 /** All delivery tools. `includeInteractive: false` omits the approval tools, for hosts that keep those native. */
 export function deliveryTools({ includeInteractive = true } = {}) {

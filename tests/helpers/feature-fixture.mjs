@@ -4,21 +4,21 @@ import { execFileSync } from "node:child_process";
 import { appendFile, readdir, mkdtemp, writeFile, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { git } from "../../agent/lib/git/tree.mjs";
-import { snapshot } from "../../agent/lib/git/snapshot.mjs";
-import { approveFeatureDirection } from "../../agent/extensions/scaffold/feature-authorization.mjs";
-import { verifyHistory } from "../../agent/lib/verification/history.mjs";
+import { git } from "../../src/lib/git/tree.mjs";
+import { snapshot } from "../../src/lib/git/snapshot.mjs";
+import { approveFeatureDirection } from "../../src/tools/scaffold/feature-authorization.mjs";
+import { verifyHistory } from "../../src/lib/verification/history.mjs";
 import { spawnSync } from "node:child_process";
 import { executeAndReview as executeTaskAttempt } from "./conductor-v2.mjs";
-import { checkpointVerifiedTask } from "../../agent/extensions/checkpoint/scaffold.mjs";
-import { scaffoldTasks } from "../../agent/extensions/scaffold/adapter.mjs";
-import { designReference } from "../../agent/lib/scaffold/contracts.mjs";
-import { authenticateIssueMutation } from "../../agent/lib/verification/issue-mutation.mjs";
+import { checkpointVerifiedTask } from "../../src/tools/checkpoint/scaffold.mjs";
+import { scaffoldTasks } from "../../src/tools/scaffold/adapter.mjs";
+import { designReference } from "../../src/lib/scaffold/contracts.mjs";
+import { authenticateIssueMutation } from "../../src/lib/verification/issue-mutation.mjs";
 import {
   validateFeature,
   runFeatureChecks,
   inspectFeatureValidation,
-} from "../../agent/extensions/feature-validation/feature.mjs";
+} from "../../src/tools/feature-validation/feature.mjs";
 import { approveGraph, requirementsFor } from "./issue-plan.mjs";
 const fixtureScaffold = new Map();
 export async function executeAndReview(args, context, options) {

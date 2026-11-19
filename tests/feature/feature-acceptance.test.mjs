@@ -6,8 +6,8 @@ import {
   validateFeature,
   runFeatureChecks,
   inspectFeatureValidation,
-} from "../../agent/extensions/feature-validation/feature.mjs";
-import { acceptFeature } from "../../agent/extensions/feature-validation/acceptance.mjs";
+} from "../../src/tools/feature-validation/feature.mjs";
+import { acceptFeature } from "../../src/tools/feature-validation/acceptance.mjs";
 import { integration, fixture, finishedFeature } from "../helpers/feature-fixture.mjs";
 
 const acceptArgs = (head, patch = {}) => ({ featureId: "F5", headRef: head, ...patch });

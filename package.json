@@ -10,7 +10,7 @@
   "license": "MIT",
   "pi": {
     "extensions": [
-      "./agent/extensions/*/index.ts"
+      "./pi/*/index.ts"
     ],
     "skills": [
       "./skills"
