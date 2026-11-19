@@ -1,7 +1,7 @@
 # Design: superseding checkpoints (history and retry)
 
 Status: proposal. Needs a Scaffold change (`history-supersede`), so it cannot land from this repository alone.
-Related: `LEDGER_DESIGN.md` (entry types, `history-rewrite`), `RECOVERY.md`.
+Related: `ledger-design.md` (entry types, `history-rewrite`), `RECOVERY.md`.
 
 ## Problem
 
@@ -65,4 +65,4 @@ the same way a suspension handoff does).
   restoring an old attempt tree could reuse `restoreCheckpoint`'s saved-ref mechanism.
 * Rolling back a checkpoint whose commit was pushed: the tool should only record, and say plainly that
   rewriting a published branch is the user's decision.
-* Whether `epochs` growth needs a retention rule (see `LEDGER_DESIGN.md` section 8).
+* Whether `epochs` growth needs a retention rule (see `ledger-design.md` section 8).

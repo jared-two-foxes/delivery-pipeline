@@ -8,7 +8,7 @@ const root = fileURLToPath(new URL("../", import.meta.url));
 const read = file => readFile(path.join(root, file), "utf8");
 
 test("feature workflow documents one task graph and distinct Pi skill boundaries", async () => {
-  const overview = await read("workflow-overview.md");
+  const overview = await read("docs/workflow-overview.md");
   for (const fragment of [
     "/skill:init-feature",
     "/skill:design",
@@ -33,7 +33,7 @@ test("feature workflow documents one task graph and distinct Pi skill boundaries
 
 test("Scaffold guidance provides only task-state CLI inspection and no stack commands", async () => {
   const documents = [
-    await read("workflow-overview.md"),
+    await read("docs/workflow-overview.md"),
     await read("skills/scaffold/SKILL.md"),
     await read("agent/extensions/scaffold/README.md"),
   ];

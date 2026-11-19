@@ -360,7 +360,7 @@ test('real Scaffold clean invalidates old feature state and reinit changes ident
 });
 
 test('Pi policies allow only scoped state tracking and preserve separate execution gates', async () => {
-  for (const file of ['delivery-rules.md', 'skills/init-feature/SKILL.md']) {
+  for (const file of ['agent/extensions/delivery-prompt/delivery-rules.md', 'skills/init-feature/SKILL.md']) {
     const text = (await readFile(path.join(root, file), 'utf8')).replace(/\s+/g, ' ');
     assert.match(text, /scaffold_tasks/);
     assert.match(text, /overall (?:feature )?direction|overall feature/);

@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const rulesPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "delivery-rules.md");
+const rulesPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "delivery-rules.md");
 
 /**
  * Adds the delivery pipeline's operating rules to Pi's system prompt as an

@@ -9,7 +9,7 @@ const read = p => readFileSync(path.join(root, p), 'utf8');
 test('feature initialization owns the single direction approval and design-finish', () => {
   const init = read('skills/init-feature/SKILL.md');
   const delivery = read('skills/feature-delivery/SKILL.md');
-  const system = read('delivery-rules.md');
+  const system = read('agent/extensions/delivery-prompt/delivery-rules.md');
   for (const phrase of ['linear_get_ticket', 'scaffold_tasks', 'approve_feature_direction',
     'design-record', 'design-finish', 'summary', 'existing', 'baseline', 'branch']) {
     assert.ok(init.includes(phrase), phrase);
@@ -26,7 +26,7 @@ test('feature initialization owns the single direction approval and design-finis
 
 test('Pi workflow guidance retains implementation gates without blanket publishing bans', () => {
   for (const name of [
-    'delivery-rules.md',
+    'agent/extensions/delivery-prompt/delivery-rules.md',
     'skills/feature-delivery/SKILL.md',
     'skills/implement-task/SKILL.md',
   ]) {
@@ -117,13 +117,13 @@ test('standalone design contract is independent of delivery orchestration', () =
   assert.match(read('skills/init-feature/SKILL.md'), /`design`/);
   assert.match(delivery, /`init-feature`/);
   assert.match(delivery, /execute_and_review/);
-  assert.match(read('delivery-rules.md'), /\/skill:feature-delivery/);
+  assert.match(read('agent/extensions/delivery-prompt/delivery-rules.md'), /\/skill:feature-delivery/);
 });
 
 test('feature-delivery delegates exactly one task to implement-task without re-owning attempt internals', () => {
   const delivery = read('skills/feature-delivery/SKILL.md');
   const task = read('skills/implement-task/SKILL.md');
-  const system = read('delivery-rules.md');
+  const system = read('agent/extensions/delivery-prompt/delivery-rules.md');
   assert.match(delivery, /`implement-task`/);
   assert.match(delivery, /design-finish/);
   assert.match(delivery, /validate_feature/);
