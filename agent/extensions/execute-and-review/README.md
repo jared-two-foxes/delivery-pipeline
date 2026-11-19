@@ -141,7 +141,7 @@ After updating, copy the entire extension directory (including `verification.mjs
 and restart Pi. Upgrade the installed Conductor binary for the v2 command API.
 This version requires Conductor with `success_condition` support (PR #8 or later).
 
-Run `node --test tests/pi-verification.test.mjs tests/pi-conductor.test.mjs tests/pi-task-workflow.test.mjs tests/pi-checkpoint.test.mjs`.
+Run `node --test tests/delivery/verification.test.mjs tests/conductor/conductor.test.mjs tests/workflow/task-workflow.test.mjs tests/delivery/checkpoint.test.mjs`.
 
 ## Conductor v2 command and result translation
 
@@ -455,7 +455,7 @@ Keep receipts as long as Scaffold references them; preserve separately when movi
 a checkout because Git push/clone does not transfer them. Never claim that a
 structural PASSED check proves meaningful tests ran: inspect actual output.
 
-Run `node --test tests/pi-task-workflow.test.mjs tests/pi-conductor.test.mjs`.
+Run `node --test tests/workflow/task-workflow.test.mjs tests/conductor/conductor.test.mjs`.
 For the dependent-task/recursive-recovery scenario with real Scaffold, set
 `SCAFFOLD_SOURCE=/path/to/scaffold`. Conductor/model responses are fixture data.
 
@@ -484,7 +484,7 @@ and task state, not the historical Scaffold status alone.
 Run the integration suite against the companion Scaffold checkout:
 
 ```sh
-SCAFFOLD_SOURCE=/path/to/scaffold node --test tests/pi-feature-validation.test.mjs tests/pi-feature-checks.test.mjs tests/pi-feature-acceptance.test.mjs tests/pi-checkpoint.test.mjs
+SCAFFOLD_SOURCE=/path/to/scaffold node --test tests/feature/validation.test.mjs tests/feature/checks.test.mjs tests/feature/acceptance.test.mjs tests/delivery/checkpoint.test.mjs
 ```
 
 No live AI calls are needed; temporary Git repositories, real Scaffold processes

@@ -46,7 +46,7 @@ The guard only restricts: it never grants permission, and an unexpected error bl
 
 ## Verified
 
-Unit tests (`tests/pi-guard.test.mjs`) and **real Pi 1.5.2**, driven by a scripted fake model that emits genuine
+Unit tests (`tests/guard/guard.test.mjs`) and **real Pi 1.5.2**, driven by a scripted fake model that emits genuine
 tool calls (a custom provider, no network), including Pi's RPC mode to answer the confirmation dialog:
 
 - Control, no guard: `write` into an active delivery **succeeds**. This confirms Pi enforced nothing.
@@ -58,6 +58,6 @@ tool calls (a custom provider, no network), including Pi's RPC mode to answer th
 - Found by review and reproduced on the first version, now blocked: `~/active/x`, `file://` and `@~/` spellings of a write into
   an active delivery from outside it; a symlinked directory leading into one; and `.ticket-fix.md -> README.md` (which
   **overwrote `README.md`**), a hard-linked ticket and a symlinked `.pi/plan.md`. `resolvePiPath` was checked against Pi's own
-  resolver on 36 spellings (identical); `tests/pi-guard.test.mjs` pins the results.
+  resolver on 36 spellings (identical); `tests/guard/guard.test.mjs` pins the results.
 
 **Not verified:** the Windows `powershell` tool, and a real model's behaviour when blocked (the fake model does not retry).
