@@ -6,7 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { defineTool, toolResult, withFailureReporting } from "../agent/lib/host/tool.mjs";
-import { MCP_SERVER_NAME, deliveryMcpServerConfig, deliveryTransport, piHost, registerPiTools, toPiTool } from "../agent/lib/host/pi.mjs";
+import { MCP_SERVER_NAME, deliveryMcpServerConfig, deliveryServer, piHost, registerPiTools, toPiTool } from "../agent/lib/host/pi.mjs";
 import { missingDependencies } from "../agent/lib/host/dependencies.mjs";
 import { createCheckpointTools } from "../agent/extensions/checkpoint/tools.mjs";
 import { createFeatureValidationTools } from "../agent/extensions/feature-validation/tools.mjs";
@@ -85,8 +85,10 @@ test("converted extensions expose the same tool names and register through the a
   const registered = [];
   registerPiTools({ registerTool: (t) => registered.push(t) }, [
     ...createCheckpointTools(Type), ...createScaffoldTools(Type), createReviewTool(Type),
-  ], { transport: "native" }); // explicit, so the test does not depend on PI_DELIVERY_TRANSPORT
-  assert.deepEqual(names(registered), ["checkpoint_verified_task", "scaffold_tasks", "review_changes"]);
+    ...createFeatureValidationTools(Type),
+  ]);
+  // Only the interactive (approval) tools are registered in-process; the rest reach Pi over MCP.
+  assert.deepEqual(names(registered), ["accept_feature"]);
   for (const tool of registered) {
     assert.equal(typeof tool.description, "string");
     assert.equal(tool.execute.length, 5, `${tool.name} must keep Pi's 5-argument execute`);
@@ -150,7 +152,7 @@ test("the tool inventory is stable across hosts", async () => {
   }
 });
 
-// ---- Transport: native by default; MCP is opt-in and falls back to native if the server cannot start.
+// ---- Transport: MCP is the only path for non-interactive tools; an unstartable server is reported, not replaced.
 function fakeServer(t, { installed, startSource = "" }) {
   const dir = mkdtempSync(path.join(tmpdir(), "pi-transport-"));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
@@ -170,37 +172,30 @@ test("missingDependencies handles scoped packages and reports only what is absen
   assert.deepEqual(missingDependencies(path.dirname(ok)), []);
 });
 
-test("delivery transport is native unless MCP is requested and actually startable", (t) => {
+test("the delivery server is available only if it can actually start; there is no native fallback", (t) => {
   const ready = fakeServer(t, { installed: true });
   const bare = fakeServer(t, { installed: false });
-  assert.deepEqual(deliveryTransport({ env: {}, serverPath: ready }), { transport: "native", serverPath: ready });
-  assert.equal(deliveryTransport({ env: { PI_DELIVERY_TRANSPORT: "native" }, serverPath: ready }).transport, "native");
-  assert.equal(deliveryTransport({ env: { PI_DELIVERY_TRANSPORT: "  MCP " }, serverPath: ready }).transport, "mcp");
-  assert.equal(deliveryTransport({ env: { PI_DELIVERY_TRANSPORT: "mcp" }, serverPath: ready }).warning, undefined);
+  assert.deepEqual(deliveryServer({ env: {}, serverPath: ready }), { ok: true, serverPath: ready });
 
-  const noDeps = deliveryTransport({ env: { PI_DELIVERY_TRANSPORT: "mcp" }, serverPath: bare });
-  assert.equal(noDeps.transport, "native");
-  assert.match(noDeps.warning, /dependencies are not installed \(@scope\/pkg, plain\).*npm ci --prefix/);
+  const noDeps = deliveryServer({ env: {}, serverPath: bare });
+  assert.equal(noDeps.ok, false);
+  assert.match(noDeps.warning, /unavailable.*dependencies are not installed \(@scope\/pkg, plain\).*npm ci --prefix/);
 
-  const missing = deliveryTransport({ env: { PI_DELIVERY_TRANSPORT: "mcp" }, serverPath: path.join(tmpdir(), "no-such-dir", "start.mjs") });
-  assert.equal(missing.transport, "native");
+  const missing = deliveryServer({ env: {}, serverPath: path.join(tmpdir(), "no-such-dir", "start.mjs") });
+  assert.equal(missing.ok, false);
   assert.match(missing.warning, /does not exist.*PI_DELIVERY_MCP_SERVER/);
-
-  const unknown = deliveryTransport({ env: { PI_DELIVERY_TRANSPORT: "grpc" }, serverPath: ready });
-  assert.equal(unknown.transport, "native");
-  assert.match(unknown.warning, /not recognised/);
 
   const unreadable = fakeServer(t, { installed: true });
   rmSync(path.join(path.dirname(unreadable), "package.json"));
-  assert.match(deliveryTransport({ env: { PI_DELIVERY_TRANSPORT: "mcp" }, serverPath: unreadable }).warning, /could not be checked/);
+  assert.match(deliveryServer({ env: {}, serverPath: unreadable }).warning, /could not be checked/);
 });
 
 test("PI_DELIVERY_MCP_SERVER overrides where the server is looked for", (t) => {
   const ready = fakeServer(t, { installed: true });
-  const choice = deliveryTransport({ env: { PI_DELIVERY_TRANSPORT: "mcp", PI_DELIVERY_MCP_SERVER: ready } });
-  assert.deepEqual([choice.transport, choice.serverPath], ["mcp", ready]);
+  const server = deliveryServer({ env: { PI_DELIVERY_MCP_SERVER: ready } });
+  assert.deepEqual([server.ok, server.serverPath], [true, ready]);
   // The default location is mcp/start.mjs beside agent.
-  assert.match(deliveryTransport({ env: {} }).serverPath.replaceAll("\\", "/"), /\/mcp\/start\.mjs$/);
+  assert.match(deliveryServer({ env: {} }).serverPath.replaceAll("\\", "/"), /\/mcp\/start\.mjs$/);
 });
 
 test("the Pi server entry sets direct exposure, a long timeout, session cwd and omits the approval tools", () => {
@@ -212,14 +207,14 @@ test("the Pi server entry sets direct exposure, a long timeout, session cwd and 
   assert.match(MCP_SERVER_NAME, /^[A-Za-z0-9_]+$/, "no hyphen: Pi rewrites it, so names would differ from other hosts");
 });
 
-test("over MCP only the interactive tools register natively; natively everything does", () => {
+test("only the interactive tools register in-process; the rest are served over MCP", () => {
   const tools = [
     defineTool({ name: "plain", description: "d", parameters: {}, execute: async () => toolResult({ ok: true }) }),
     defineTool({ name: "approve", interactive: true, description: "d", parameters: {}, execute: async () => toolResult({ ok: true }) }),
   ];
-  const names = (transport) => { const out = []; registerPiTools({ registerTool: (t) => out.push(t.name) }, tools, { transport }); return out; };
-  assert.deepEqual(names("native"), ["plain", "approve"]);
-  assert.deepEqual(names("mcp"), ["approve"]);
+  const out = [];
+  registerPiTools({ registerTool: (t) => out.push(t.name) }, tools);
+  assert.deepEqual(out, ["approve"]);
 });
 
 test("dependencies hoisted into a parent node_modules (npm workspaces) count as installed", () => {
@@ -234,21 +229,21 @@ test("dependencies hoisted into a parent node_modules (npm workspaces) count as 
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
-test("a server whose direct dependencies exist but which cannot start falls back to native", (t) => {
+test("a server whose direct dependencies exist but which cannot start is reported, not used", (t) => {
   // e.g. a partial `npm ci`: the packages named in package.json are present, one of THEIR dependencies is not.
   const broken = fakeServer(t, { installed: true, startSource: `throw new Error("Cannot find package 'zod' imported from sdk");` });
-  const choice = deliveryTransport({ env: { PI_DELIVERY_TRANSPORT: "mcp" }, serverPath: broken });
-  assert.equal(choice.transport, "native", "must not suppress the native tools for a server that cannot start");
-  assert.match(choice.warning, /could not start/);
-  assert.match(choice.warning, /Cannot find package 'zod'/, "the reason must reach the user");
+  const server = deliveryServer({ env: {}, serverPath: broken });
+  assert.equal(server.ok, false);
+  assert.match(server.warning, /could not start/);
+  assert.match(server.warning, /Cannot find package 'zod'/, "the reason must reach the user");
   const nodeMissing = fakeServer(t, { installed: true });
-  assert.equal(deliveryTransport({ env: { PI_DELIVERY_TRANSPORT: "mcp", PATH: "/nonexistent" }, serverPath: nodeMissing }).transport, "native", "no `node` on PATH means Pi could not launch it either");
+  assert.equal(deliveryServer({ env: { PATH: "/nonexistent" }, serverPath: nodeMissing }).ok, false, "no `node` on PATH means Pi could not launch it either");
 });
 
 test("the startup check runs once per server per process", (t) => {
   const counter = path.join(tmpdir(), `pi-start-count-${process.pid}-${Date.now()}`);
   t.after(() => rmSync(counter, { force: true }));
   const server = fakeServer(t, { installed: true, startSource: `import { appendFileSync } from "node:fs"; appendFileSync(${JSON.stringify(counter)}, "x");` });
-  for (let i = 0; i < 4; i++) assert.equal(deliveryTransport({ env: { PI_DELIVERY_TRANSPORT: "mcp" }, serverPath: server }).transport, "mcp");
+  for (let i = 0; i < 4; i++) assert.equal(deliveryServer({ env: {}, serverPath: server }).ok, true);
   assert.equal(readFileSync(counter, "utf8"), "x", "seven registrations in one Pi process must not spawn seven servers");
 });

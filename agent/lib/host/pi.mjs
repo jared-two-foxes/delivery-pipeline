@@ -37,40 +37,35 @@ function startupProblem(serverPath, env) {
 }
 
 /**
- * Where Pi gets the delivery tools. `PI_DELIVERY_TRANSPORT=mcp` opts in to serving them over MCP
- * (mcp); anything else, or an MCP server that cannot start, is the native in-process registration.
- * Both registration paths call this, so they always agree. MCP is chosen only if the server was actually
- * started (`start.mjs --check`), so a server that cannot start never suppresses the native tools. A server that
- * dies later, mid-session, is not covered: Pi shows it disconnected and reconnects on the next call.
+ * Whether the delivery MCP server can serve Pi. MCP is the only way Pi gets the delivery tools (apart from the
+ * `interactive` approval tools, see registerPiTools), so there is no native fallback: when the server cannot
+ * start, `ok` is false and `warning` says why, and the extension reports it instead of registering a server
+ * that would only show up disconnected. The server is actually started (`start.mjs --check`), which catches a
+ * missing file, missing dependencies, a Node too old for the SDK, or no `node` on PATH. A server that dies later,
+ * mid-session, is not covered: Pi shows it disconnected and reconnects on the next call.
  *
- * @returns {{ transport: "native" | "mcp", serverPath: string, warning?: string }}
+ * @returns {{ ok: boolean, serverPath: string, warning?: string }}
  */
-export function deliveryTransport({
+export function deliveryServer({
   env = process.env,
   serverPath = env.PI_DELIVERY_MCP_SERVER || fileURLToPath(new URL("../../../mcp/start.mjs", import.meta.url)),
 } = {}) {
-  const requested = (env.PI_DELIVERY_TRANSPORT ?? "native").trim().toLowerCase() || "native";
-  if (requested === "native") return { transport: "native", serverPath };
-  if (requested !== "mcp") {
-    return { transport: "native", serverPath, warning: `PI_DELIVERY_TRANSPORT=${requested} is not recognised (use "native" or "mcp"); using native delivery tools.` };
-  }
+  const unavailable = (why, fix = "") => ({ ok: false, serverPath, warning: `Delivery tools are unavailable: ${why}.${fix ? ` ${fix}` : ""}` });
   if (!existsSync(serverPath)) {
-    return { transport: "native", serverPath, warning: `PI_DELIVERY_TRANSPORT=mcp but ${serverPath} does not exist; using native delivery tools. Set PI_DELIVERY_MCP_SERVER to its location.` };
+    return unavailable(`${serverPath} does not exist`, "Set PI_DELIVERY_MCP_SERVER to its location.");
   }
   let missing;
   try {
     missing = missingDependencies(path.dirname(serverPath));
   } catch (error) {
-    return { transport: "native", serverPath, warning: `PI_DELIVERY_TRANSPORT=mcp but the MCP server could not be checked (${error.message}); using native delivery tools.` };
+    return unavailable(`the MCP server could not be checked (${error.message})`);
   }
   if (missing.length) {
-    return { transport: "native", serverPath, warning: `PI_DELIVERY_TRANSPORT=mcp but the MCP server's dependencies are not installed (${missing.join(", ")}); using native delivery tools. Run: npm ci --prefix "${path.dirname(path.dirname(serverPath))}"` };
+    return unavailable(`the MCP server's dependencies are not installed (${missing.join(", ")})`, `Run: npm ci --prefix "${path.dirname(path.dirname(serverPath))}"`);
   }
   const problem = startupProblem(serverPath, env);
-  if (problem) {
-    return { transport: "native", serverPath, warning: `PI_DELIVERY_TRANSPORT=mcp but the MCP server could not start (${problem}); using native delivery tools.` };
-  }
-  return { transport: "mcp", serverPath };
+  if (problem) return unavailable(`the MCP server could not start (${problem})`);
+  return { ok: true, serverPath };
 }
 
 /**
@@ -118,13 +113,14 @@ export function toPiTool(tool) {
 }
 
 /**
- * Register tools natively. Over MCP only the `interactive` tools stay here: they need Pi's real UI for
- * `host.confirm`, and their approvals are written to the ledger, which every other tool reads back.
+ * Register the tools that must run in-process. Every other delivery tool reaches Pi over MCP (the `delivery-mcp`
+ * extension), so only the `interactive` ones are registered here: they need Pi's real UI for `host.confirm`
+ * because Pi's MCP client cannot elicit, and their approvals are written to the ledger, which every other tool
+ * reads back.
  */
-export function registerPiTools(pi, tools, { transport = deliveryTransport().transport } = {}) {
+export function registerPiTools(pi, tools) {
   for (const tool of tools) {
-    if (transport === "mcp" && !tool.interactive) continue;
-    pi.registerTool(toPiTool(tool));
+    if (tool.interactive) pi.registerTool(toPiTool(tool));
   }
 }
 
