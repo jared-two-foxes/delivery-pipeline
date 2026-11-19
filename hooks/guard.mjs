@@ -5,7 +5,7 @@
 //   ask   -> exit 0 with a PreToolUse `ask` decision, so the human confirms
 //   pass  -> exit 0, no output (Claude Code's own permission flow decides; this hook never grants access)
 //
-// Registered with onFailure "block" (hooks/hooks.json): a crash, timeout or missing script blocks the call
+// Registered with onFailure "block" (hooks.json, beside this file): a crash, timeout or missing script blocks the call
 // instead of letting it through, which is Claude Code's default for a failing hook.
 import { decide } from "../agent/lib/guard/index.mjs";
 

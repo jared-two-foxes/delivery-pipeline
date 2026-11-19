@@ -231,7 +231,7 @@ test("cwd falls back to CLAUDE_PROJECT_DIR, then the process directory", (t) => 
 
 /* ---------------------------------------------------------------------------------- the hook as Claude runs it */
 
-const hook = (event, env = {}) => spawnSync(process.execPath, [path.join(root, "claude/guard.mjs")], {
+const hook = (event, env = {}) => spawnSync(process.execPath, [path.join(root, "hooks/guard.mjs")], {
   input: typeof event === "string" ? event : JSON.stringify(event),
   encoding: "utf8", timeout: 30000, env: { ...process.env, PI_DELIVERY_GUARD: "", ...env },
 });
