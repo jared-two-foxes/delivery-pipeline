@@ -5,13 +5,13 @@ import { spawnSync } from "node:child_process";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { git } from "../../agent/lib/git/tree.mjs";
-import { scaffoldTasks } from "../../agent/extensions/scaffold/adapter.mjs";
-import { approveFeatureDirection } from "../../agent/extensions/scaffold/feature-authorization.mjs";
-import { adoptCommits } from "../../agent/extensions/execution-recovery/foreign-history.mjs";
-import { rewriteFeatureHistory } from "../../agent/extensions/execution-recovery/reconciliation.mjs";
-import { verifyHistory, foreignHistoryRequirements } from "../../agent/lib/verification/history.mjs";
-import { planRewrite } from "../../agent/lib/verification/rewrite-history.mjs";
+import { git } from "../../src/lib/git/tree.mjs";
+import { scaffoldTasks } from "../../src/tools/scaffold/adapter.mjs";
+import { approveFeatureDirection } from "../../src/tools/scaffold/feature-authorization.mjs";
+import { adoptCommits } from "../../src/tools/execution-recovery/foreign-history.mjs";
+import { rewriteFeatureHistory } from "../../src/tools/execution-recovery/reconciliation.mjs";
+import { verifyHistory, foreignHistoryRequirements } from "../../src/lib/verification/history.mjs";
+import { planRewrite } from "../../src/lib/verification/rewrite-history.mjs";
 
 const hasScaffold = spawnSync("scaffold", ["--help"], { encoding: "utf8" }).status === 0;
 const real = { skip: !hasScaffold && "Real Scaffold (schema 3) is not on PATH" };
@@ -162,7 +162,7 @@ test("a retained verification resumes after a lost response without re-running a
   // The first run stores its verification, then the Scaffold call is made to fail (response lost).
   const failing = await f.rewrite({}, { scaffoldOptions: { invokeScaffold: async (program, args, options) => {
     if (args[0] === "history-rewrite") return { code: 1, stdout: "", stderr: '{"schema_version":3,"error":"injected"}' };
-    const { invoke } = await import("../../agent/extensions/scaffold/adapter.mjs");
+    const { invoke } = await import("../../src/tools/scaffold/adapter.mjs");
     return invoke(program, args, options);
   } } });
   assert.equal(failing.status, "BLOCKED");

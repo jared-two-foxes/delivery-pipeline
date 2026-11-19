@@ -45,7 +45,7 @@ this plugin has no equivalent yet. The ported skills have **not** been exercised
 **Pi used not to enforce its own "never edit directly" rule.** There was no `tool_call` handler, no excluded tool and
 no tool restriction; the rule was text, backed by detection. The `delivery-guard` extension now applies the same
 policy (`lib/guard/`) through Pi's `tool_call` event, so both hosts share one set of rules. See
-`../agent/extensions/delivery-guard/README.md`.
+`../pi/delivery-guard/README.md`.
 
 ## What the guard does
 

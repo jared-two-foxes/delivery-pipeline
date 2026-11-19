@@ -9,7 +9,7 @@ const read = p => readFileSync(path.join(root, p), 'utf8');
 test('feature initialization owns the single direction approval and design-finish', () => {
   const init = read('skills/init-feature/SKILL.md');
   const delivery = read('skills/feature-delivery/SKILL.md');
-  const system = read('agent/extensions/delivery-prompt/delivery-rules.md');
+  const system = read('pi/delivery-prompt/delivery-rules.md');
   for (const phrase of ['linear_get_ticket', 'scaffold_tasks', 'approve_feature_direction',
     'design-record', 'design-finish', 'summary', 'existing', 'baseline', 'branch']) {
     assert.ok(init.includes(phrase), phrase);
@@ -26,7 +26,7 @@ test('feature initialization owns the single direction approval and design-finis
 
 test('Pi workflow guidance retains implementation gates without blanket publishing bans', () => {
   for (const name of [
-    'agent/extensions/delivery-prompt/delivery-rules.md',
+    'pi/delivery-prompt/delivery-rules.md',
     'skills/feature-delivery/SKILL.md',
     'skills/implement-task/SKILL.md',
   ]) {
@@ -78,13 +78,13 @@ test('delegated issue designs remain explicit and the final gate is mechanical, 
 });
 
 test('native checkpoints, recovery and validation reuse the same durable direction authority', () => {
-  const native = read('agent/extensions/execute-and-review/tools.mjs');
+  const native = read('src/tools/execute-and-review/tools.mjs');
   assert.equal((native.match(/host\.confirm\(/g) ?? []).length, 4, 'one routine direction confirmation, one explicit material-amendment confirmation, one explicit confirmation before force-closing an interrupted invocation, and one confirmation of the changed paths before recording outside working-tree changes');
   assert.match(native, /approveFeatureDirection/);
   assert.doesNotMatch(native, /registerRecoveryTools|name: "(?:validate_feature|checkpoint_verified_task)"/);
-  const recovery = read('agent/extensions/execution-recovery/tools.mjs');
-  const validation = read('agent/extensions/feature-validation/tools.mjs');
-  const checkpoint = read('agent/extensions/checkpoint/tools.mjs');
+  const recovery = read('src/tools/execution-recovery/tools.mjs');
+  const validation = read('src/tools/feature-validation/tools.mjs');
+  const checkpoint = read('src/tools/checkpoint/tools.mjs');
   assert.match(checkpoint, /name: "checkpoint_verified_task"/);
   assert.doesNotMatch(recovery, /name: "checkpoint_verified_task"/);
   assert.match(validation, /name: "validate_feature"/);
@@ -92,9 +92,9 @@ test('native checkpoints, recovery and validation reuse the same durable directi
   // Suspend/resume, validate_feature and run_feature_checks ask the retained approval (no second prompt); the rewrite and foreign-commit tools read
   // Scaffold's recorded approval themselves (approved(feature)).
   assert.equal(((native + recovery + validation).match(/authorize: async \(\) =>\s*featureAuthorized/g) ?? []).length, 3);
-  assert.match(read('agent/extensions/execute-and-review/delivery.mjs'), /requireFeatureAuthorization/);
-  assert.match(read('agent/extensions/checkpoint/finalization.mjs'), /featureAuthorized/);
-  const adapter = read('agent/extensions/execute-and-review/adapter.mjs');
+  assert.match(read('src/tools/execute-and-review/delivery.mjs'), /requireFeatureAuthorization/);
+  assert.match(read('src/tools/checkpoint/finalization.mjs'), /featureAuthorized/);
+  const adapter = read('src/tools/execute-and-review/adapter.mjs');
   assert.match(adapter, /options.issueWorkflowOnly\)\s+await requireFeatureAuthorization/);
 });
 
@@ -117,13 +117,13 @@ test('standalone design contract is independent of delivery orchestration', () =
   assert.match(read('skills/init-feature/SKILL.md'), /`design`/);
   assert.match(delivery, /`init-feature`/);
   assert.match(delivery, /execute_and_review/);
-  assert.match(read('agent/extensions/delivery-prompt/delivery-rules.md'), /\/skill:feature-delivery/);
+  assert.match(read('pi/delivery-prompt/delivery-rules.md'), /\/skill:feature-delivery/);
 });
 
 test('feature-delivery delegates exactly one task to implement-task without re-owning attempt internals', () => {
   const delivery = read('skills/feature-delivery/SKILL.md');
   const task = read('skills/implement-task/SKILL.md');
-  const system = read('agent/extensions/delivery-prompt/delivery-rules.md');
+  const system = read('pi/delivery-prompt/delivery-rules.md');
   assert.match(delivery, /`implement-task`/);
   assert.match(delivery, /design-finish/);
   assert.match(delivery, /validate_feature/);
@@ -139,7 +139,7 @@ test('feature-delivery delegates exactly one task to implement-task without re-o
   assert.match(task, /missing prerequisites|NEEDS_DECOMPOSITION/i);
   assert.match(system, /\/skill:implement-task/);
   assert.match(read('skills/conductor/SKILL.md'), /`implement-task`/);
-  assert.match(read('agent/extensions/execute-and-review/README.md'), /\/skill:implement-task/);
+  assert.match(read('src/tools/execute-and-review/README.md'), /\/skill:implement-task/);
 });
 
 test('init-feature keeps agent-added constraints out of the ticket and shows them for approval', () => {

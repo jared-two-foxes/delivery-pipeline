@@ -2,13 +2,13 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { appendFile, readdir, mkdtemp, writeFile, readFile, rm } from "node:fs/promises";
 import path from "node:path";
-import { snapshot } from "../../agent/lib/git/snapshot.mjs";
-import { readFeatureEvidence } from "../../agent/lib/evidence/store.mjs";
+import { snapshot } from "../../src/lib/git/snapshot.mjs";
+import { readFeatureEvidence } from "../../src/lib/evidence/store.mjs";
 import {
   validateFeature,
   runFeatureChecks,
   inspectFeatureValidation,
-} from "../../agent/extensions/feature-validation/feature.mjs";
+} from "../../src/tools/feature-validation/feature.mjs";
 import { integration, fixture, finishedFeature, exists, finished } from "../helpers/feature-fixture.mjs";
 
 test("run_feature_checks passes without a review and Scaffold records the feature as checked, not verified", integration, async (t) => {

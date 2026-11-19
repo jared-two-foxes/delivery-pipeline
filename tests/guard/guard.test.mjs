@@ -5,9 +5,9 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { canonicalPath, decide, deliveryRoot, guardActive, guardMode, posixShellVerdict, powershellVerdict, tokenize } from "../../agent/lib/guard/index.mjs";
-import { piGuardVerdict, resolvePiPath } from "../../agent/lib/guard/pi.mjs";
-import { createToolCallGuard } from "../../agent/lib/host/pi.mjs";
+import { canonicalPath, decide, deliveryRoot, guardActive, guardMode, posixShellVerdict, powershellVerdict, tokenize } from "../../src/lib/guard/index.mjs";
+import { piGuardVerdict, resolvePiPath } from "../../src/lib/guard/pi.mjs";
+import { createToolCallGuard } from "../../src/lib/host/pi.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -272,8 +272,8 @@ test("hook contract: unreadable input blocks, and the user override works", (t) 
 /* ------------------------------------------------------------------------------ the Claude Code plugin files */
 
 import { readFileSync, existsSync } from "node:fs";
-import { projectDirectory } from "../../agent/lib/host/mcp.mjs";
-import { deliveryMcpServerConfig } from "../../agent/lib/host/pi.mjs";
+import { projectDirectory } from "../../src/lib/host/mcp.mjs";
+import { deliveryMcpServerConfig } from "../../src/lib/host/pi.mjs";
 
 const json = (file) => JSON.parse(readFileSync(path.join(root, file), "utf8"));
 const inPlugin = (p) => path.join(root, p.replace("${CLAUDE_PLUGIN_ROOT}/", ""));
@@ -437,7 +437,7 @@ test("Pi handler: PI_DELIVERY_GUARD=off disables it, and a typo does not", async
 });
 
 test("the Pi extension is just the handler, registered for tool_call", () => {
-  const source = readFileSync(path.join(root, "agent/extensions/delivery-guard/index.ts"), "utf8");
+  const source = readFileSync(path.join(root, "pi/delivery-guard/index.ts"), "utf8");
   assert.match(source, /pi\.on\("tool_call", createToolCallGuard\(\)\)/);
   assert.equal((source.match(/pi\.on\(/g) ?? []).length, 1, "one handler, nothing else");
   assert.doesNotMatch(source, /block: false|return undefined|setActiveTools/, "no logic here that could widen what the guard allows");

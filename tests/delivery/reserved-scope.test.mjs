@@ -5,8 +5,8 @@ import { execFileSync } from "node:child_process";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { snapshot } from "../../agent/lib/git/snapshot.mjs";
-import { implementationTree } from "../../agent/lib/git/tree.mjs";
+import { snapshot } from "../../src/lib/git/snapshot.mjs";
+import { implementationTree } from "../../src/lib/git/tree.mjs";
 
 const g = (dir, ...args) => execFileSync("git", args, { cwd: dir, encoding: "utf8" }).trim();
 async function repo(t) {

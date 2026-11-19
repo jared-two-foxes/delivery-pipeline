@@ -3,8 +3,8 @@
 `server.mjs` serves the 21 delivery tools (`scaffold_tasks`, `execute_and_review`,
 `checkpoint_verified_task`, `validate_feature`, the recovery tools, `review_changes`, ...) to any MCP host.
 Pi is served all but the four approval tools, which it keeps in-process (see "Using it from Pi").
-It loads the host-neutral definitions in `agent/extensions/*/tools.mjs`; nothing is duplicated.
-The adapter logic is `agent/lib/host/mcp.mjs` (dependency-free and unit-tested); this directory only
+It loads the host-neutral definitions in `src/tools/*/tools.mjs`; nothing is duplicated.
+The adapter logic is `src/lib/host/mcp.mjs` (dependency-free and unit-tested); this directory only
 wires in the MCP SDK, TypeBox and a JSON Schema validator.
 
 Dependencies are an npm workspace of the repository root and are downloaded at setup:
@@ -70,8 +70,8 @@ through Pi's MCP client (needs a model), and approvals and long runs in a live s
 
 **The trust model.** Connecting this server only *offers* the delivery tools; on its own it does not stop an
 agent using the host's own edit tools instead of `execute_and_review`. Prevention comes from a guard
-(`../agent/lib/guard/`) applied per host: Claude Code's plugin hook (`../docs/claude-code.md`) and Pi's
-`delivery-guard` extension (`../agent/extensions/delivery-guard/README.md`). Before the Pi extension existed, Pi's
+(`../src/lib/guard/`) applied per host: Claude Code's plugin hook (`../docs/claude-code.md`) and Pi's
+`delivery-guard` extension (`../pi/delivery-guard/README.md`). Before the Pi extension existed, Pi's
 "never edit directly" rule was only text in `delivery-rules.md`, backed by the ledger's detection
 (`checkpointHistory()` flags any commit that is not an authenticated checkpoint).
 

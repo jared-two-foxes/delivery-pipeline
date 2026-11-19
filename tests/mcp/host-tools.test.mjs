@@ -5,15 +5,15 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { defineTool, toolResult, withFailureReporting } from "../../agent/lib/host/tool.mjs";
-import { MCP_SERVER_NAME, deliveryMcpServerConfig, deliveryServer, piHost, registerPiTools, toPiTool } from "../../agent/lib/host/pi.mjs";
-import { missingDependencies } from "../../agent/lib/host/dependencies.mjs";
-import { createCheckpointTools } from "../../agent/extensions/checkpoint/tools.mjs";
-import { createFeatureValidationTools } from "../../agent/extensions/feature-validation/tools.mjs";
-import { createScaffoldTools } from "../../agent/extensions/scaffold/tools.mjs";
-import { createReviewTool } from "../../agent/extensions/review/tool.mjs";
+import { defineTool, toolResult, withFailureReporting } from "../../src/lib/host/tool.mjs";
+import { MCP_SERVER_NAME, deliveryMcpServerConfig, deliveryServer, piHost, registerPiTools, toPiTool } from "../../src/lib/host/pi.mjs";
+import { missingDependencies } from "../../src/lib/host/dependencies.mjs";
+import { createCheckpointTools } from "../../src/tools/checkpoint/tools.mjs";
+import { createFeatureValidationTools } from "../../src/tools/feature-validation/tools.mjs";
+import { createScaffoldTools } from "../../src/tools/scaffold/tools.mjs";
+import { createReviewTool } from "../../src/tools/review/tool.mjs";
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "agent");
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "src");
 
 // Minimal TypeBox-shaped builder: enough to prove definitions only need an injected `Type`.
 const Type = new Proxy({}, {
@@ -107,7 +107,7 @@ async function sources(dir) {
 }
 
 test("no host-neutral module imports a host SDK or touches the UI", async () => {
-  const files = [...await sources(path.join(root, "lib")), ...await sources(path.join(root, "extensions"))];
+  const files = [...await sources(path.join(root, "lib")), ...await sources(path.join(root, "tools"))];
   assert.ok(files.length > 50);
   const offenders = [];
   for (const file of files) {
@@ -133,8 +133,8 @@ test("Pi host confirm fails closed without a UI and passes the answer through wi
 });
 
 test("the tool inventory is stable across hosts", async () => {
-  const { createExecuteAndReviewTools } = await import("../../agent/extensions/execute-and-review/tools.mjs");
-  const { createExecutionRecoveryTools } = await import("../../agent/extensions/execution-recovery/tools.mjs");
+  const { createExecuteAndReviewTools } = await import("../../src/tools/execute-and-review/tools.mjs");
+  const { createExecutionRecoveryTools } = await import("../../src/tools/execution-recovery/tools.mjs");
   const all = [
     ...createExecuteAndReviewTools(Type), ...createExecutionRecoveryTools(Type), ...createCheckpointTools(Type),
     ...createFeatureValidationTools(Type), ...createScaffoldTools(Type), createReviewTool(Type),
@@ -194,7 +194,7 @@ test("PI_DELIVERY_MCP_SERVER overrides where the server is looked for", (t) => {
   const ready = fakeServer(t, { installed: true });
   const server = deliveryServer({ env: { PI_DELIVERY_MCP_SERVER: ready } });
   assert.deepEqual([server.ok, server.serverPath], [true, ready]);
-  // The default location is mcp/start.mjs beside agent.
+  // The default location is mcp/start.mjs beside src.
   assert.match(deliveryServer({ env: {} }).serverPath.replaceAll("\\", "/"), /\/mcp\/start\.mjs$/);
 });
 

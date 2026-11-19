@@ -5,11 +5,11 @@ import { cp, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { snapshot } from "../../agent/lib/git/snapshot.mjs";
-import { prepareWorkflow } from "../../agent/extensions/execute-and-review/workflow.mjs";
-import { authenticateWorkflow } from "../../agent/lib/verification/workflow.mjs";
+import { snapshot } from "../../src/lib/git/snapshot.mjs";
+import { prepareWorkflow } from "../../src/tools/execute-and-review/workflow.mjs";
+import { authenticateWorkflow } from "../../src/lib/verification/workflow.mjs";
 
-const agent = fileURLToPath(new URL("../../agent/", import.meta.url));
+const repo = fileURLToPath(new URL("../../", import.meta.url));
 
 async function fixture(t) {
   const directory = await mkdtemp(path.join(tmpdir(), "pi-library-boundary-"));
@@ -31,7 +31,7 @@ async function fixture(t) {
 test("shared contracts, receipt storage and verification load with every extension absent", async (t) => {
   const f = await fixture(t);
   const target = path.join(f.directory, "lib");
-  await cp(path.join(agent, "lib"), target, { recursive: true });
+  await cp(path.join(repo, "src", "lib"), target, { recursive: true });
   const load = name => import(pathToFileURL(path.join(target, name)).href);
   const contracts = await load("scaffold/contracts.mjs");
   const feature = await load("verification/feature.mjs");
@@ -70,11 +70,11 @@ test("workflow authentication requires current guards and rejects modified invoc
   const checks = [{ name: "targeted", program: process.execPath, args: ["--version"] }];
   const workflow = await prepareWorkflow(f.directory, path.join(f.directory, ".git", "runs"), args, checks);
   assert.deepEqual(authenticateWorkflow(workflow, workflow.request, args, f.directory), checks);
-  for (const location of ["lib/delivery-state", "extensions/conductor", "extensions/execute-and-review"]) {
+  for (const location of ["src/lib/delivery-state", "pi/conductor", "src/tools/execute-and-review"]) {
     const retained = structuredClone(workflow);
     const first = retained.request.commands[0], last = retained.request.commands.at(-1);
-    first.args[0] = last.args[0] = path.join(agent, location, "input-guard.mjs");
-    last.success_condition.args[0] = path.join(agent, location, "review-condition.mjs");
+    first.args[0] = last.args[0] = path.join(repo, location, "input-guard.mjs");
+    last.success_condition.args[0] = path.join(repo, location, "review-condition.mjs");
     assert.throws(() => authenticateWorkflow(retained, retained.request, args, f.directory), /invocation mismatch/);
     last.args[1] = last.args[1].replace("--request", "--untrusted-request");
     assert.throws(() => authenticateWorkflow(retained, retained.request, args, f.directory),

@@ -1,20 +1,20 @@
-import { designReference } from '../../agent/lib/scaffold/contracts.mjs';
+import { designReference } from '../../src/lib/scaffold/contracts.mjs';
 import { test } from "node:test";
 import { execFileSync } from "node:child_process";
 import assert from "node:assert/strict";
 import { mkdtemp, writeFile, readFile, rm, mkdir, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { git } from "../../agent/lib/git/tree.mjs";
+import { git } from "../../src/lib/git/tree.mjs";
 import { executeAndReview as executeTaskAttempt } from "../helpers/conductor-v2.mjs";
-import { readEvidence, retainEvidence } from "../../agent/lib/evidence/store.mjs";
-import { snapshot } from "../../agent/lib/git/snapshot.mjs";
+import { readEvidence, retainEvidence } from "../../src/lib/evidence/store.mjs";
+import { snapshot } from "../../src/lib/git/snapshot.mjs";
 import { approveGraph, requirementsFor } from "../helpers/issue-plan.mjs";
 import { ledgerFeature } from "../helpers/ledger-feature.mjs";
 import {
   checkpointVerifiedTask,
   checkpointAuthorization,
-} from "../../agent/extensions/checkpoint/scaffold.mjs";
+} from "../../src/tools/checkpoint/scaffold.mjs";
 
 async function executeAndReview(args, context, options) {
   return executeTaskAttempt(args, context, {
@@ -305,7 +305,7 @@ test("interruption before commit and after ref update recovers without duplicate
     });
     assert.equal(result.ok, false);
     const fresh =
-      await import("../../agent/extensions/checkpoint/scaffold.mjs?new-session");
+      await import("../../src/tools/checkpoint/scaffold.mjs?new-session");
     const recovered = await fresh.checkpointVerifiedTask(
       args,
       { directory: f.dir },

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Claude Code PreToolUse hook: applies the delivery guard policy (agent/lib/guard) to a tool call.
+// Claude Code PreToolUse hook: applies the delivery guard policy (src/lib/guard) to a tool call.
 //
 //   deny  -> exit 2 with the reason on stderr (Claude sees it as the denial)
 //   ask   -> exit 0 with a PreToolUse `ask` decision, so the human confirms
@@ -7,7 +7,7 @@
 //
 // Registered with onFailure "block" (hooks.json, beside this file): a crash, timeout or missing script blocks the call
 // instead of letting it through, which is Claude Code's default for a failing hook.
-import { decide } from "../agent/lib/guard/index.mjs";
+import { decide } from "../src/lib/guard/index.mjs";
 
 let raw = "";
 for await (const chunk of process.stdin) raw += chunk;

@@ -5,7 +5,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtemp, rm, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { baselineMismatch, snapshot } from "../../agent/lib/git/snapshot.mjs";
+import { baselineMismatch, snapshot } from "../../src/lib/git/snapshot.mjs";
 
 const g = (dir, ...args) => execFileSync("git", args, { cwd: dir, encoding: "utf8" }).trim();
 

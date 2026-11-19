@@ -3,7 +3,7 @@
 **Status: describes the system after the Scaffold-ledger port (ledger-design.md); the port has merged (#89). Derived from reading the code.** Items marked *(unverified)* were
 inferred, not traced. [`workflow-overview.md`](workflow-overview.md) describes
 the *process*; this file describes the *parts*, where state lives, and what guards what.
-[`agent/lib/README.md`](../agent/lib/README.md) describes library boundaries in more depth.
+[`src/lib/README.md`](../src/lib/README.md) describes library boundaries in more depth.
 
 ## 1. What the system is for
 
@@ -53,14 +53,14 @@ constraints. Issue designs are produced afterwards, inside that approved scope.
 
 | Stage | Skill | Native tool(s) | Code |
 |---|---|---|---|
-| Prepare feature | `init-feature`, `design` | `scaffold_tasks`, `write_plan`, `linear_*` | `extensions/scaffold`, `extensions/plan`, `extensions/linear` |
-| Approve direction | (in `init-feature`) | `approve_feature_direction` | `lib/authorization/feature.mjs` |
+| Prepare feature | `init-feature`, `design` | `scaffold_tasks`, `write_plan`, `linear_*` | `src/tools/scaffold`, `pi/plan`, `pi/linear` |
+| Approve direction | (in `init-feature`) | `approve_feature_direction` | `src/lib/authorization/feature.mjs` |
 | Orchestrate | `feature-delivery` | none of its own | skill text |
-| One task | `implement-task`, `executor` | `execute_and_review` | `extensions/execute-and-review` |
-| Checkpoint | (automatic) | `checkpoint_verified_task` (recovery only) | `extensions/checkpoint` |
-| Final gate | `feature-delivery` | `run_feature_checks` | `extensions/feature-validation` |
+| One task | `implement-task`, `executor` | `execute_and_review` | `src/tools/execute-and-review` |
+| Checkpoint | (automatic) | `checkpoint_verified_task` (recovery only) | `src/tools/checkpoint` |
+| Final gate | `feature-delivery` | `run_feature_checks` | `src/tools/feature-validation` |
 | Feature questions (manual) | `feature-questions` | none (read-only) | — |
-| Standalone review | `review` | `review_changes` | `extensions/review` |
+| Standalone review | `review` | `review_changes` | `src/tools/review` |
 
 ### Every registered tool
 
@@ -85,7 +85,7 @@ constraints. Issue designs are produced afterwards, inside that approved scope.
 | `linear_*` (4) | linear | Ticket API | Linear |
 
 `delivery-guard` registers no tool: it is a `tool_call` handler that blocks direct edits and unsafe shell commands
-while a delivery is active (`lib/guard/`, `extensions/delivery-guard/`).
+while a delivery is active (`src/lib/guard/`, `pi/delivery-guard/`).
 
 Also in the repo but unrelated to delivery: the `lsp` and `conductor` (`/conductor` command)
 extensions, and the `comfyui-generate` skill.
@@ -119,10 +119,10 @@ continue from the recorded head; `start` needs a matching approval; validation n
 confirms everything that needs Git, the Executor or the reviewer before appending.
 
 **Failure reporting.** Every delivery tool (execute, checkpoint, validate, recovery, `scaffold_tasks`) is wrapped by
-`lib/failure/tool.mjs`. A failure, whatever shape the tool returned it in, gains one `failure` object: `code`,
+`src/lib/failure/tool.mjs`. A failure, whatever shape the tool returned it in, gains one `failure` object: `code`,
 `message`, `cause`, `stage`, `evidence`, `owner` and `next`. `owner` says who acts: `agent` (fix and retry),
 `user` (a decision or repair outside the agent's reach) or `bug` (the pipeline itself failed). `next` comes from the
-one code-to-remedy table, `lib/failure/codes.mjs`, and a test fails if the pipeline emits a code that is not in it.
+one code-to-remedy table, `src/lib/failure/codes.mjs`, and a test fails if the pipeline emits a code that is not in it.
 An exception a tool did not handle becomes an `INTERNAL_ERROR` failure with its cause, not a bare error. Failures that
 leave no receipt are appended to the ledger (`failure-record`) so a person can see how a run went wrong; a
 `NEEDS_DESIGN` attempt already has its receipt and is not logged twice. Recording is best effort and never replaces
@@ -140,29 +140,29 @@ appending a forged entry, and it cannot detect removal of the newest whole entri
 
 ```
 skills/ + delivery-rules.md         guidance for Pi (text; no enforcement)
-extensions/*/index.ts        Pi registration only: registerPiTools(pi, createXTools(Type))
-lib/host/pi.mjs              the one Pi adapter: Pi's execute(...) shape <-> the neutral host
-extensions/*/tools.mjs       host-neutral tool definitions: schema + execute(params, host)
-extensions/*/*.mjs           workflows: coordinate, perform lifecycle writes
-lib/host/tool.mjs            neutral tool contract, toolResult, failure-envelope wrapper
-lib/verification             authenticate evidence, chains, checkpoints (pure checks)
-lib/authorization            feature/amendment authority
-lib/evidence, scaffold, git  ledger artifact client, Scaffold CLI client, Git snapshots, contracts
+pi/*/index.ts                Pi registration only: registerPiTools(pi, createXTools(Type))
+src/lib/host/pi.mjs          the one Pi adapter: Pi's execute(...) shape <-> the neutral host
+src/tools/*/tools.mjs       host-neutral tool definitions: schema + execute(params, host)
+src/tools/*/*.mjs           workflows: coordinate, perform lifecycle writes
+src/lib/host/tool.mjs      neutral tool contract, toolResult, failure-envelope wrapper
+src/lib/verification         authenticate evidence, chains, checkpoints (pure checks)
+src/lib/authorization        feature/amendment authority
+src/lib/evidence, scaffold, git  ledger artifact client, Scaffold CLI client, Git snapshots, contracts
 external: Scaffold, Conductor, Executor, Review
 ```
 
-Rule (from `lib/README.md`): **`lib` never imports from `extensions`.** Coordinators fetch fresh
+Rule (from `src/lib/README.md`): **`src/lib` never imports from `src/tools` or `pi`.** Coordinators fetch fresh
 Scaffold data and pass it in; libraries validate it.
 
 **Host neutrality.** A tool is `{ name, label, description, parameters, execute(params, host) }` with
-`host = { cwd, signal, onUpdate, confirm }` (`lib/host/tool.mjs`). `confirm` resolves `false`, never
+`host = { cwd, signal, onUpdate, confirm }` (`src/lib/host/tool.mjs`). `confirm` resolves `false`, never
 approves, when no human can be asked. No `.mjs` module may import a host SDK or touch `ctx.ui`; a test
 enforces this, so a second host (for example an MCP server) can load `tools.mjs` unchanged and write only
-its own adapter beside `lib/host/pi.mjs`. That second adapter now exists: `lib/host/mcp.mjs` plus the server in
+its own adapter beside `src/lib/host/pi.mjs`. That second adapter now exists: `src/lib/host/mcp.mjs` plus the server in
 `mcp/` (see its README, including what it does not yet enforce). Pi uses that server as the only transport for its delivery tools (the `delivery-mcp` extension); the four approval tools
 stay in-process because Pi's MCP client cannot elicit. Schemas are built with an injected TypeBox-style `Type`.
 **Enforcement versus detection.** Three layers keep the orchestrator honest, and they differ in kind:
-instructions (`delivery-rules.md`, skills: no enforcement), a guard that *prevents* (`lib/guard/`, applied in Pi by the
+instructions (`delivery-rules.md`, skills: no enforcement), a guard that *prevents* (`src/lib/guard/`, applied in Pi by the
 `delivery-guard` extension's `tool_call` handler and in Claude Code by the plugin's `PreToolUse` hook), and the ledger
 that *detects* (every host, section 6).
 Pi-only by design: `/conductor` and `/implement-next` (slash commands that drive the UI or replace the
@@ -170,12 +170,12 @@ session), and `plan` and `linear` (not yet converted; they overlap host file and
 
 ## 6. Where the invariant is enforced
 
-`checkpointHistory()` (`lib/verification/checkpoint-history.mjs`) walks HEAD back to the
+`checkpointHistory()` (`src/lib/verification/checkpoint-history.mjs`) walks HEAD back to the
 baseline and requires each commit to be an authentic checkpoint matching a completed task
 and its receipt. It is called from:
 
 `issue-scope` (before executing a task), `attempt-chain` (continuations), `checkpoint/commit.mjs`
-(creating a checkpoint), `feature-validation` (final gate), `lib/verification/reconciliation.mjs`
+(creating a checkpoint), `feature-validation` (final gate), `src/lib/verification/reconciliation.mjs`
 and `execution-recovery/reconciliation.mjs` (rebase), `issue-recovery`, and `drift.mjs`.
 
 Any new situation in which history legitimately contains something that is not a checkpoint

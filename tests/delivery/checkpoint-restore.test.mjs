@@ -4,7 +4,7 @@ import { mkdtempSync, writeFileSync, readFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { restoreCheckpoint } from "../../agent/lib/git/checkpoint-restore.mjs";
+import { restoreCheckpoint } from "../../src/lib/git/checkpoint-restore.mjs";
 
 const sh = (cwd, ...a) => execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", ...a], { cwd, encoding: "utf8" }).trim();
 

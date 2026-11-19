@@ -2,14 +2,14 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { appendFile, readdir, mkdtemp, writeFile, readFile, rm } from "node:fs/promises";
 import path from "node:path";
-import { invoke } from "../../agent/lib/scaffold/process.mjs";
-import { readFeatureEvidence } from "../../agent/lib/evidence/store.mjs";
+import { invoke } from "../../src/lib/scaffold/process.mjs";
+import { readFeatureEvidence } from "../../src/lib/evidence/store.mjs";
 import {
   validateFeature,
   runFeatureChecks,
   inspectFeatureValidation,
-} from "../../agent/extensions/feature-validation/feature.mjs";
-import { runCheck } from "../../agent/extensions/feature-validation/check-process.mjs";
+} from "../../src/tools/feature-validation/feature.mjs";
+import { runCheck } from "../../src/tools/feature-validation/check-process.mjs";
 import { artifactPath, integration, fixture, finished } from "../helpers/feature-fixture.mjs";
 
 test(
@@ -424,7 +424,7 @@ test(
 );
 
 test("Git design references are rejected; context hashes are required", async () => {
-  const { approvedDesign } = await import("../../agent/lib/verification/feature.mjs");
+  const { approvedDesign } = await import("../../src/lib/verification/feature.mjs");
   assert.throws(() => approvedDesign("/unused", {
     context: "Original approved design", design_ref: "approved.md@" + "a".repeat(40),
   }), /design|context/i);

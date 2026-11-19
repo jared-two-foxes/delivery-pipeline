@@ -8,7 +8,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { chmod } from "node:fs/promises";
-import { invoke, scaffoldCliUsage, scaffoldCliUsageSince } from "../../agent/extensions/scaffold/adapter.mjs";
+import { invoke, scaffoldCliUsage, scaffoldCliUsageSince } from "../../src/tools/scaffold/adapter.mjs";
 import {
   TIMINGS_SCHEMA,
   combineScaffoldUsage,
@@ -20,11 +20,11 @@ import {
   summarizeTimings,
   taskTimings,
   timingPath,
-} from "../../agent/lib/verification/timings.mjs";
+} from "../../src/lib/verification/timings.mjs";
 
 const run = promisify(execFile);
 const stageScript = fileURLToPath(
-  new URL("../../agent/extensions/execute-and-review/command-stage.mjs", import.meta.url),
+  new URL("../../src/tools/execute-and-review/command-stage.mjs", import.meta.url),
 );
 
 async function directory(t) {

@@ -3,7 +3,7 @@
 **Status: approved. Scaffold half implemented and merged
 ([scaffold#22](https://github.com/jared-two-foxes/scaffold/pull/22)); Pi port merged ([#89](https://github.com/jared-two-foxes/dotfiles/pull/89)).**
 Describes the target that replaces the stores mapped in [`architecture.md`](architecture.md) section 4.
-Spans two repositories: `jared-two-foxes/scaffold` (Python CLI) and this one (`agent`).
+Spans two repositories: `jared-two-foxes/scaffold` (Python CLI) and this one (`src/` and `pi/`).
 
 Section 9 lists where the implementation differs from the first draft of this design.
 Where this document and section 9 disagree, section 9 and the Scaffold README are current.
