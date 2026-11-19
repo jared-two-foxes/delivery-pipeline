@@ -10,7 +10,7 @@ It runs in three hosts from one set of tool definitions:
 | Host | How | Read |
 |---|---|---|
 | **Pi** | Install as a Pi package | below |
-| **Claude Code** | Plugin: MCP server + `PreToolUse` guard | [`claude/README.md`](claude/README.md) |
+| **Claude Code** | Plugin: MCP server + `PreToolUse` guard | [`docs/claude-code.md`](docs/claude-code.md) |
 | **Any MCP host** (e.g. VS Code) | stdio MCP server | [`mcp/README.md`](mcp/README.md) |
 
 How it fits together, and what is and is not enforced: [`docs/architecture.md`](docs/architecture.md).
@@ -42,7 +42,7 @@ npx skills@latest add jared-two-foxes/delivery-pipeline -a <agent>   # omit -a t
 ```
 
 This copies only the skills (`skills/`). They call the delivery tools (`scaffold_tasks`, `execute_and_review`, ...),
-which come from the Pi extensions or the MCP server in `mcp/` (see [`claude/README.md`](claude/README.md)), so the
+which come from the Pi extensions or the MCP server in `mcp/` (see [`docs/claude-code.md`](docs/claude-code.md)), so the
 agent must also have those configured. Update with `npx skills@latest update`.
 
 ## Develop
@@ -63,7 +63,7 @@ host:
 - Refer to tools by bare name: `execute_and_review`. Do not write Claude Code's
   `mcp__plugin_delivery-pipeline_pidelivery__` prefix.
 - Say "the agent", not "Pi" or "Claude".
-- Put host-specific instructions in `agent/extensions/*/README.md` (Pi) or `claude/README.md` (Claude Code), not in a
+- Put host-specific instructions in `agent/extensions/*/README.md` (Pi) or `docs/claude-code.md` (Claude Code), not in a
   skill.
 
 (`docs/workflow-overview.md`, `agent/extensions/delivery-prompt/delivery-rules.md` and the extension READMEs are Pi documentation and may use `/skill:`.)

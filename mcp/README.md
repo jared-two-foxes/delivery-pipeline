@@ -70,7 +70,7 @@ through Pi's MCP client (needs a model), and approvals and long runs in a live s
 
 **The trust model.** Connecting this server only *offers* the delivery tools; on its own it does not stop an
 agent using the host's own edit tools instead of `execute_and_review`. Prevention comes from a guard
-(`../agent/lib/guard/`) applied per host: Claude Code's plugin hook (`../claude/README.md`) and Pi's
+(`../agent/lib/guard/`) applied per host: Claude Code's plugin hook (`../docs/claude-code.md`) and Pi's
 `delivery-guard` extension (`../agent/extensions/delivery-guard/README.md`). Before the Pi extension existed, Pi's
 "never edit directly" rule was only text in `delivery-rules.md`, backed by the ledger's detection
 (`checkpointHistory()` flags any commit that is not an authenticated checkpoint).

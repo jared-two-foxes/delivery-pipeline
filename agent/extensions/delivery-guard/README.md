@@ -26,7 +26,7 @@ The guard only restricts: it never grants permission, and an unexpected error bl
 ## Limits
 
 - **It is not a sandbox.** The shell policy is a best-effort allowlist for a fallible agent; see
-  `../../../claude/README.md` for how many bypasses attacking the first version found. Pi itself says its tools
+  `../../../docs/claude-code.md` for how many bypasses attacking the first version found. Pi itself says its tools
   "run with the permissions of the Pi process" and are not sandboxed.
 - **It only runs if it loads.** `pi --no-extensions` skips it, and an extension that fails to load is reported
   while Pi carries on *without* it. Check for extension errors after `/reload`.

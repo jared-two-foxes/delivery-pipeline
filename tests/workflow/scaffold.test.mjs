@@ -377,6 +377,6 @@ test('Pi policies allow only scoped state tracking and preserve separate executi
     'agent/extensions/plan/index.ts', 'agent/extensions/linear/index.ts']) {
     assert.doesNotMatch(await readFile(path.join(root, file), 'utf8'), /scaffold_run|push-ticket|next-step|\/skill:tdd/);
   }
-  const pkg = JSON.parse(await readFile(path.join(root, 'agent/extensions/scaffold/package.json'), 'utf8'));
+  const pkg = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
   assert.equal(pkg.peerDependencies.typebox, '*');
 });
