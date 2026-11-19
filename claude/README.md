@@ -77,7 +77,7 @@ that crashes, times out or cannot start is a non-blocking error and the tool run
 - **It is not a sandbox.** The shell policy is a best-effort allowlist for a fallible agent, not isolation from a
   hostile one. I attacked my own first version and found real bypasses (brace expansion building a `-exec` flag,
   attached short options such as `gh api -XPOST`, `git ls-remote --upload-pack`, and abbreviated long options:
-  `sort --outp=f` writes a file on this machine). All are fixed and pinned in `tests/pi-guard.test.mjs`, but
+  `sort --outp=f` writes a file on this machine). All are fixed and pinned in `tests/guard/guard.test.mjs`, but
   that is how many I found, not a proof there are no more. For isolation use Claude Code's OS sandbox as well.
 - **Other MCP servers are not policed.** A file-writing tool from another server is not blocked.
 - **Approval prompts can be auto-answered.** Claude Code has an `Elicitation` hook that can answer MCP dialogs
@@ -97,7 +97,7 @@ that crashes, times out or cannot start is a non-blocking error and the tool run
 
 Verified: the plugin manifest, hook and MCP entry pass `claude plugin validate` (Claude Code 2.1.322), and
 negative controls show that validator rejects a bad `onFailure` and an MCP entry with no command; the policy
-against 341 command rows (294 POSIX, 47 PowerShell) and the hook's exit-code contract (`tests/pi-guard.test.mjs`).
+against 341 command rows (294 POSIX, 47 PowerShell) and the hook's exit-code contract (`tests/guard/guard.test.mjs`).
 
 **Not verified: the plugin running inside a live Claude Code session.** That a deny actually stops a tool, that
 `ask` shows the prompt, that elicitation dialogs appear, and the plugin MCP server's tool names were taken from

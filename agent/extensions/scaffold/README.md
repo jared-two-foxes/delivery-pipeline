@@ -65,20 +65,20 @@ Run the mocked adapter tests and existing Conductor/Design regression tests from
 the repository root:
 
 ```sh
-node --test tests/pi-scaffold.test.mjs tests/pi-delivery-state.test.mjs tests/pi-conductor.test.mjs tests/pi-design.test.mjs
+node --test tests/workflow/scaffold.test.mjs tests/ledger/delivery-state.test.mjs tests/conductor/conductor.test.mjs tests/workflow/design.test.mjs
 ```
 
 Include the isolated runtime-boundary and supplied-data authorization tests with:
 
 ```sh
-node --experimental-test-module-mocks --test tests/pi-delivery-state.test.mjs tests/pi-feature-authorization.test.mjs
+node --experimental-test-module-mocks --test tests/ledger/delivery-state.test.mjs tests/pi-feature-authorization.test.mjs
 ```
 
 Run the real CLI integration against an unmodified Scaffold checkout (Python 3.11+
 and POSIX required for the test launcher):
 
 ```sh
-SCAFFOLD_SOURCE=/absolute/path/to/scaffold node --test tests/pi-scaffold.test.mjs
+SCAFFOLD_SOURCE=/absolute/path/to/scaffold node --test tests/workflow/scaffold.test.mjs
 ```
 
 The test launches the real Scaffold console-entry-point dispatcher in isolated
@@ -104,4 +104,4 @@ invocation and checks it on returned feature state. Scaffold uses schema 3 exclu
 modified. There is no workflow selector or alternate lifecycle; immutable Git revision references remain supported. Verification
 strategies belong in task context, not invented schema fields. See the current
 [workflow overview](../../../../docs/workflow-overview.md) and
-`tests/pi-task-workflow.test.mjs` for planning, receipts and the checkpoint barrier.
+`tests/workflow/task-workflow.test.mjs` for planning, receipts and the checkpoint barrier.
