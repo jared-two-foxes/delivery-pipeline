@@ -103,5 +103,5 @@ approved design in feature `context`. The adapter computes the digest before CLI
 invocation and checks it on returned feature state. Scaffold uses schema 3 exclusively; older task-state files are ignored, never read or
 modified. There is no workflow selector or alternate lifecycle; immutable Git revision references remain supported. Verification
 strategies belong in task context, not invented schema fields. See the current
-[workflow overview](../../../../workflow-overview.md) and
+[workflow overview](../../../../docs/workflow-overview.md) and
 `tests/pi-task-workflow.test.mjs` for planning, receipts and the checkpoint barrier.

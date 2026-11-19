@@ -14,7 +14,7 @@ It runs in three hosts from one set of tool definitions:
 | **Any MCP host** (e.g. VS Code) | stdio MCP server | [`mcp/README.md`](mcp/README.md) |
 
 How it fits together, and what is and is not enforced: [`ARCHITECTURE.md`](ARCHITECTURE.md).
-The workflow: [`workflow-overview.md`](workflow-overview.md).
+The workflow: [`docs/workflow-overview.md`](docs/workflow-overview.md).
 
 ## Install in Pi
 
@@ -66,7 +66,7 @@ host:
 - Put host-specific instructions in `agent/extensions/*/README.md` (Pi) or `claude/README.md` (Claude Code), not in a
   skill.
 
-(`workflow-overview.md`, `delivery-rules.md` and the extension READMEs are Pi documentation and may use `/skill:`.)
+(`docs/workflow-overview.md`, `delivery-rules.md` and the extension READMEs are Pi documentation and may use `/skill:`.)
 
 Claude Code resolves the bare names against the tool list it is shown, and a skill name to the plugin's
 `delivery-pipeline:<skill>`. After changing how a skill refers to a skill or tool, check it in a live session with
