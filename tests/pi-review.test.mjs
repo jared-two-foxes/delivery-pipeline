@@ -183,7 +183,7 @@ test('native tool exposes review-only parameters, propagates context and disting
 });
 test('Pi and shared policies allow standalone review without weakening implementation gates', async () => {
   const read = async name => readFile(new URL('../' + name, import.meta.url), 'utf8');
-  const system = await read('delivery-rules.md');
+  const system = await read('agent/extensions/delivery-prompt/delivery-rules.md');
   const skill = await read('skills/review/SKILL.md');
   assert.match(system, /Standalone\s+review stays in Research mode/);
   assert.match(system, /review_changes/); assert.match(system, /Only native `execute_and_review`/);

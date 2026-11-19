@@ -24,7 +24,7 @@ pi install git:github.com/jared-two-foxes/delivery-pipeline
 
 Pi clones the repository and installs its dependencies. The package provides the delivery extensions, the
 skills (`/skill:init-feature`, `/skill:feature-delivery`, `/skill:implement-task`, `/skill:design`, ...) and the
-`delivery-prompt` extension, which adds the orchestrator rules (`delivery-rules.md`) to Pi's system prompt.
+`delivery-prompt` extension, which adds the orchestrator rules (`agent/extensions/delivery-prompt/delivery-rules.md`) to Pi's system prompt.
 They are added as an extra section, so they combine with Pi's default prompt and with your own
 `SYSTEM.md` / `APPEND_SYSTEM.md` rather than replacing them. Your personal policy (for example Git and GitHub
 publishing rules and communication style) belongs in your own `APPEND_SYSTEM.md`.
@@ -66,7 +66,7 @@ host:
 - Put host-specific instructions in `agent/extensions/*/README.md` (Pi) or `claude/README.md` (Claude Code), not in a
   skill.
 
-(`docs/workflow-overview.md`, `delivery-rules.md` and the extension READMEs are Pi documentation and may use `/skill:`.)
+(`docs/workflow-overview.md`, `agent/extensions/delivery-prompt/delivery-rules.md` and the extension READMEs are Pi documentation and may use `/skill:`.)
 
 Claude Code resolves the bare names against the tool list it is shown, and a skill name to the plugin's
 `delivery-pipeline:<skill>`. After changing how a skill refers to a skill or tool, check it in a live session with
