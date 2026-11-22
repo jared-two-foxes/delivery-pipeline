@@ -6,6 +6,7 @@ import { isDeepStrictEqual as equal } from "node:util";
 import { runnerExitCodes, validateRunner } from "../conductor/client.mjs";
 
 import { executorInput, executorStep, validateExecutorResult } from "../executor/client.mjs";
+import { CONTEXT_JSON_PREFIX, CONTEXT_JSON_SUFFIX } from "../delivery-state/delivery-context.mjs";
 import { reviewCheckpointPath } from "../review/checkpoint.mjs";
 import {
   deliveryReviewSettings,
@@ -19,6 +20,28 @@ const requireValue = (ok, message) => {
 };
 
 const digest = (value) => createHash("sha256").update(value).digest("hex");
+const sortKeys = (v) =>
+  Array.isArray(v) ? v.map(sortKeys)
+    : v && typeof v === "object" ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, sortKeys(v[k])]))
+      : v;
+
+// Identity of the review criteria for `review-cli --resume-identity`. The rendered requirements embed a JSON
+// context whose key order depends on whether it was built in this process or reloaded from the (key-sorted)
+// delivery store, so the raw text digest differs between otherwise identical attempts and review-cli rejects
+// the resume as "a different request". Re-serialize that JSON with sorted keys before hashing.
+export function criteriaIdentity(requirements) {
+  const start = requirements.indexOf(CONTEXT_JSON_PREFIX);
+  const end = requirements.lastIndexOf(CONTEXT_JSON_SUFFIX);
+  let text = requirements;
+  if (start >= 0 && end > start) {
+    const from = start + CONTEXT_JSON_PREFIX.length;
+    try {
+      text = requirements.slice(0, from) + JSON.stringify(sortKeys(JSON.parse(requirements.slice(from, end)))) +
+        requirements.slice(end);
+    } catch { /* not the rendered form: hash the text as given */ }
+  }
+  return "sha256:" + digest(text);
+}
 const guard = fileURLToPath(new URL("./input-guard.mjs", import.meta.url));
 export const reviewCondition = {
   program: process.execPath,
@@ -67,7 +90,7 @@ export function deliveryReviewStep(directory, args, inputs, program) {
         checkpointPath: reviewCheckpointPath(directory),
         // The review receives these criteria plus per-attempt check evidence (review-handoff.mjs), so its
         // requirements text differs on every attempt. Bind the checkpoint to the criteria alone.
-        resumeIdentity: "sha256:" + digest(inputs.requirements),
+        resumeIdentity: criteriaIdentity(inputs.requirements),
       } : {}),
       ...(settings.resumeFrom ? { resumeFrom: settings.resumeFrom } : {}),
     });
