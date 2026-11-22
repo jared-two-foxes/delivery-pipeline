@@ -3,7 +3,7 @@ import { rewriteFeatureHistory } from "./reconciliation.mjs";
 import { adoptCommits, inspectDrift } from "./foreign-history.mjs";
 import { suspendIssue, resumeIssue } from "./issue-recovery.mjs";
 import { prepareIssueHandoff, inspectIssueHandoff, inspectIssueAttempt } from "./issue-context.mjs";
-import { defineTool, toolResult, withApprovalReason, withFailureReporting } from "../../lib/host/tool.mjs";
+import { defineTool, toolResult, withFailureReporting } from "../../lib/host/tool.mjs";
 
 /** Host-neutral tools. `Type` is a TypeBox-style schema builder supplied by the host adapter. */
 export function createExecutionRecoveryTools(Type) {
@@ -172,10 +172,9 @@ export function createExecutionRecoveryTools(Type) {
     })),
     withFailureReporting(defineTool({
       name: "adopt_foreign_commits",
-      interactive: true,
       label: "Record user commits in the ledger",
       description:
-        "After the user committed changes that are not verified task checkpoints (for example unrelated files committed to clear a dirty tree), record them in the Scaffold ledger between tasks. Requires explicit user approval naming the recorded head and the new head, a clean tree and index, and no active task. Records a history-foreign entry: the commits are NOT verified, are never treated as task checkpoints, and remain in final-validation review scope. Idempotent. Not rebase recovery; never edits Scaffold or rewrites Git. Use inspect_feature_drift first.",
+        "After the user committed changes that are not verified task checkpoints (for example unrelated files committed to clear a dirty tree), record them in the Scaffold ledger between tasks. Requires explicit user approval in chat (there is no dialog: show the user the recorded head, the new head and the commits first, and call this only after they say yes), a clean tree and index, and no active task. Records a history-foreign entry: the commits are NOT verified, are never treated as task checkpoints, and remain in final-validation review scope. Idempotent. Not rebase recovery; never edits Scaffold or rewrites Git. Use inspect_feature_drift first.",
       parameters: Type.Object(
         {
           featureId: Type.String(),
@@ -189,15 +188,11 @@ export function createExecutionRecoveryTools(Type) {
           params,
           { directory: host.cwd, abort: host.signal },
           {
-            confirm: async (scope) =>
-              host.confirm(
-                "Record " + scope.commits.length + " commit(s) up to " + scope.to.slice(0, 12) + " (ledger head is " + scope.from.slice(0, 12) + ")?",
-                JSON.stringify(scope, null, 2) +
-                  "\nThese commits are NOT verified task checkpoints. They stay in the final validation review scope. The original baseline, approval and designs are unchanged. This grants no other permission.",
-              ),
+            // The user's yes in the conversation is the approval; no dialog.
+            confirm: async () => true,
           },
         );
-        return toolResult(withApprovalReason(host, result), { isError: result.ok === false });
+        return toolResult(result, { isError: result.ok === false });
       },
     })),
     withFailureReporting(defineTool({

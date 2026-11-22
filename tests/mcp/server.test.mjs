@@ -236,22 +236,22 @@ test("server relays heartbeats as MCP progress notifications when the client ask
   assert.deepEqual(none, [], "without onprogress the client sends no token, so none are sent");
 });
 
-// ---- Interactive (approval) tools: stay native in Pi, are omitted from the Pi-facing MCP server.
-test("exactly the three dialog-approval tools are marked interactive and MCP listings do not leak the flag", { skip: !installed && "mcp dependencies not installed" }, async () => {
+// ---- Approvals are chat-based: no delivery tool needs a dialog, so none is marked interactive and all are served.
+test("no delivery tool is marked interactive and MCP listings do not leak the flag", { skip: !installed && "mcp dependencies not installed" }, async () => {
   const { deliveryTools } = await import("../../mcp/server.mjs");
   const all = deliveryTools();
-  assert.deepEqual(all.filter((t) => t.interactive).map((t) => t.name).sort(),
-    ["accept_feature", "adopt_foreign_commits", "approve_delivery_amendment"]);
-  const rest = deliveryTools({ includeInteractive: false });
-  assert.equal(rest.length, 18);
-  assert.equal(rest.some((t) => t.interactive), false);
+  assert.deepEqual(all.filter((t) => t.interactive).map((t) => t.name), []);
+  assert.equal(all.length, 21);
+  assert.equal(deliveryTools({ includeInteractive: false }).length, 21);
   for (const entry of mcpToolList(all)) assert.equal("interactive" in entry, false, entry.name);
+  for (const name of ["accept_feature", "adopt_foreign_commits", "approve_delivery_amendment", "abandon_inflight_attempt", "reconcile_external_changes"])
+    assert.ok(all.some((t) => t.name === name), `${name} is served`);
 });
 
-test("PI_DELIVERY_MCP_OMIT_INTERACTIVE=1 makes the served server omit the approval tools", { skip: !installed && "mcp dependencies not installed" }, async (t) => {
+test("PI_DELIVERY_MCP_OMIT_INTERACTIVE=1 no longer hides any tool: approvals are chat-based", { skip: !installed && "mcp dependencies not installed" }, async (t) => {
   const { Client } = await sdk("client/index.js");
   const { StdioClientTransport } = await sdk("client/stdio.js");
-  for (const [omit, expected] of [["1", 18], [undefined, 21]]) {
+  for (const [omit, expected] of [["1", 21], [undefined, 21]]) {
     const env = { ...process.env, ...(omit ? { PI_DELIVERY_MCP_OMIT_INTERACTIVE: omit } : {}) };
     if (!omit) delete env.PI_DELIVERY_MCP_OMIT_INTERACTIVE;
     const client = new Client({ name: "test", version: "0" }, { capabilities: {} });
@@ -260,7 +260,7 @@ test("PI_DELIVERY_MCP_OMIT_INTERACTIVE=1 makes the served server omit the approv
     const names = (await client.listTools()).tools.map((x) => x.name);
     assert.equal(names.length, expected, `omit=${omit}`);
     assert.ok(names.includes("approve_feature_direction"), "recorded without a dialog, so always served");
-    assert.equal(names.includes("approve_delivery_amendment"), !omit);
+    assert.ok(names.includes("approve_delivery_amendment"), "served either way");
   }
 });
 

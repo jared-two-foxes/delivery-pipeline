@@ -73,7 +73,6 @@ export function deliveryServer({
  *   exposure direct   Pi's default (codemode) hides tools from the model; delivery tools must be declared.
  *   timeout           Pi's 60 s default would cut off execute_and_review (workflows run up to 30 minutes).
  *   cwd "."           resolved by Pi against the session directory: the repository being delivered.
- *   OMIT_INTERACTIVE  Pi's MCP client cannot elicit, so the approval tools stay native (see registerPiTools).
  */
 export function deliveryMcpServerConfig(serverPath) {
   return {
@@ -81,7 +80,7 @@ export function deliveryMcpServerConfig(serverPath) {
     args: [serverPath],
     cwd: ".",
     // CLAUDE_PROJECT_DIR is blanked so a value inherited from a Claude Code shell cannot redirect the server.
-    env: { PI_DELIVERY_MCP_OMIT_INTERACTIVE: "1", CLAUDE_PROJECT_DIR: "" },
+    env: { CLAUDE_PROJECT_DIR: "" },
     exposure: "direct",
     timeout: 3600,
     description: "Pi delivery pipeline: Scaffold task graph, execute_and_review, checkpoints, validation, recovery and review.",

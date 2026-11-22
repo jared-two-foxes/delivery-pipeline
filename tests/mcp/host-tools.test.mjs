@@ -87,8 +87,8 @@ test("converted extensions expose the same tool names and register through the a
     ...createCheckpointTools(Type), ...createScaffoldTools(Type), createReviewTool(Type),
     ...createFeatureValidationTools(Type),
   ]);
-  // Only the interactive (approval) tools are registered in-process; the rest reach Pi over MCP.
-  assert.deepEqual(names(registered), ["accept_feature"]);
+  // No tool is interactive any more (approvals are chat-based), so nothing is registered in-process.
+  assert.deepEqual(names(registered), []);
   for (const tool of registered) {
     assert.equal(typeof tool.description, "string");
     assert.equal(tool.execute.length, 5, `${tool.name} must keep Pi's 5-argument execute`);
@@ -198,12 +198,12 @@ test("PI_DELIVERY_MCP_SERVER overrides where the server is looked for", (t) => {
   assert.match(deliveryServer({ env: {} }).serverPath.replaceAll("\\", "/"), /\/mcp\/start\.mjs$/);
 });
 
-test("the Pi server entry sets direct exposure, a long timeout, session cwd and omits the approval tools", () => {
+test("the Pi server entry sets direct exposure, a long timeout, session cwd", () => {
   const config = deliveryMcpServerConfig("/x/mcp/start.mjs");
   assert.deepEqual([config.command, config.args, config.cwd], ["node", ["/x/mcp/start.mjs"], "."]);
   assert.equal(config.exposure, "direct", "Pi's default (codemode) would hide the tools from the model");
   assert.ok(config.timeout >= 1800, "Pi's 60 s default would cut off a 30-minute workflow");
-  assert.equal(config.env.PI_DELIVERY_MCP_OMIT_INTERACTIVE, "1");
+  assert.equal(config.env.PI_DELIVERY_MCP_OMIT_INTERACTIVE, undefined, "approvals are chat-based, so no tool is held back for Pi");
   assert.match(MCP_SERVER_NAME, /^[A-Za-z0-9_]+$/, "no hyphen: Pi rewrites it, so names would differ from other hosts");
 });
 

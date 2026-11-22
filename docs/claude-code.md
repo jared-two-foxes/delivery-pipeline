@@ -21,8 +21,10 @@ Tool names come from Claude Code's plugin naming rule, `mcp__plugin_<plugin>_<se
 `execute_and_review` is `mcp__plugin_delivery-pipeline_pidelivery__execute_and_review`. Pi's names differ
 (`mcp__pidelivery__...`). The skills are generated per host, so the skills refer to tools by their bare names and rely on the model matching them against the tool list; see "Skills" below.
 
-Approvals (`approve_feature_direction` and the other two) appear as an MCP elicitation dialog in an
-interactive session. In a non-interactive (`-p`) run Claude Code cancels the request, so they fail closed.
+Approvals (`approve_delivery_amendment`, `adopt_foreign_commits`, `accept_feature`, and the recovery confirmations of
+`abandon_inflight_attempt` and `reconcile_external_changes`) show no dialog. The agent states the concrete change in chat
+and calls the tool only after the user says yes. A dialog that never appears (mobile, remote or headless clients) would
+stall the pipeline, so none is used.
 
 ## Skills
 
@@ -80,9 +82,9 @@ that crashes, times out or cannot start is a non-blocking error and the tool run
   `sort --outp=f` writes a file on this machine). All are fixed and pinned in `tests/guard/guard.test.mjs`, but
   that is how many I found, not a proof there are no more. For isolation use Claude Code's OS sandbox as well.
 - **Other MCP servers are not policed.** A file-writing tool from another server is not blocked.
-- **Approval prompts can be auto-answered.** Claude Code has an `Elicitation` hook that can answer MCP dialogs
-  without showing them. A project or user setting that auto-accepts would approve a feature direction silently.
-  Do not configure one; an administrator's managed settings (`allowManagedHooksOnly`) can restrict which hooks run.
+- **Approvals are not enforced by the host.** Approval tools run without a dialog, so nothing but the tool
+  descriptions and skills stops an agent calling them without the user's yes. Every approval is written to the
+  Scaffold ledger and can be audited there, and none of them establishes verification.
 - **The guard can be turned off by whoever controls the session**: `PI_DELIVERY_GUARD=off`, `--plugin-dir`
   omitted, `disableAllHooks`, or editing settings outside a guarded repository.
 - **Closing a feature does not deactivate it.** Any entry under `.scaffold/features/` keeps the guard on until

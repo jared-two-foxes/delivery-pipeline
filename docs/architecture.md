@@ -22,7 +22,7 @@ Almost everything below either *produces* the evidence for that invariant, *chec
 
 | Actor | What it is | Owns | Trust |
 |---|---|---|---|
-| **User** | A human | Adoption, amendment and acceptance approvals; merging/publishing; reviewing the finished design | Source of authority. For those approvals only a real UI confirmation counts. The feature direction itself needs no approval; `init-feature` records it. |
+| **User** | A human | Adoption, amendment and acceptance approvals; merging/publishing; reviewing the finished design | Source of authority. Those approvals are given as an explicit yes in chat and recorded by the approval tools (no dialog). The feature direction itself needs no approval; `init-feature` records it. |
 | **Pi** | The LLM orchestrator, driven by `delivery-rules.md` and skills | Reasoning, designs, choosing the next task | **Not trusted.** `delivery-rules.md` tells it to change source only through the native tools; the `delivery-guard` extension enforces that while a delivery is active, and the ledger detects anything that slips past (section 6). |
 | **Scaffold** | External CLI that owns the per-feature ledger (`.scaffold/features/…`, gitignored) | Feature + issue graph, designs, task status, `original_baseline`, `workflow.instance_id`, delivery journal | Validates structure and association, **not** evidence authenticity. |
 | **Conductor** | External generic command runner | Runs a list of commands with conditions | Neutral runner. |
@@ -74,7 +74,7 @@ user reviews the finished design afterwards. Later departures use `approve_deliv
 | `execute_and_review` | execute-and-review | One Executor, checks, Review pass; auto-completes and checkpoints on PASS | source, evidence, Scaffold, Git |
 | `checkpoint_verified_task` | checkpoint | Create or recover the checkpoint commit for a passed task | Git |
 | `run_feature_checks` | feature-validation | Final full build/test checks, no agent review; the gate `feature-delivery` uses. Records `checked` (never `verified`) in Scaffold | evidence, Scaffold |
-| `accept_feature` | feature-validation | The user's sign-off on the current `checked`/`verified` result (UI confirm); judged from the ledger alone. Never called by a skill on its own | evidence, Scaffold |
+| `accept_feature` | feature-validation | The user's sign-off on the current `checked`/`verified` result (the user's explicit chat yes, no dialog); judged from the ledger alone. Never called by a skill on its own | evidence, Scaffold |
 | `validate_feature` | feature-validation | Full checks + whole-feature agent review, recorded in Scaffold. Not called by any skill; kept available | evidence, Scaffold |
 | `inspect_conductor_evidence`, `inspect_feature_validation`, `inspect_issue_handoff`, `inspect_issue_attempt` | various | Read retained evidence and handoffs | none |
 | `suspend_issue`, `resume_issue` | execution-recovery | Park an unfinished issue (saved source/index) and return the graph to design; restore it later | Scaffold, refs, evidence |
@@ -158,11 +158,10 @@ Scaffold data and pass it in; libraries validate it.
 
 **Host neutrality.** A tool is `{ name, label, description, parameters, execute(params, host) }` with
 `host = { cwd, signal, onUpdate, confirm }` (`src/lib/host/tool.mjs`). `confirm` resolves `false`, never
-approves, when no human can be asked. No `.mjs` module may import a host SDK or touch `ctx.ui`; a test
+approves, when no human can be asked. No delivery tool uses it now: approvals are given in chat. No `.mjs` module may import a host SDK or touch `ctx.ui`; a test
 enforces this, so a second host (for example an MCP server) can load `tools.mjs` unchanged and write only
 its own adapter beside `src/lib/host/pi.mjs`. That second adapter now exists: `src/lib/host/mcp.mjs` plus the server in
-`mcp/` (see its README, including what it does not yet enforce). Pi uses that server as the only transport for its delivery tools (the `delivery-mcp` extension); the three dialog approval tools
-stay in-process because Pi's MCP client cannot elicit. Schemas are built with an injected TypeBox-style `Type`.
+`mcp/` (see its README, including what it does not yet enforce). Pi uses that server as the only transport for its delivery tools (the `delivery-mcp` extension), approval tools included. Schemas are built with an injected TypeBox-style `Type`.
 **Enforcement versus detection.** Three layers keep the orchestrator honest, and they differ in kind:
 instructions (`delivery-rules.md`, skills: no enforcement), a guard that *prevents* (`src/lib/guard/`, applied in Pi by the
 `delivery-guard` extension's `tool_call` handler and in Claude Code by the plugin's `PreToolUse` hook), and the ledger
@@ -189,8 +188,8 @@ needs its own accommodation here. That is the source of most special cases.
 |---|---|---|---|
 | Feature direction | `approve_feature_direction` (recorded by `init-feature`, no UI confirm) | A `direction-approve` ledger entry; Scaffold computes and matches the scope digest | The whole local loop: design, implementation, checks, review, checkpoints, recovery. **Not** publish or merge. |
 | Delivery amendment | `approve_delivery_amendment` | Per change | One concrete contract change |
-| Foreign commits | `adopt_foreign_commits` (UI confirm) | Recorded in the ledger | One named recorded head to new head range |
-| Feature acceptance | `accept_feature` (UI confirm) | A `validation-accept` ledger entry; ends at any later graph or history change, invalidation or new validation | The user's sign-off on one validated head. Grants nothing else: not publish, merge or change |
+| Foreign commits | `adopt_foreign_commits` (chat approval) | Recorded in the ledger | One named recorded head to new head range |
+| Feature acceptance | `accept_feature` (chat approval) | A `validation-accept` ledger entry; ends at any later graph or history change, invalidation or new validation | The user's sign-off on one validated head. Grants nothing else: not publish, merge or change |
 | Checkpoint grant | per-session UI grant (`checkpointAuthorization`) | Session | Local commits; separate from feature direction |
 
 ## 8. Recovery: which tool, when
