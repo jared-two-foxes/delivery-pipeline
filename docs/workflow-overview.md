@@ -12,7 +12,7 @@ implementation correctness.
 | Entry point | Responsibility | Changes application source? |
 | --- | --- | --- |
 | `/skill:design` | Research and produce a bounded engineering design contract, independently or for one issue in a prepared feature | No |
-| `/skill:init-feature` | Read a Linear ticket or supplied requirements; reconcile/create the Scaffold root; obtain **one overall feature direction approval**; decompose, design and persist all issue contracts; run `design-finish` | No |
+| `/skill:init-feature` | Read a Linear ticket or supplied requirements; reconcile/create the Scaffold root; record the overall feature direction (**no approval gate**); decompose, design and persist all issue contracts; run `design-finish`; present the finished design | No |
 | `/skill:implement-task` | Execute, check, review, correct and checkpoint **one existing eligible issue** with authentic receipts | Yes, within its approved scope |
 | `/skill:feature-delivery` | Ensure the feature is prepared; orchestrate dependent issues through `implement-task`, recover graph-level discoveries and run the final mechanical build/test gate (`run_feature_checks`) | Yes, through task execution |
 | `/skill:feature-questions` | Manual only. Read-only: list the contract, precondition, postcondition and edge-case questions a finished feature's implementation should answer, tied to Scaffold state. Asks, never answers | No |
@@ -21,11 +21,12 @@ implementation correctness.
 A standalone design is a document/contract, **not** a new Scaffold feature or
 execution authorization. `init-feature` uses the design contract for bounded
 issues and is the **only feature preparation entry point**. A successful
-`init-feature` ends with a persisted, approved task graph in Implement phase,
-ready for delivery; it does not start tasks, alter application source, make
-checkpoints or publish changes. `feature-delivery` reuses that prepared state
-rather than reinitializing it. Invoking it on unprepared work delegates
-preparation to `init-feature`, with no redundant direction approval.
+`init-feature` ends with a persisted task graph in Implement phase and a
+recorded feature direction, ready for delivery, and presents the finished design
+in its final reply; the user reviews it there or in Scaffold. It
+does not start tasks, alter application source, make checkpoints or publish changes.
+`feature-delivery` reuses that prepared state rather than reinitializing it.
+Invoking it on unprepared work delegates preparation to `init-feature`.
 
 ## Lifecycle
 
@@ -33,11 +34,14 @@ preparation to `init-feature`, with no redundant direction approval.
    repository and tests, capture immutable source context and the original Git
    baseline and feature branch. Work must not be authorized on a protected main
    branch or by inferring approval from a ticket's status.
-2. **Direction approval:** Present the overall direction and local delivery
-   scope; use `approve_feature_direction` for **one** genuine user confirmation.
-   This grant persists across sessions within the exact approved boundaries.
-   Material changes to objectives, public behavior or explicit constraints
-   return to the user; no fabricated per-issue approval is allowed.
+2. **Direction record:** Write the overall direction and local delivery
+   scope into the feature context, then `init-feature` calls
+   `approve_feature_direction` straight away. There is no prompt and no user
+   approval gate; the call records the scope-bound authority that execution,
+   checkpoints and recovery require, and it persists across sessions within
+   those boundaries. Material changes to objectives, public behavior or explicit
+   constraints return to the user via `approve_delivery_amendment`; no
+   fabricated per-issue approval is allowed.
 3. **Prepare the issue graph:** `init-feature` creates/reconciles the root
    feature through `scaffold_tasks init`, recursively decomposes when needed,
    calls `/skill:design` for each selected bounded issue, persists each
