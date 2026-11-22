@@ -160,8 +160,8 @@ after corrective work. Report `checked` to the user as exactly that.
 
 Whether the user considers the feature complete is theirs to say, usually after they have
 reviewed it and merged. When they explicitly ask you to mark it accepted or complete, call
-`accept_feature` with the validated head (`binding.head` from the checks result). It shows
-them a confirmation of exactly what is being accepted and records `validation_status`
+`accept_feature` with the validated head (`binding.head` from the checks result). It shows no
+dialog: state in chat exactly what is being accepted, take their yes, and it records `validation_status`
 **`accepted`**. Call it only when the user explicitly asks: never on your own initiative, never as
 part of this workflow, and never to make a failed or unchecked feature look finished. It needs a
 `checked` or `verified` result and ends on any later graph or history change.

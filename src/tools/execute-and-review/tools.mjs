@@ -13,17 +13,15 @@ import { reconcileExternalChanges } from "./reconcile-attempt.mjs";
 import { scaffoldCliUsage, scaffoldCliUsageSince } from "../scaffold/adapter.mjs";
 import { combineScaffoldUsage } from "../../lib/verification/timings.mjs";
 import { approveDeliveryAmendment } from "./context-amendment.mjs";
-import { formatScope } from "../../lib/host/format-scope.mjs";
-import { defineTool, toolResult, withApprovalReason, withFailureReporting } from "../../lib/host/tool.mjs";
+import { defineTool, toolResult, withFailureReporting } from "../../lib/host/tool.mjs";
 
 export function createExecuteAndReviewTools(Type) {
   return [
     withFailureReporting(defineTool({
       name: "approve_delivery_amendment",
-      interactive: true,
       label: "Approve material contract amendment",
       description:
-        "Explicit user approval of a concrete material scope/criterion/finding/constraint delta, including before an issue's first attempt (supply task instead of previousAttempt), so an incorrect recorded obligation can be overridden by the user. Retains original obligations, source, authorization and all execution history. Routine corrections do not use this tool. Apply the returned reference through contextUpdates.apply_amendment; approval never establishes verification.",
+        "Records the user's approval of a concrete material scope/criterion/finding/constraint delta, including before an issue's first attempt (supply task instead of previousAttempt), so an incorrect recorded obligation can be overridden by the user. There is no dialog: first show the user the original IDs, the replacement and the reason in chat, and call this only after they explicitly say yes to that exact change; never on your own initiative and never to unblock yourself. Retains original obligations, source, authorization and all execution history. Routine corrections do not use this tool. Apply the returned reference through contextUpdates.apply_amendment; approval never establishes verification.",
       parameters: Type.Object(
         {
           previousAttempt: Type.Optional(
@@ -46,15 +44,11 @@ export function createExecuteAndReviewTools(Type) {
           params,
           { directory: host.cwd, abort: host.signal },
           {
-            confirm: async (scope) =>
-              host.confirm(
-                "Approve this material contract change?",
-                "\n" + formatScope(scope) + "\n" +
-                  "\nOriginal obligations and all execution history remain retained. Only this concrete delta is authorized; independent verification is still required.",
-              ),
+            // The user's yes in the conversation is the approval; no dialog (dialogs stall hosts that cannot show them).
+            confirm: async () => true,
           },
         );
-        return toolResult(withApprovalReason(host, result), { indent: 0 });
+        return toolResult(result, { indent: 0 });
       },
     })),
     withFailureReporting(defineTool({
@@ -409,7 +403,7 @@ export function createExecuteAndReviewTools(Type) {
       name: "abandon_inflight_attempt",
       label: "Close an interrupted invocation",
       description:
-        "Escape hatch for INVOCATION_RECOVERY_REQUIRED when the original process died (killed session, lost connection) and no terminal receipt exists. Writes an authenticated INTERRUPTED terminal receipt for the in-flight attempt: the attempt stays consumed, the applied source and history are retained, nothing is verified and no operations are replayed. Returns the receipt to use as previousAttempt with empty operations. Refused while the invocation may still be running unless force is set, which asks the user to confirm its process tree is gone.",
+        "Escape hatch for INVOCATION_RECOVERY_REQUIRED when the original process died (killed session, lost connection) and no terminal receipt exists. Writes an authenticated INTERRUPTED terminal receipt for the in-flight attempt: the attempt stays consumed, the applied source and history are retained, nothing is verified and no operations are replayed. Returns the receipt to use as previousAttempt with empty operations. Refused while the invocation may still be running unless force is set. There is no dialog: set force or restore only after the user has said in chat that the process tree is gone (force) or that the working tree may be reset (restore).",
       parameters: Type.Object(
         {
           task: Type.Object(
@@ -417,18 +411,12 @@ export function createExecuteAndReviewTools(Type) {
             { additionalProperties: false },
           ),
           reason: Type.String({ minLength: 1, description: "Why the invocation is believed dead, e.g. observed connection loss" }),
-          restore: Type.Optional(Type.Literal("checkpoint", { description: "Also reset the working tree to the task's base commit after saving the interrupted tree to a recovery ref. Requires user confirmation. Omit to keep the files as found." })),
-          force: Type.Optional(Type.Boolean({ description: "Skip the liveness allowance after the user confirms no process is running" })),
+          restore: Type.Optional(Type.Literal("checkpoint", { description: "Also reset the working tree to the task's base commit after saving the interrupted tree to a recovery ref. Requires the user's explicit confirmation in chat first. Omit to keep the files as found." })),
+          force: Type.Optional(Type.Boolean({ description: "Skip the liveness allowance after the user confirms in chat that no process is running" })),
         },
         { additionalProperties: false },
       ),
       async execute(params, host) {
-        if ((params.force || params.restore) &&
-            !(await host.confirm(params.restore ? "Close the attempt and reset the working tree?" : "Close the in-flight attempt now?",
-              (params.force ? "Confirm no delivery, Conductor, cargo or review process for " + params.task.taskId + " is still running. " : "") +
-              (params.restore ? "Uncommitted files will be reset to the task's base commit; the interrupted tree is first saved under refs/pi-delivery-recovery. " : "") +
-              "The attempt is recorded as interrupted and consumed; nothing is marked verified.")))
-          return toolResult({ status: "BLOCKED", reason: "CANCELLED", message: "Not confirmed; nothing changed." });
         const result = await abandonInflightAttempt(params, { directory: host.cwd, abort: host.signal });
         return toolResult(result, { isError: result.status === "BLOCKED" && !result.evidence });
       },
@@ -437,7 +425,7 @@ export function createExecuteAndReviewTools(Type) {
       name: "reconcile_external_changes",
       label: "Record outside changes to the working tree",
       description:
-        "Use when CONTINUATION_RECEIPT_INAPPLICABLE or a stale handoff says the working tree no longer matches the latest receipt because someone other than the executor changed files (a manual removal the review asked for, a formatter, a teammate's edit). Shows the user the changed paths and, once confirmed, writes an authenticated BLOCKED receipt that starts at the previous receipt's tree and ends at the current one. It consumes one attempt, verifies nothing, replays nothing and never touches source; the next attempt re-runs every check and the independent review. Returns the receipt to use as previousAttempt. Not for new commits (inspect_feature_drift) or an in-flight invocation (abandon_inflight_attempt).",
+        "Use when CONTINUATION_RECEIPT_INAPPLICABLE or a stale handoff says the working tree no longer matches the latest receipt because someone other than the executor changed files (a manual removal the review asked for, a formatter, a teammate's edit). There is no dialog: first show the user the changed paths in chat and call this only after they confirm; then it writes an authenticated BLOCKED receipt that starts at the previous receipt's tree and ends at the current one. It consumes one attempt, verifies nothing, replays nothing and never touches source; the next attempt re-runs every check and the independent review. Returns the receipt to use as previousAttempt. Not for new commits (inspect_feature_drift) or an in-flight invocation (abandon_inflight_attempt).",
       parameters: Type.Object(
         {
           task: Type.Object(
@@ -451,7 +439,8 @@ export function createExecuteAndReviewTools(Type) {
       ),
       async execute(params, host) {
         const result = await reconcileExternalChanges(params, { directory: host.cwd, abort: host.signal },
-          { deps: { confirm: ({ title, message }) => host.confirm(title, message) } });
+          // The user's yes in the conversation is the approval; no dialog.
+          { deps: { confirm: async () => true } });
         return toolResult(result, { isError: result.status === "BLOCKED" && !result.evidence });
       },
     })),

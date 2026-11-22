@@ -220,7 +220,7 @@ baseline to its recorded head: task checkpoints and foreign ranges. `adopt_forei
 - **Preconditions** (rejected without changes): clean worktree and index, the feature branch, HEAD equal to the new
   commit the user approves, the ledger's recorded head an ancestor of HEAD and still matching Git, an approved feature
   direction, and no active task.
-- **Approval** is a dedicated confirmation naming the recorded head, the new head, the commits and changed paths.
+- **Approval** is a dedicated yes in chat to a message naming the recorded head, the new head, the commits and changed paths (no dialog).
   Execution approval cannot satisfy it. State changing during approval blocks recording.
 - **Not verified**: recorded commits are never treated as task checkpoints. Final validation still reviews
   `original baseline..HEAD`, and its requirements list each foreign range, so nothing is exempted from review.
