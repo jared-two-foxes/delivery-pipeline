@@ -1,6 +1,6 @@
 {
   "name": "delivery-pipeline-mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "description": "MCP server exposing the Pi delivery tools (scaffold, execute_and_review, checkpoint, validation, recovery, review) to any MCP host.",
