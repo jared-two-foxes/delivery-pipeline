@@ -79,7 +79,7 @@ test('delegated issue designs remain explicit and the final gate is mechanical, 
 
 test('native checkpoints, recovery and validation reuse the same durable direction authority', () => {
   const native = read('src/tools/execute-and-review/tools.mjs');
-  assert.equal((native.match(/host\.confirm\(/g) ?? []).length, 3, 'no direction dialog or approval gate (init-feature records the direction itself), one explicit material-amendment confirmation, one explicit confirmation before force-closing an interrupted invocation, and one confirmation of the changed paths before recording outside working-tree changes');
+  assert.equal((native.match(/host\.confirm\(/g) ?? []).length, 0, 'approvals are given in chat, so no execute-and-review tool opens a dialog');
   assert.match(native, /approveFeatureDirection/);
   assert.doesNotMatch(native, /registerRecoveryTools|name: "(?:validate_feature|checkpoint_verified_task)"/);
   const recovery = read('src/tools/execution-recovery/tools.mjs');
