@@ -237,13 +237,13 @@ test("server relays heartbeats as MCP progress notifications when the client ask
 });
 
 // ---- Interactive (approval) tools: stay native in Pi, are omitted from the Pi-facing MCP server.
-test("exactly the four approval tools are marked interactive and MCP listings do not leak the flag", { skip: !installed && "mcp dependencies not installed" }, async () => {
+test("exactly the three dialog-approval tools are marked interactive and MCP listings do not leak the flag", { skip: !installed && "mcp dependencies not installed" }, async () => {
   const { deliveryTools } = await import("../../mcp/server.mjs");
   const all = deliveryTools();
   assert.deepEqual(all.filter((t) => t.interactive).map((t) => t.name).sort(),
-    ["accept_feature", "adopt_foreign_commits", "approve_delivery_amendment", "approve_feature_direction"]);
+    ["accept_feature", "adopt_foreign_commits", "approve_delivery_amendment"]);
   const rest = deliveryTools({ includeInteractive: false });
-  assert.equal(rest.length, 17);
+  assert.equal(rest.length, 18);
   assert.equal(rest.some((t) => t.interactive), false);
   for (const entry of mcpToolList(all)) assert.equal("interactive" in entry, false, entry.name);
 });
@@ -251,7 +251,7 @@ test("exactly the four approval tools are marked interactive and MCP listings do
 test("PI_DELIVERY_MCP_OMIT_INTERACTIVE=1 makes the served server omit the approval tools", { skip: !installed && "mcp dependencies not installed" }, async (t) => {
   const { Client } = await sdk("client/index.js");
   const { StdioClientTransport } = await sdk("client/stdio.js");
-  for (const [omit, expected] of [["1", 17], [undefined, 21]]) {
+  for (const [omit, expected] of [["1", 18], [undefined, 21]]) {
     const env = { ...process.env, ...(omit ? { PI_DELIVERY_MCP_OMIT_INTERACTIVE: omit } : {}) };
     if (!omit) delete env.PI_DELIVERY_MCP_OMIT_INTERACTIVE;
     const client = new Client({ name: "test", version: "0" }, { capabilities: {} });
@@ -259,7 +259,8 @@ test("PI_DELIVERY_MCP_OMIT_INTERACTIVE=1 makes the served server omit the approv
     await client.connect(new StdioClientTransport({ command: process.execPath, args: [fileURLToPath(new URL("../../mcp/start.mjs", import.meta.url))], env, cwd: process.cwd() }));
     const names = (await client.listTools()).tools.map((x) => x.name);
     assert.equal(names.length, expected, `omit=${omit}`);
-    assert.equal(names.includes("approve_feature_direction"), !omit);
+    assert.ok(names.includes("approve_feature_direction"), "recorded without a dialog, so always served");
+    assert.equal(names.includes("approve_delivery_amendment"), !omit);
   }
 });
 

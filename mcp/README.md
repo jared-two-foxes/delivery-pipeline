@@ -2,7 +2,7 @@
 
 `server.mjs` serves the 21 delivery tools (`scaffold_tasks`, `execute_and_review`,
 `checkpoint_verified_task`, `validate_feature`, the recovery tools, `review_changes`, ...) to any MCP host.
-Pi is served all but the four approval tools, which it keeps in-process (see "Using it from Pi").
+Pi is served all but the three dialog approval tools, which it keeps in-process (see "Using it from Pi").
 It loads the host-neutral definitions in `src/tools/*/tools.mjs`; nothing is duplicated.
 The adapter logic is `src/lib/host/mcp.mjs` (dependency-free and unit-tested); this directory only
 wires in the MCP SDK, TypeBox and a JSON Schema validator.
@@ -35,7 +35,7 @@ fallback and no environment switch.
   `start.mjs` for non-standard layouts. **Not covered:** a server that starts fine and dies later in a session. Pi
   shows it as disconnected and reconnects on the next call.
 - **Approvals stay in Pi.** Pi 1.5.2's MCP client declares `{"roots":{}}` and no `elicitation`, so approvals
-  over MCP would always fail closed. The four tools marked `interactive` (`approve_feature_direction`,
+  over MCP would always fail closed. The three tools marked `interactive` (
   `approve_delivery_amendment`, `adopt_foreign_commits`, `accept_feature`) therefore register in-process and the
   server omits them (`PI_DELIVERY_MCP_OMIT_INTERACTIVE=1`, set by the extension). This is safe because approvals
   are written to the Scaffold ledger and every other tool reads them back from there; no state is shared in memory.
@@ -58,7 +58,7 @@ through Pi's MCP client (needs a model), and approvals and long runs in a live s
 
 - **Validates arguments.** Pi checked them against the TypeBox schema before `execute`; the MCP SDK's server
   does not. The adapter validates every call (`ajv`) and refuses to be built without a validator.
-- **Approvals via elicitation.** `approve_feature_direction`, `approve_delivery_amendment`,
+- **Approvals via elicitation.** `approve_delivery_amendment`,
   `adopt_foreign_commits` and `accept_feature` ask the human through MCP elicitation, so the host shows the prompt and the
   agent cannot answer it. Only an explicit `accept` with `approve: true` counts. A client without
   elicitation support, a thrown error, or any other answer is a refusal: the tools fail closed. A refusal

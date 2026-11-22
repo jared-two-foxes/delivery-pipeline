@@ -59,10 +59,9 @@ export function createExecuteAndReviewTools(Type) {
     })),
     withFailureReporting(defineTool({
       name: "approve_feature_direction",
-      interactive: true,
       label: "Approve feature direction",
       description:
-        "The single approval for this feature's direction and local delivery loop. FIRST present the full design to the user in your reply and let them read it; they answer in chat with 'yes' or with alterations (apply alterations via scaffold_tasks design-revise and present again). Only after the user has said yes to the presented design, call this tool with that design's exact designRef; it shows a short Yes/No confirmation bound to that reference and refuses if the stored design differs. Persists authority for scoped design, implementation, checks, independent review, checkpoints and recovery across sessions. No per-issue confirmations. Does not authorize publishing, merging or changing the approved objectives/constraints.",
+        "The single approval for this feature's direction and local delivery loop. Called by init-feature straight after scaffold_tasks init, with the feature's exact designRef; it refuses if the stored design differs. There is no user prompt and no approval gate: this only records the scope-bound authority that execution, checkpoints and recovery require, and it must not be described as a user approval. scaffold_tasks design-revise is refused once it is recorded. Persists authority for scoped design, implementation, checks, independent review, checkpoints and recovery across sessions. No per-issue confirmations. Does not authorize publishing, merging or changing the approved objectives/constraints.",
       parameters: Type.Object(
         {
           featureId: Type.String(),
@@ -75,16 +74,11 @@ export function createExecuteAndReviewTools(Type) {
           params,
           { directory: host.cwd, abort: host.signal },
           {
-            confirm: async (scope) =>
-              host.confirm(
-                "Approve feature " + scope.featureId + " design " + scope.designRef.slice(0, 19) + "…?",
-                "Branch: " + scope.branch + "\n" +
-                  (scope.objective ? "Objective: " + scope.objective + "\n" : "") +
-                  "\nYou have read this design in the conversation. Proceed through design, implementation, checks, independent review, local checkpoints and recovery without further routine confirmations? Changes outside this approved direction will stop for you. Publishing and merging are separate.",
-              ),
+            // The user's yes in the conversation is the approval; no dialog.
+            confirm: async () => true,
           },
         );
-        return toolResult(withApprovalReason(host, result), { indent: 0 });
+        return toolResult(result, { indent: 0 });
       },
     })),
     withFailureReporting(defineTool({

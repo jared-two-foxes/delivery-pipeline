@@ -12,8 +12,8 @@ The system exists so that a human can trust the result without watching. It does
 enforcing one invariant:
 
 > **Every commit between the feature's baseline and HEAD is an authenticated checkpoint
-> of one task that passed its checks and an independent review, under a feature direction
-> the user approved.**
+> of one task that passed its checks and an independent review, under a recorded feature
+> direction.**
 
 Almost everything below either *produces* the evidence for that invariant, *checks* it, or
 *recovers* when real life breaks it (rebases, interruptions, extra commits).
@@ -22,7 +22,7 @@ Almost everything below either *produces* the evidence for that invariant, *chec
 
 | Actor | What it is | Owns | Trust |
 |---|---|---|---|
-| **User** | A human | The one direction approval; adoption approval; merging/publishing | Source of authority. Only a real UI confirmation counts. |
+| **User** | A human | Adoption, amendment and acceptance approvals; merging/publishing; reviewing the finished design | Source of authority. For those approvals only a real UI confirmation counts. The feature direction itself needs no approval; `init-feature` records it. |
 | **Pi** | The LLM orchestrator, driven by `delivery-rules.md` and skills | Reasoning, designs, choosing the next task | **Not trusted.** `delivery-rules.md` tells it to change source only through the native tools; the `delivery-guard` extension enforces that while a delivery is active, and the ledger detects anything that slips past (section 6). |
 | **Scaffold** | External CLI that owns the per-feature ledger (`.scaffold/features/…`, gitignored) | Feature + issue graph, designs, task status, `original_baseline`, `workflow.instance_id`, delivery journal | Validates structure and association, **not** evidence authenticity. |
 | **Conductor** | External generic command runner | Runs a list of commands with conditions | Neutral runner. |
@@ -35,9 +35,10 @@ Almost everything below either *produces* the evidence for that invariant, *chec
 ```mermaid
 flowchart LR
   T[Linear ticket / requirements] --> I[init-feature]
-  I --> A{{approve_feature_direction<br/>ONE user approval}}
+  I --> A[approve_feature_direction<br/>records direction, no prompt]
   A --> D[design + decompose<br/>issue graph in Scaffold]
-  D --> L[feature-delivery loop]
+  D --> P[present finished design<br/>user reviews in Scaffold]
+  P --> L[feature-delivery loop]
   L --> E[implement-task: ONE issue]
   E --> X[execute_and_review<br/>Executor -> checks -> Review]
   X -->|PASSED| C[automatic verified checkpoint<br/>one local commit]
@@ -47,14 +48,15 @@ flowchart LR
   V --> U[user reviews, publishes, merges]
 ```
 
-Note the order: direction approval happens **before** the issue graph is designed. The
-approved "direction" is the feature-level design context, objective, criteria and
-constraints. Issue designs are produced afterwards, inside that approved scope.
+Note the order: the direction is recorded **before** the issue graph is designed, with no
+user approval step. The "direction" is the feature-level design context, objective, criteria
+and constraints. Issue designs are produced afterwards, inside that recorded scope, and the
+user reviews the finished design afterwards. Later departures use `approve_delivery_amendment`.
 
 | Stage | Skill | Native tool(s) | Code |
 |---|---|---|---|
 | Prepare feature | `init-feature`, `design` | `scaffold_tasks`, `write_plan`, `linear_*` | `src/tools/scaffold`, `pi/plan`, `pi/linear` |
-| Approve direction | (in `init-feature`) | `approve_feature_direction` | `src/lib/authorization/feature.mjs` |
+| Record direction | (in `init-feature`) | `approve_feature_direction` | `src/lib/authorization/feature.mjs` |
 | Orchestrate | `feature-delivery` | none of its own | skill text |
 | One task | `implement-task`, `executor` | `execute_and_review` | `src/tools/execute-and-review` |
 | Checkpoint | (automatic) | `checkpoint_verified_task` (recovery only) | `src/tools/checkpoint` |
@@ -67,7 +69,7 @@ constraints. Issue designs are produced afterwards, inside that approved scope.
 | Tool | Extension | Purpose | Mutates |
 |---|---|---|---|
 | `scaffold_tasks` | scaffold | Scoped read/write of the task graph | Scaffold state |
-| `approve_feature_direction` | execute-and-review | The one direction approval | evidence |
+| `approve_feature_direction` | execute-and-review | Records the feature direction (no prompt) | evidence |
 | `approve_delivery_amendment` | execute-and-review | Approve a material contract change | evidence + Scaffold |
 | `execute_and_review` | execute-and-review | One Executor, checks, Review pass; auto-completes and checkpoints on PASS | source, evidence, Scaffold, Git |
 | `checkpoint_verified_task` | checkpoint | Create or recover the checkpoint commit for a passed task | Git |
@@ -106,7 +108,7 @@ only through the Scaffold CLI. See [`ledger-design.md`](ledger-design.md) for th
 | What | Where it lives | Written by |
 |---|---|---|
 | Feature, issue graph, designs, task status | the ledger (folded state) | Scaffold |
-| Direction approval | `direction-approve` entry | Scaffold, after Pi's UI confirmation |
+| Direction record | `direction-approve` entry | Scaffold, written by `approve_feature_direction` (no UI confirmation) |
 | Task receipts | artifact, cited by an `attempt-record` entry | Pi stores it, Scaffold records the attempt |
 | Completion, checkpoints | `complete` and `checkpoint-record` entries | Scaffold, after Pi verifies Git |
 | Recorded history from base to head | `history` / `head` / `base` / `epochs` in the folded state | Scaffold (`checkpoint-record`, `history-foreign`, `history-rewrite`) |
@@ -159,7 +161,7 @@ Scaffold data and pass it in; libraries validate it.
 approves, when no human can be asked. No `.mjs` module may import a host SDK or touch `ctx.ui`; a test
 enforces this, so a second host (for example an MCP server) can load `tools.mjs` unchanged and write only
 its own adapter beside `src/lib/host/pi.mjs`. That second adapter now exists: `src/lib/host/mcp.mjs` plus the server in
-`mcp/` (see its README, including what it does not yet enforce). Pi uses that server as the only transport for its delivery tools (the `delivery-mcp` extension); the four approval tools
+`mcp/` (see its README, including what it does not yet enforce). Pi uses that server as the only transport for its delivery tools (the `delivery-mcp` extension); the three dialog approval tools
 stay in-process because Pi's MCP client cannot elicit. Schemas are built with an injected TypeBox-style `Type`.
 **Enforcement versus detection.** Three layers keep the orchestrator honest, and they differ in kind:
 instructions (`delivery-rules.md`, skills: no enforcement), a guard that *prevents* (`src/lib/guard/`, applied in Pi by the
@@ -185,7 +187,7 @@ needs its own accommodation here. That is the source of most special cases.
 
 | Grant | Granted by | Lasts | Covers |
 |---|---|---|---|
-| Feature direction | `approve_feature_direction` (UI confirm) | A `direction-approve` ledger entry; Scaffold computes and matches the scope digest | The whole local loop: design, implementation, checks, review, checkpoints, recovery. **Not** publish or merge. |
+| Feature direction | `approve_feature_direction` (recorded by `init-feature`, no UI confirm) | A `direction-approve` ledger entry; Scaffold computes and matches the scope digest | The whole local loop: design, implementation, checks, review, checkpoints, recovery. **Not** publish or merge. |
 | Delivery amendment | `approve_delivery_amendment` | Per change | One concrete contract change |
 | Foreign commits | `adopt_foreign_commits` (UI confirm) | Recorded in the ledger | One named recorded head to new head range |
 | Feature acceptance | `accept_feature` (UI confirm) | A `validation-accept` ledger entry; ends at any later graph or history change, invalidation or new validation | The user's sign-off on one validated head. Grants nothing else: not publish, merge or change |
