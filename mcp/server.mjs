@@ -4,11 +4,12 @@
 //
 //   node mcp/server.mjs            runs in the current directory (the repository to deliver in)
 //
-// Approvals (`approve_feature_direction`, `approve_delivery_amendment`, `adopt_foreign_commits`) are asked
+// Approvals (`approve_delivery_amendment`, `adopt_foreign_commits`, `accept_feature`) are asked
 // through MCP elicitation, which the host shows to the human. A client without elicitation cannot approve:
-// the tools fail closed. See ../src/lib/host/mcp.mjs.
+// the tools fail closed. `approve_feature_direction` has no dialog. See ../src/lib/host/mcp.mjs.
+import { readFileSync } from "node:fs";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import Ajv from "ajv";
 import { Type } from "typebox";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -21,6 +22,16 @@ import { createExecutionRecoveryTools } from "../src/tools/execution-recovery/to
 import { createFeatureValidationTools } from "../src/tools/feature-validation/tools.mjs";
 import { createReviewTool } from "../src/tools/review/tool.mjs";
 import { createScaffoldTools } from "../src/tools/scaffold/tools.mjs";
+
+/** The plugin's version, from `.claude-plugin/plugin.json`, the single source of truth. */
+export function pluginVersion() {
+  try {
+    const manifest = fileURLToPath(new URL("../.claude-plugin/plugin.json", import.meta.url));
+    return JSON.parse(readFileSync(manifest, "utf8")).version ?? "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
+}
 
 /** All delivery tools. `includeInteractive: false` omits the approval tools, for hosts that keep those native. */
 export function deliveryTools({ includeInteractive = true } = {}) {
@@ -80,7 +91,7 @@ export function elicitApproval(server, { timeoutMs = APPROVAL_TIMEOUT_MS } = {})
 }
 
 export function createDeliveryServer({ cwd = process.cwd(), tools = deliveryTools(), heartbeatMs } = {}) {
-  const server = new Server({ name: "pi-delivery", version: "0.1.0" }, { capabilities: { tools: {} } });
+  const server = new Server({ name: "pi-delivery", version: pluginVersion() }, { capabilities: { tools: {} } });
   const list = mcpToolList(tools);
   const call = createMcpCaller(tools, { cwd: path.resolve(cwd), validate: createValidator(), confirm: elicitApproval(server), heartbeatMs });
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: list }));
