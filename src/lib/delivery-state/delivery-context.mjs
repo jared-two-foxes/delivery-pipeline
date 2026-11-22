@@ -180,6 +180,11 @@ export function updateContext(
   return { context, checks: plan };
 }
 
+// The rendered context embeds one JSON blob between these markers. Exported so a caller can recognise it and
+// compare criteria independent of key order (see criteriaIdentity).
+export const CONTEXT_JSON_PREFIX = "\n\nVersioned issue context (original obligations above remain mandatory):\n";
+export const CONTEXT_JSON_SUFFIX = "\nOriginal text remains retained. Apply only the concrete deltas authorized in approvedAmendments; independently verify replacement behavior and all remaining obligations.";
+
 export function renderContext(c) {
   return (
     c.original +
@@ -191,7 +196,7 @@ export function renderContext(c) {
     c.design.verification +
     "\nApproval record: " +
     c.design.approval +
-    "\n\nVersioned issue context (original obligations above remain mandatory):\n" +
+    CONTEXT_JSON_PREFIX +
     JSON.stringify({
       design: c.design,
       verification: c.verification,
@@ -200,7 +205,7 @@ export function renderContext(c) {
       updates: c.updates,
       obligations: c.obligations,
     }) +
-    "\nOriginal text remains retained. Apply only the concrete deltas authorized in approvedAmendments; independently verify replacement behavior and all remaining obligations." +
+    CONTEXT_JSON_SUFFIX +
     "\nIndependent Review must explicitly assess each open obligation using obligation_assessments " +
     "[{obligation_id, disposition: verified|unresolved|not_applicable, evidence}]. " +
     "Agent claims are not verification. Explain coverage equivalence of command repairs; reject zero-test selection."

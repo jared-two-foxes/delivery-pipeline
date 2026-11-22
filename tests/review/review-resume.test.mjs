@@ -1,10 +1,11 @@
 import { test } from "node:test";
+import { renderContext } from "../../src/lib/delivery-state/delivery-context.mjs";
 import assert from "node:assert/strict";
 import { mkdtemp, mkdir, writeFile, rm, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { reviewStep, deliveryReviewSettings } from "../../src/lib/review/client.mjs";
-import { deliveryReviewStep } from "../../src/lib/verification/workflow.mjs";
+import { deliveryReviewStep, criteriaIdentity } from "../../src/lib/verification/workflow.mjs";
 import {
   REVIEW_CHECKPOINT_FILE, inspectReviewCheckpoint, reviewCheckpointPath, withReviewCheckpoint,
 } from "../../src/lib/review/checkpoint.mjs";
@@ -209,4 +210,24 @@ test("reviewResume without a task is refused before any operation is applied", a
   assert.equal(result.stage, "PRECHECK");
   assert.equal(result.reason, "REVIEW_RESUME_UNAVAILABLE");
   assert.match(result.message, /needs a task and previousAttempt/);
+});
+
+test("the resume identity ignores key order inside the rendered context", () => {
+  const context = (obligation) => ({
+    original: "Do the task.",
+    design: { reference: "d1", summary: "s", verification: "v", approval: "a" },
+    verification: [], contractItems: [], amendments: [], updates: [],
+    obligations: [obligation],
+  });
+  // Freshly derived in this process (id, text, source, status) versus reloaded from the key-sorted store.
+  const fresh = { id: "check-1", text: "Resolve failed check fmt (retained attempt 5)", source: "attempt:5:check:fmt", status: "open" };
+  const reloaded = { id: "check-1", source: "attempt:5:check:fmt", status: "open", text: "Resolve failed check fmt (retained attempt 5)" };
+  const a = renderContext(context(fresh)), b = renderContext(context(reloaded));
+  assert.notEqual(a, b); // the raw text really does differ (the observed RESUME_FAILED cause)
+  assert.equal(criteriaIdentity(a), criteriaIdentity(b));
+  // A genuine criteria change still changes the identity, including an obligation's status.
+  assert.notEqual(criteriaIdentity(a), criteriaIdentity(renderContext(context({ ...fresh, status: "independently_verified" }))));
+  assert.notEqual(criteriaIdentity(a), criteriaIdentity(renderContext(context({ ...fresh, text: "other" }))));
+  // Text that is not a rendered context is hashed as given.
+  assert.equal(criteriaIdentity("criteria"), sha("criteria"));
 });
