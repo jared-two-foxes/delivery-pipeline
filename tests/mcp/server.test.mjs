@@ -7,7 +7,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { missingDependencies } from "../../src/lib/host/dependencies.mjs";
 import { createMcpCaller, mcpToolList } from "../../src/lib/host/mcp.mjs";
-import { defineTool, toolResult, withApprovalReason } from "../../src/lib/host/tool.mjs";
+import { defineTool, toolResult } from "../../src/lib/host/tool.mjs";
 
 const schema = { type: "object", properties: { n: { type: "integer" } }, required: ["n"], additionalProperties: false };
 const ok = () => true;
@@ -75,39 +75,26 @@ test("cwd and abort signal reach the tool; the result keeps the tool's text and 
   assert.equal("details" in result, false);
 });
 
-test("confirm fails closed: no channel, a throwing channel and any non-true answer all refuse", async () => {
-  let answer;
-  const tool = defineTool({ name: "ask", description: "d", parameters: schema, execute: async (_p, host) => toolResult({ ok: true, approved: await host.confirm("t", "m") }) });
-  const approved = async (confirm) => JSON.parse((await createMcpCaller([tool], { cwd: "/r", validate: ok, confirm })("ask", { n: 1 })).content[0].text).approved;
-  assert.equal(await approved(undefined), false);
-  assert.equal(await approved(async () => { throw new Error("channel down"); }), false);
-  for (answer of ["yes", 1, {}, undefined, null, false]) assert.equal(await approved(async () => answer), false, `answer ${String(answer)}`);
-  assert.equal(await approved(async () => true), true);
+test("the host given to a tool has no dialog channel: approvals are chat-based", async () => {
+  const { tool, calls } = spyTool();
+  await createMcpCaller([tool], { cwd: "/r", validate: ok })("spy", { n: 1 });
+  assert.deepEqual(Object.keys(calls[0].host).sort(), ["cwd", "signal"]);
 });
 
 // ---- Protocol-level tests against the real server and SDK; skipped if `npm ci --prefix mcp` has not run.
 const installed = missingDependencies(fileURLToPath(new URL("../../mcp", import.meta.url))).length === 0;
 const sdk = (p) => import(`@modelcontextprotocol/sdk/${p}`);
 
-async function connect(tools, { elicit } = {}) {
+async function connect(tools) {
   const { createDeliveryServer } = await import("../../mcp/server.mjs");
   const { Client } = await sdk("client/index.js");
   const { InMemoryTransport } = await sdk("inMemory.js");
-  const { ElicitRequestSchema } = await sdk("types.js");
-  const client = new Client({ name: "test", version: "0" }, { capabilities: elicit ? { elicitation: {} } : {} });
-  const asked = [];
-  if (elicit) client.setRequestHandler(ElicitRequestSchema, async (request) => (asked.push(request.params), elicit(request.params)));
+  const client = new Client({ name: "test", version: "0" }, { capabilities: {} });
   const [a, b] = InMemoryTransport.createLinkedPair();
   const server = createDeliveryServer({ cwd: process.cwd(), tools });
   await Promise.all([server.connect(b), client.connect(a)]);
-  return { client, asked, close: () => Promise.all([client.close(), server.close()]) };
+  return { client, close: () => Promise.all([client.close(), server.close()]) };
 }
-
-const approvalTool = () => defineTool({
-  name: "approve", description: "d", parameters: { type: "object", properties: {}, additionalProperties: false },
-  execute: async (_p, host) => toolResult({ ok: true, approved: await host.confirm("Approve?", "scope"), why: host.confirmFailure }),
-});
-const approvedBy = async (r) => JSON.parse(r.content[0].text).approved;
 
 test("server lists all 21 delivery tools with real TypeBox schemas", { skip: !installed && "mcp dependencies not installed" }, async (t) => {
   const { deliveryTools } = await import("../../mcp/server.mjs");
@@ -131,28 +118,6 @@ test("server validates arguments against the schema before any tool runs", { ski
   assert.match(missing.content[0].text, /required property 'feature_id'/);
   const unknown = await client.callTool({ name: "nope", arguments: {} });
   assert.match(unknown.content[0].text, /Unknown tool/);
-});
-
-test("approval is asked through elicitation and only an explicit accept with approve=true counts", { skip: !installed && "mcp dependencies not installed" }, async (t) => {
-  for (const [reply, expected] of [
-    [{ action: "accept", content: { approve: true } }, true],
-    [{ action: "accept", content: { approve: false } }, false],
-    [{ action: "accept", content: {} }, false],
-    [{ action: "decline" }, false],
-    [{ action: "cancel" }, false],
-  ]) {
-    const { client, asked, close } = await connect([approvalTool()], { elicit: async () => reply });
-    t.after(close);
-    assert.equal(await approvedBy(await client.callTool({ name: "approve", arguments: {} })), expected, JSON.stringify(reply));
-    assert.equal(asked.length, 1);
-    assert.match(asked[0].message, /Approve\?\n\nscope/);
-  }
-});
-
-test("a client that cannot elicit can never approve", { skip: !installed && "mcp dependencies not installed" }, async (t) => {
-  const { client, close } = await connect([approvalTool()]);
-  t.after(close);
-  assert.equal(await approvedBy(await client.callTool({ name: "approve", arguments: {} })), false);
 });
 
 // ---- Launcher (start.mjs): the entry point hosts run.
@@ -236,32 +201,14 @@ test("server relays heartbeats as MCP progress notifications when the client ask
   assert.deepEqual(none, [], "without onprogress the client sends no token, so none are sent");
 });
 
-// ---- Approvals are chat-based: no delivery tool needs a dialog, so none is marked interactive and all are served.
-test("no delivery tool is marked interactive and MCP listings do not leak the flag", { skip: !installed && "mcp dependencies not installed" }, async () => {
+// ---- Approvals are chat-based: no tool opens a dialog, so every delivery tool is served to every host.
+test("the approval tools are served and no tool carries an interactive flag", { skip: !installed && "mcp dependencies not installed" }, async () => {
   const { deliveryTools } = await import("../../mcp/server.mjs");
   const all = deliveryTools();
-  assert.deepEqual(all.filter((t) => t.interactive).map((t) => t.name), []);
   assert.equal(all.length, 21);
-  assert.equal(deliveryTools({ includeInteractive: false }).length, 21);
-  for (const entry of mcpToolList(all)) assert.equal("interactive" in entry, false, entry.name);
-  for (const name of ["accept_feature", "adopt_foreign_commits", "approve_delivery_amendment", "abandon_inflight_attempt", "reconcile_external_changes"])
+  assert.deepEqual(all.filter((t) => "interactive" in t).map((t) => t.name), []);
+  for (const name of ["accept_feature", "adopt_foreign_commits", "approve_delivery_amendment", "approve_feature_direction", "abandon_inflight_attempt", "reconcile_external_changes"])
     assert.ok(all.some((t) => t.name === name), `${name} is served`);
-});
-
-test("PI_DELIVERY_MCP_OMIT_INTERACTIVE=1 no longer hides any tool: approvals are chat-based", { skip: !installed && "mcp dependencies not installed" }, async (t) => {
-  const { Client } = await sdk("client/index.js");
-  const { StdioClientTransport } = await sdk("client/stdio.js");
-  for (const [omit, expected] of [["1", 21], [undefined, 21]]) {
-    const env = { ...process.env, ...(omit ? { PI_DELIVERY_MCP_OMIT_INTERACTIVE: omit } : {}) };
-    if (!omit) delete env.PI_DELIVERY_MCP_OMIT_INTERACTIVE;
-    const client = new Client({ name: "test", version: "0" }, { capabilities: {} });
-    t.after(() => client.close());
-    await client.connect(new StdioClientTransport({ command: process.execPath, args: [fileURLToPath(new URL("../../mcp/start.mjs", import.meta.url))], env, cwd: process.cwd() }));
-    const names = (await client.listTools()).tools.map((x) => x.name);
-    assert.equal(names.length, expected, `omit=${omit}`);
-    assert.ok(names.includes("approve_feature_direction"), "recorded without a dialog, so always served");
-    assert.ok(names.includes("approve_delivery_amendment"), "served either way");
-  }
 });
 
 // ---- start.mjs --check: lets Pi learn whether the server can start before it gives up its native tools.
@@ -282,24 +229,4 @@ test("start.mjs --check fails with the same one-line fix when dependencies are m
   const run = spawnSync(process.execPath, [path.join(root, "mcp/start.mjs"), "--check"], { encoding: "utf8", timeout: 30000 });
   assert.equal(run.status, 1);
   assert.match(run.stderr, /dependencies are not installed/);
-});
-
-test("a refused approval says why, so the failure is diagnosable", { skip: !installed && "mcp dependencies not installed" }, async (t) => {
-  const why = async (opts) => {
-    const { client, close } = await connect([approvalTool()], opts);
-    t.after(close);
-    return JSON.parse((await client.callTool({ name: "approve", arguments: {} })).content[0].text).why;
-  };
-  assert.match(await why({}), /does not advertise elicitation/);
-  assert.match(await why({ elicit: async () => ({ action: "decline" }) }), /declined/);
-  assert.match(await why({ elicit: async () => ({ action: "cancel" }) }), /cancelled or dismissed.*Elicitation hook/);
-  assert.match(await why({ elicit: async () => ({ action: "accept", content: { approve: false } }) }), /Approve left unticked/);
-  assert.match(await why({ elicit: async () => { throw new Error("boom"); } }), /could not be completed/);
-});
-
-test("withApprovalReason appends the refusal reason to a failed approval and leaves other results alone", () => {
-  const failed = { ok: false, message: "Feature direction approval required" };
-  assert.match(withApprovalReason({ confirmFailure: "the user declined" }, failed).message, /required Reason: the user declined\.$/);
-  assert.equal(withApprovalReason({}, failed), failed);
-  assert.deepEqual(withApprovalReason({ confirmFailure: "x" }, { ok: true }), { ok: true });
 });

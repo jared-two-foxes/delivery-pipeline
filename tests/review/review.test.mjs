@@ -189,6 +189,4 @@ test('Pi and shared policies allow standalone review without weakening implement
   assert.match(system, /review_changes/); assert.match(system, /Only native `execute_and_review`/);
   assert.match(system, /Do not run builds, tests, review-cli, executor, Conductor/);
   assert.match(skill, /Use the native `review_changes` tool/);
-  assert.match(await read('pi/review/index.ts'), /registerPiTools\(pi, \[createReviewTool\(Type\)\]\)/);
-  assert.match(await read('.github/workflows/ci.yml'), /tests\/review\/review\.test\.mjs/);
 });

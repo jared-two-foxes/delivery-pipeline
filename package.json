@@ -1,6 +1,6 @@
 {
   "name": "delivery-pipeline",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "A Scaffold-backed feature delivery pipeline for coding agents: Pi package, MCP server and Claude Code plugin with a guard that blocks direct source edits.",
   "keywords": [
     "pi-package"

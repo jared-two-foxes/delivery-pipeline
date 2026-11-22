@@ -4,9 +4,7 @@
 //
 //   node mcp/server.mjs            runs in the current directory (the repository to deliver in)
 //
-// Approvals (`approve_delivery_amendment`, `adopt_foreign_commits`, `accept_feature`) are asked
-// through MCP elicitation, which the host shows to the human. A client without elicitation cannot approve:
-// the tools fail closed. `approve_feature_direction` has no dialog. See ../src/lib/host/mcp.mjs.
+// No tool opens a dialog: approvals are given in chat (see the approval tools' descriptions). See ../src/lib/host/mcp.mjs.
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -33,9 +31,9 @@ export function pluginVersion() {
   }
 }
 
-/** All delivery tools. `includeInteractive: false` omits the approval tools, for hosts that keep those native. */
-export function deliveryTools({ includeInteractive = true } = {}) {
-  const tools = [
+/** All delivery tools. */
+export function deliveryTools() {
+  return [
     ...createScaffoldTools(Type),
     ...createExecuteAndReviewTools(Type),
     ...createCheckpointTools(Type),
@@ -43,7 +41,6 @@ export function deliveryTools({ includeInteractive = true } = {}) {
     ...createExecutionRecoveryTools(Type),
     createReviewTool(Type),
   ];
-  return includeInteractive ? tools : tools.filter((tool) => !tool.interactive);
 }
 
 /** JSON Schema validation with a per-schema compile cache. `strict: false` tolerates TypeBox's extra keywords. */
@@ -57,43 +54,10 @@ export function createValidator() {
   };
 }
 
-// A person reading a design before approving it needs far longer than the SDK's 60 s default request timeout.
-const APPROVAL_TIMEOUT_MS = 10 * 60 * 1000;
-
-/**
- * Ask the human through the client. Resolves true only for an explicit accept with `approve: true`; every
- * other outcome throws an Error whose message says why, which the caller turns into a refusal plus a reason
- * (a bare `false` made "no elicitation support", "timed out" and "declined" indistinguishable).
- */
-export function elicitApproval(server, { timeoutMs = APPROVAL_TIMEOUT_MS } = {}) {
-  return async (title, message) => {
-    if (!server.getClientCapabilities()?.elicitation)
-      throw new Error("this MCP client does not advertise elicitation, so no approval prompt can be shown to the user");
-    let answer;
-    try {
-      answer = await server.elicitInput({
-        message: `${title}\n\n${message}`,
-        requestedSchema: {
-          type: "object",
-          properties: { approve: { type: "boolean", title: "Approve", description: "Tick to approve, then submit" } },
-          required: ["approve"],
-        },
-      }, { timeout: timeoutMs });
-    } catch (error) {
-      throw new Error(`the approval prompt could not be completed (${error instanceof Error ? error.message : String(error)})`);
-    }
-    if (answer.action === "decline") throw new Error("the user declined the approval prompt");
-    if (answer.action !== "accept")
-      throw new Error("the approval prompt was cancelled or dismissed (Claude Code cancels MCP prompts in non-interactive runs, and an Elicitation hook can cancel them automatically)");
-    if (answer.content?.approve !== true) throw new Error("the approval prompt was submitted with Approve left unticked");
-    return true;
-  };
-}
-
 export function createDeliveryServer({ cwd = process.cwd(), tools = deliveryTools(), heartbeatMs } = {}) {
   const server = new Server({ name: "pi-delivery", version: pluginVersion() }, { capabilities: { tools: {} } });
   const list = mcpToolList(tools);
-  const call = createMcpCaller(tools, { cwd: path.resolve(cwd), validate: createValidator(), confirm: elicitApproval(server), heartbeatMs });
+  const call = createMcpCaller(tools, { cwd: path.resolve(cwd), validate: createValidator(), heartbeatMs });
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: list }));
   server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
     // Progress heartbeats only if the client asked for progress by sending a token.
@@ -107,8 +71,7 @@ export function createDeliveryServer({ cwd = process.cwd(), tools = deliveryTool
 
 /** Serve over stdio in the current directory. `start.mjs` calls this after checking dependencies. */
 export async function main(env = process.env) {
-  const tools = deliveryTools({ includeInteractive: env.PI_DELIVERY_MCP_OMIT_INTERACTIVE !== "1" });
-  await createDeliveryServer({ tools, cwd: projectDirectory(env) }).connect(new StdioServerTransport());
+  await createDeliveryServer({ cwd: projectDirectory(env) }).connect(new StdioServerTransport());
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) await main();

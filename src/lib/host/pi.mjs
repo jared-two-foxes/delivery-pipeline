@@ -6,7 +6,6 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { missingDependencies } from "./dependencies.mjs";
 import { describeToolCall, piGuardVerdict } from "../guard/pi.mjs";
-import { defineTool } from "./tool.mjs";
 
 export const MCP_SERVER_NAME = "pidelivery";
 
@@ -37,8 +36,7 @@ function startupProblem(serverPath, env) {
 }
 
 /**
- * Whether the delivery MCP server can serve Pi. MCP is the only way Pi gets the delivery tools (apart from the
- * `interactive` approval tools, see registerPiTools), so there is no native fallback: when the server cannot
+ * Whether the delivery MCP server can serve Pi. MCP is the only way Pi gets the delivery tools, so there is no native fallback: when the server cannot
  * start, `ok` is false and `warning` says why, and the extension reports it instead of registering a server
  * that would only show up disconnected. The server is actually started (`start.mjs --check`), which catches a
  * missing file, missing dependencies, a Node too old for the SDK, or no `node` on PATH. A server that dies later,
@@ -88,42 +86,6 @@ export function deliveryMcpServerConfig(serverPath) {
 }
 
 /**
- * Build the neutral `host` from Pi's execution context. `confirm` reaches the real UI lazily and fails
- * closed: with no UI (headless, print mode) it resolves false rather than approving.
- */
-export function piHost(signal, onUpdate, ctx) {
-  return {
-    cwd: ctx.cwd,
-    signal,
-    onUpdate,
-    confirm: async (title, message) => ctx.hasUI === true && Boolean(await ctx.ui.confirm(title, message)),
-  };
-}
-
-export function toPiTool(tool) {
-  defineTool(tool);
-  const { execute, ...rest } = tool;
-  return {
-    ...rest,
-    async execute(_toolCallId, params, signal, onUpdate, ctx) {
-      return execute(params, piHost(signal, onUpdate, ctx));
-    },
-  };
-}
-
-/**
- * Register the tools that must run in-process. Every other delivery tool reaches Pi over MCP (the `delivery-mcp`
- * extension), so only the `interactive` ones are registered here: they need Pi's real UI for `host.confirm`
- * because Pi's MCP client cannot elicit, and their approvals are written to the ledger, which every other tool
- * reads back.
- */
-export function registerPiTools(pi, tools) {
-  for (const tool of tools) {
-    if (tool.interactive) pi.registerTool(toPiTool(tool));
-  }
-}
-
-/**
  * The delivery guard's `tool_call` handler: `pi.on("tool_call", createToolCallGuard())` (pi/delivery-guard).
  *   deny -> { block: true, reason }       (the model reads the reason in the tool result and can adapt)
  *   ask  -> the user confirms in Pi's UI; no UI, a "no", a cancel or a crashed prompt all block
@@ -146,7 +108,7 @@ export function createToolCallGuard({ env = process.env } = {}) {
     }
     let confirmed = false;
     try {
-      // Exactly `true` approves. piHost().confirm coerces with Boolean(), which would let a truthy non-boolean through.
+      // Exactly `true` approves; a truthy non-boolean must not.
       confirmed = (await ctx.ui.confirm("Confirm this action?", `${describeToolCall(event)}\n\n${verdict.reason}`)) === true;
     } catch { /* a broken prompt is a refusal */ }
     return confirmed ? undefined : { block: true, reason: `The user did not confirm this action. ${verdict.reason}` };

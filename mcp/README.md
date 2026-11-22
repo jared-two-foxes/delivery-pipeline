@@ -39,7 +39,7 @@ fallback and no environment switch.
   against Pi's session directory, i.e. the repository being delivered). The server also sends a progress
   heartbeat every 15 s to clients that ask for progress; Pi resets its timeout on progress.
 - **Tool names differ.** MCP tools reach the model as `mcp__pidelivery__<tool>` (for example
-  `mcp__pidelivery__execute_and_review`), while the approval tools keep their bare names. `delivery-rules.md`
+  `mcp__pidelivery__execute_and_review`), including the approval tools. `delivery-rules.md`
   tells the model about the prefix; the skills still use bare names, as they do for Claude Code. Whether a
   model maps them reliably in a long real session has not been verified.
 
@@ -56,8 +56,8 @@ through Pi's MCP client (needs a model), and approvals and long runs in a live s
   `abandon_inflight_attempt` (force/restore) and `reconcile_external_changes` show no dialog: MCP elicitation never
   appears on some clients (the mobile app), which stalled the whole pipeline. The agent presents the concrete change in
   chat and calls the tool after the user's explicit yes, the same model as `approve_feature_direction`. The tool
-  descriptions say so; nothing in the host enforces it, and every approval is written to the Scaffold ledger. The generic
-  `interactive`/`host.confirm`/elicitation plumbing remains for any future tool that needs a real dialog.
+  descriptions say so; nothing in the host enforces it, and every approval is written to the Scaffold ledger. The
+  dialog plumbing (`interactive` flag, `host.confirm`, the elicitation helper) was removed.
 
 ## What this does NOT give you yet
 

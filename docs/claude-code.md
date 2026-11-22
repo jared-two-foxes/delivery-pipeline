@@ -102,5 +102,5 @@ negative controls show that validator rejects a bad `onFailure` and an MCP entry
 against 341 command rows (294 POSIX, 47 PowerShell) and the hook's exit-code contract (`tests/guard/guard.test.mjs`).
 
 **Not verified: the plugin running inside a live Claude Code session.** That a deny actually stops a tool, that
-`ask` shows the prompt, that elicitation dialogs appear, and the plugin MCP server's tool names were taken from
+`ask` shows the prompt, and the plugin MCP server's tool names were taken from
 the documentation, not observed. Try an `Edit` and a `git commit` in a guarded repository before relying on it.

@@ -1,7 +1,6 @@
 /**
  * Serves the delivery tools to Pi through the MCP server (mcp/). This is the only transport for them: there is no
- * native fallback. The approval tools are the exception and stay in-process (Pi's MCP client cannot elicit);
- * the other extensions register those through registerPiTools. If the server cannot start, Pi is told why.
+ * native fallback. If the server cannot start, Pi is told why.
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { MCP_SERVER_NAME, deliveryMcpServerConfig, deliveryServer } from "../../src/lib/host/pi.mjs";

@@ -6,7 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { defineTool, toolResult, withFailureReporting } from "../../src/lib/host/tool.mjs";
-import { MCP_SERVER_NAME, deliveryMcpServerConfig, deliveryServer, piHost, registerPiTools, toPiTool } from "../../src/lib/host/pi.mjs";
+import { MCP_SERVER_NAME, deliveryMcpServerConfig, deliveryServer } from "../../src/lib/host/pi.mjs";
 import { missingDependencies } from "../../src/lib/host/dependencies.mjs";
 import { createCheckpointTools } from "../../src/tools/checkpoint/tools.mjs";
 import { createFeatureValidationTools } from "../../src/tools/feature-validation/tools.mjs";
@@ -37,26 +37,6 @@ test("defineTool rejects an incomplete definition at definition time", () => {
   assert.equal(defineTool(tool), tool);
 });
 
-test("Pi adapter maps Pi's call shape to the neutral host and forwards confirm lazily", async () => {
-  let seen;
-  const tool = defineTool({
-    name: "t", label: "T", description: "d", parameters: {},
-    async execute(params, host) { seen = { params, host }; return { ok: await host.confirm("title", "msg") }; },
-  });
-  const piTool = toPiTool(tool);
-  assert.equal(piTool.label, "T");
-  const signal = new AbortController().signal;
-  const calls = [];
-  const ctx = { cwd: "/repo", hasUI: true, ui: { confirm: async (...a) => (calls.push(a), true) } };
-  assert.deepEqual(await piTool.execute("call-id", { a: 1 }, signal, undefined, ctx), { ok: true });
-  assert.deepEqual(seen.params, { a: 1 });
-  assert.equal(seen.host.cwd, "/repo");
-  assert.equal(seen.host.signal, signal);
-  assert.deepEqual(calls, [["title", "msg"]]);
-  // A tool that never confirms must work in a context with no UI (headless).
-  assert.equal(piHost(signal, undefined, { cwd: "/r" }).cwd, "/r");
-});
-
 test("withFailureReporting gives a neutral tool the shared failure envelope", async () => {
   const boom = withFailureReporting(defineTool({
     name: "validate_feature", description: "d", parameters: {},
@@ -76,23 +56,12 @@ test("withFailureReporting gives a neutral tool the shared failure envelope", as
   assert.equal(JSON.parse(out2.content[0].text).failure.code, "CHECKPOINT_BLOCKED");
 });
 
-test("converted extensions expose the same tool names and register through the adapter", () => {
+test("converted tool factories expose the same tool names", () => {
   const names = (tools) => tools.map((t) => t.name);
   assert.deepEqual(names(createCheckpointTools(Type)), ["checkpoint_verified_task"]);
   assert.deepEqual(names(createFeatureValidationTools(Type)), ["validate_feature", "run_feature_checks", "accept_feature", "inspect_feature_validation"]);
   assert.deepEqual(names(createScaffoldTools(Type)), ["scaffold_tasks"]);
   assert.deepEqual(names([createReviewTool(Type)]), ["review_changes"]);
-  const registered = [];
-  registerPiTools({ registerTool: (t) => registered.push(t) }, [
-    ...createCheckpointTools(Type), ...createScaffoldTools(Type), createReviewTool(Type),
-    ...createFeatureValidationTools(Type),
-  ]);
-  // No tool is interactive any more (approvals are chat-based), so nothing is registered in-process.
-  assert.deepEqual(names(registered), []);
-  for (const tool of registered) {
-    assert.equal(typeof tool.description, "string");
-    assert.equal(tool.execute.length, 5, `${tool.name} must keep Pi's 5-argument execute`);
-  }
 });
 
 // The point of the layer: nothing the next host (an MCP server) would load may depend on Pi.
@@ -117,19 +86,6 @@ test("no host-neutral module imports a host SDK or touches the UI", async () => 
   }
   // lib/host/pi.mjs is the one allowed Pi seam. Nothing else under lib/ or any *.mjs workflow may reach the host.
   assert.deepEqual(offenders, []);
-});
-
-test("Pi host confirm fails closed without a UI and passes the answer through with one", async () => {
-  const signal = new AbortController().signal;
-  let asked = 0;
-  const ui = { confirm: async () => (asked++, true) };
-  assert.equal(await piHost(signal, undefined, { cwd: "/r", hasUI: false, ui }).confirm("t", "m"), false);
-  assert.equal(await piHost(signal, undefined, { cwd: "/r", ui }).confirm("t", "m"), false);
-  assert.equal(await piHost(signal, undefined, { cwd: "/r" }).confirm("t", "m"), false);
-  assert.equal(asked, 0, "a headless context must never reach the UI");
-  assert.equal(await piHost(signal, undefined, { cwd: "/r", hasUI: true, ui }).confirm("t", "m"), true);
-  assert.equal(await piHost(signal, undefined, { cwd: "/r", hasUI: true, ui: { confirm: async () => false } }).confirm("t", "m"), false);
-  assert.equal(asked, 1);
 });
 
 test("the tool inventory is stable across hosts", async () => {
@@ -203,18 +159,7 @@ test("the Pi server entry sets direct exposure, a long timeout, session cwd", ()
   assert.deepEqual([config.command, config.args, config.cwd], ["node", ["/x/mcp/start.mjs"], "."]);
   assert.equal(config.exposure, "direct", "Pi's default (codemode) would hide the tools from the model");
   assert.ok(config.timeout >= 1800, "Pi's 60 s default would cut off a 30-minute workflow");
-  assert.equal(config.env.PI_DELIVERY_MCP_OMIT_INTERACTIVE, undefined, "approvals are chat-based, so no tool is held back for Pi");
   assert.match(MCP_SERVER_NAME, /^[A-Za-z0-9_]+$/, "no hyphen: Pi rewrites it, so names would differ from other hosts");
-});
-
-test("only the interactive tools register in-process; the rest are served over MCP", () => {
-  const tools = [
-    defineTool({ name: "plain", description: "d", parameters: {}, execute: async () => toolResult({ ok: true }) }),
-    defineTool({ name: "approve", interactive: true, description: "d", parameters: {}, execute: async () => toolResult({ ok: true }) }),
-  ];
-  const out = [];
-  registerPiTools({ registerTool: (t) => out.push(t.name) }, tools);
-  assert.deepEqual(out, ["approve"]);
 });
 
 test("dependencies hoisted into a parent node_modules (npm workspaces) count as installed", () => {
