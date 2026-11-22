@@ -259,7 +259,7 @@ test("PI_DELIVERY_MCP_OMIT_INTERACTIVE=1 makes the served server omit the approv
     await client.connect(new StdioClientTransport({ command: process.execPath, args: [fileURLToPath(new URL("../../mcp/start.mjs", import.meta.url))], env, cwd: process.cwd() }));
     const names = (await client.listTools()).tools.map((x) => x.name);
     assert.equal(names.length, expected, `omit=${omit}`);
-    assert.ok(names.includes("approve_feature_direction"), "approved by the user's chat yes with no dialog, so always served");
+    assert.ok(names.includes("approve_feature_direction"), "recorded without a dialog, so always served");
     assert.equal(names.includes("approve_delivery_amendment"), !omit);
   }
 });

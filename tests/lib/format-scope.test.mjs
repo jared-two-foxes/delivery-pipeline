@@ -20,7 +20,7 @@ import { createExecuteAndReviewTools } from '../../src/tools/execute-and-review/
 import { validateRequest } from '../../src/lib/scaffold/contracts.mjs';
 const Type = new Proxy({}, { get: (_t, kind) => (...args) => ({ kind, args }) });
 
-test('feature direction approval is bound to the presented design and has no dialog', async () => {
+test('feature direction record is bound to the stored design and has no dialog or gate', async () => {
   const tool = createExecuteAndReviewTools(Type).find((t) => t.name === 'approve_feature_direction');
   assert.ok('designRef' in tool.parameters.args[0]);
   assert.match(tool.description, /design-revise/);

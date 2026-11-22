@@ -2,8 +2,9 @@
 name: init-feature
 description: >
   Prepare an existing Linear ticket or supplied feature requirements in Scaffold:
-  capture scope, obtain one direction approval, design/decompose the issue graph,
-  and finish Design without implementing source changes.
+  capture scope, record the feature direction, design/decompose the whole issue graph,
+  finish Design, then present the resulting design, all without implementing source changes.
+  There is no approval gate: the user reviews the design in Scaffold afterwards.
 ---
 
 # Initialize a feature
@@ -60,13 +61,14 @@ explicit feature-amendment/design recovery procedure where permitted; do not
 silently mutate original criteria or treat a new Linear revision as an approval.
 Do not start a replacement feature or reset attempt history on errors.
 
-## 1. Discover and approve the source requirements
+## 1. Discover the source requirements and record the direction
 
 Inspect the actual repository, existing source, relevant tests, interfaces, Git
 branch/status and local instructions. Establish the ticket objective, acceptance
 criteria, boundaries, important interfaces, constraints and proposed approach.
-Discuss unresolved choices that affect the user's objectives, public behaviour,
-compatibility, cost or scope. Do not design every private detail up front.
+Ask the user only when a choice that affects their objectives, public behaviour,
+compatibility, cost or scope cannot be inferred from the source; otherwise decide and
+carry on. Do not design every private detail up front.
 
 ### Constraints and gates must come from the source
 
@@ -77,44 +79,35 @@ do not record such a gate as a feature or issue constraint or in a design. Recor
 dependency as the ticket states it (a Scaffold dependency edge where one exists in this
 graph, otherwise plain context) and treat the stricter question as a delta to raise.
 
-If you believe an extra constraint, prerequisite or gate is genuinely needed, write it
-separately in the direction you present for approval under the heading **Agent-added
-constraints (not in the ticket)**, with the reason, and keep it out of the ticket-derived
-constraints until the user approves the direction that contains it. If the user has not
+If you believe an extra constraint, prerequisite or gate is genuinely needed, do not put it
+in the ticket-derived constraints. List it in the final presentation (§3) under the heading
+**Agent-added constraints (not in the ticket)**, with the reason. If the user has not
 seen it, it is not an approved constraint. When you later find that a blocker is an
 obligation you added yourself, say so and ask the user to override it with
 `approve_delivery_amendment` rather than stopping.
 
-### Feature planning and the single approval
+### Feature planning and the single approval record
 
-Present a concise overall design direction, any **Agent-added constraints (not in the
-ticket)** and the intended local delivery scope:
+Write a concise overall design direction and the intended local delivery scope:
 design/decomposition, implementation, relevant checks and independent review,
 verified local commits, final build/test checks, and necessary issue/rebase recovery.
 Persist its exact text in feature context using `scaffold_tasks` `init`, immutable
 `design_ref: "sha256:context"`, original full Git baseline and feature branch.
-Scaffold creates the root issue. State creation does not grant source authority.
+Scaffold creates the root issue.
 
-Review happens in the conversation, not in a dialog. After `init`, write the complete
-direction in your reply (objective, criteria, scope and non-goals, approach, decomposition
-outline, risks, verification) and end by asking the user to approve it or tell you what to
-change. Their free-text alterations are the main input to the design. When they ask for
-changes, apply them with `scaffold_tasks` `design-revise` (full revised `context`, plus the
-full revised `title`, `objective`, `acceptance_criteria` and `constraints` whenever the
-alteration changes them, so a dropped criterion stops being required; it is refused once
-approved and yields a new `design_ref`), then present the revised design in
-full again. Repeat until the user says yes.
+**There is no approval gate.** Do not wait for the user between `init` and the end of the
+design. Immediately after `init`, call native `approve_feature_direction` with featureId and
+the feature's `designRef`. This is bookkeeping, not a user decision: there is no prompt, and it
+records the scope-bound authority that later execution, checkpoint and recovery tools require.
+It refuses if the stored design differs. An existing matching record is reused, including
+after a new session. Preserve its returned reference for `design-record`. Never describe the
+record as something the user approved. It does not grant publishing or merging.
 
-End your reply there and wait; do not call `approve_feature_direction` or continue to §2 in the
-same turn. Only after the user has said yes to the design you just presented, call native
-`approve_feature_direction` with featureId and that design's exact `designRef`. There is no
-confirmation dialog: the user's yes in the conversation is the approval. The tool refuses if
-the stored design differs. Never call it before the user has read and accepted the presented
-design. The tool retains scope-bound authority; an existing matching approval is reused,
-including after a new session. Preserve its returned reference. Do not invent authority from
-a design note, transcript summary or issue status. Then continue with §2.
+`design-revise` is refused once the direction is recorded. The user reviews the finished design
+in Scaffold afterwards; changes that depart from the recorded direction go through the
+amendment/design-reopen procedures in `feature-delivery`, not by rewriting this design.
 
-An existing feature may use this tool to approve its retained overall direction
+An existing feature may use this tool to record its retained overall direction
 once. Prior per-issue approvals alone do not imply this broader delivery grant.
 
 ## 2. Design the issue graph downward
@@ -165,16 +158,25 @@ Scaffold validates structure and association, not authority or verification trut
 
 On successful `design-finish`, read `scaffold_tasks summary` and verify the
 persisted graph is in Implement phase, every required issue has a recorded
-design, and the original feature approval is retained and applicable. Return
-the feature ID, Linear source, branch/baseline, approved direction reference,
-issue counts and any unresolved blockers. A single root leaf is valid for a
-small ticket. This skill **never** calls `implement-task`, `execute_and_review`,
-`run_feature_checks`, starts an issue, edits application source or creates a
-checkpoint. If approval is declined, design remains incomplete, or state
-authentication is inconclusive, stop and report the exact phase/blocker.
+design, and the original feature direction record is retained and applicable. A
+single root leaf is valid for a small ticket. This skill **never** calls
+`implement-task`, `execute_and_review`, `run_feature_checks`, starts an issue, edits
+application source or creates a checkpoint. If the direction cannot be recorded, design
+remains incomplete, or state authentication is inconclusive, stop and report the exact
+phase/blocker.
 
-Approval is explicitly scoped to the described feature direction and possible
+### Present the design
+
+Your final reply presents the finished design in full so the user can review it (they can
+also explore it in Scaffold): feature ID, Linear source, branch/baseline, direction reference,
+objective and acceptance criteria, scope and non-goals, approach, the issue graph with each
+issue's objective, dependencies and verification, any **Agent-added constraints (not in the
+ticket)**, risks, unresolved blockers and issue counts. Say plainly that nothing was
+implemented, that no user approval was requested, and that the user can ask for changes.
+Mention that `feature-delivery` starts implementation.
+
+The recorded direction is scoped to the described feature direction and possible
 subsequent local implementation/checks/review/checkpoints. Initializing a feature
 does not itself grant publishing permission or initiate implementation. Retain
-the existing one-direction-approval semantics across sessions; do not ask the
+the existing one-direction record across sessions; do not ask the
 user to approve individual issue designs.

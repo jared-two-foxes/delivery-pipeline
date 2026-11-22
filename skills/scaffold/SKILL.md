@@ -217,7 +217,7 @@ receipt authentication, original obligations or invocation history.
 
 ## Single feature direction authority
 
-Use approve_feature_direction once after presenting the overall direction and local
+Use approve_feature_direction once, from `init-feature` straight after `init` (a recorded direction, not a user approval gate), to record the overall direction and local
 delivery scope. This is the sole confirmation; no separate conversational yes/no,
 per-issue design approval or implementation confirmation. All design-record approval
 strings must identify delegated authority and the actual reference, never claim the
