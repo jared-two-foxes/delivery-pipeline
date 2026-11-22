@@ -105,22 +105,19 @@ alteration changes them, so a dropped criterion stops being required; it is refu
 approved and yields a new `design_ref`), then present the revised design in
 full again. Repeat until the user says yes.
 
-**Stop here.** Do not call `approve_feature_direction` and do not continue to §2 yourself,
-however clearly the user seems to agree in chat. The approval is the user's own explicit
-invocation of `/from-design <featureId>` (the `from-design` skill), which calls the native
-`approve_feature_direction` with the stored `designRef` (it refuses if the stored design
-differs) and then runs §2 and §3 below. End your reply by telling the user the feature ID and
-that they can revise further or run `/from-design <featureId>` to approve and continue.
-The tool retains scope-bound authority; an existing matching approval is reused, including after
-a new session. Do not invent authority from a design note, transcript summary or issue status.
+End your reply there and wait; do not call `approve_feature_direction` or continue to §2 in the
+same turn. Only after the user has said yes to the design you just presented, call native
+`approve_feature_direction` with featureId and that design's exact `designRef`. There is no
+confirmation dialog: the user's yes in the conversation is the approval. The tool refuses if
+the stored design differs. Never call it before the user has read and accepted the presented
+design. The tool retains scope-bound authority; an existing matching approval is reused,
+including after a new session. Preserve its returned reference. Do not invent authority from
+a design note, transcript summary or issue status. Then continue with §2.
 
-An existing feature may use `from-design` to approve its retained overall direction
+An existing feature may use this tool to approve its retained overall direction
 once. Prior per-issue approvals alone do not imply this broader delivery grant.
 
 ## 2. Design the issue graph downward
-
-*(Run by `from-design` after the user's approval, not by an `init-feature` invocation that has
-only presented the direction.)*
 
 Conversational memory is not authoritative; authenticate persisted state and evidence.
 Use `summary`, then `design-select` for

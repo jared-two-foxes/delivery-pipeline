@@ -61,7 +61,7 @@ export function createExecuteAndReviewTools(Type) {
       name: "approve_feature_direction",
       label: "Approve feature direction",
       description:
-        "The single approval for this feature's direction and local delivery loop. Call it only from the user-invoked /from-design skill, after the user has read the presented design (alterations go through scaffold_tasks design-revise first). Pass that design's exact designRef; it refuses if the stored design differs. There is no confirmation dialog: the user's /from-design invocation is the approval. Persists authority for scoped design, implementation, checks, independent review, checkpoints and recovery across sessions. No per-issue confirmations. Does not authorize publishing, merging or changing the approved objectives/constraints.",
+        "The single approval for this feature's direction and local delivery loop. FIRST present the full design to the user in your reply and let them read it; they answer in chat with 'yes' or with alterations (apply alterations via scaffold_tasks design-revise and present again). Only after the user has said yes, call this tool with that design's exact designRef; it refuses if the stored design differs. There is no confirmation dialog: the user's yes in chat is the approval. Persists authority for scoped design, implementation, checks, independent review, checkpoints and recovery across sessions. No per-issue confirmations. Does not authorize publishing, merging or changing the approved objectives/constraints.",
       parameters: Type.Object(
         {
           featureId: Type.String(),
@@ -74,7 +74,7 @@ export function createExecuteAndReviewTools(Type) {
           params,
           { directory: host.cwd, abort: host.signal },
           {
-            // The user's /from-design invocation is the approval; no dialog.
+            // The user's yes in the conversation is the approval; no dialog.
             confirm: async () => true,
           },
         );
