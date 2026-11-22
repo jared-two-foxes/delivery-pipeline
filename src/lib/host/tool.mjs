@@ -3,10 +3,9 @@
 // A tool is `{ name, label?, description, parameters, execute(params, host) }`.
 //   parameters  a JSON Schema object (built with an injected TypeBox-style `Type`, so no host
 //               package is imported here)
-//   host        { cwd, signal?, onUpdate?, confirm(title, message) -> Promise<boolean> }
-//               `confirm` MUST resolve false (never throw or approve) when there is no human to ask.
-//   interactive optional. `true` when the tool needs a human through `host.confirm` (the approval tools).
-//               Pi keeps these native even when the rest are served over MCP: its MCP client cannot elicit.
+//   host        { cwd, signal?, onUpdate? }
+//               There is no dialog channel: approvals are given in chat and the approval tools say so in their
+//               descriptions (a dialog that never appears on some clients stalls the pipeline).
 //   execute     resolves to `toolResult(...)`: { content: [{type:"text", text}], isError, details }
 //
 // Nothing in this file or in a tool definition may import a host SDK. Hosts (Pi today, an MCP
@@ -50,13 +49,4 @@ export function withFailureReporting(tool, options = {}) {
     execute: (params, host) =>
       wrapped.execute(undefined, params, host.signal, host.onUpdate, { cwd: host.cwd, host }),
   };
-}
-
-/**
- * When an approval tool failed because `host.confirm` was refused, say why. Pi's host has no `confirmFailure`,
- * so this leaves its results untouched.
- */
-export function withApprovalReason(host, result) {
-  if (result?.ok !== false || !host?.confirmFailure) return result;
-  return { ...result, message: `${result.message} Reason: ${host.confirmFailure}.` };
 }

@@ -142,8 +142,8 @@ appending a forged entry, and it cannot detect removal of the newest whole entri
 
 ```
 skills/ + delivery-rules.md         guidance for Pi (text; no enforcement)
-pi/*/index.ts                Pi registration only: registerPiTools(pi, createXTools(Type))
-src/lib/host/pi.mjs          the one Pi adapter: Pi's execute(...) shape <-> the neutral host
+pi/delivery-mcp/index.ts     registers the MCP server with Pi
+src/lib/host/pi.mjs          the Pi seam: MCP server discovery and the guard's tool_call handler
 src/tools/*/tools.mjs       host-neutral tool definitions: schema + execute(params, host)
 src/tools/*/*.mjs           workflows: coordinate, perform lifecycle writes
 src/lib/host/tool.mjs      neutral tool contract, toolResult, failure-envelope wrapper
@@ -157,8 +157,7 @@ Rule (from `src/lib/README.md`): **`src/lib` never imports from `src/tools` or `
 Scaffold data and pass it in; libraries validate it.
 
 **Host neutrality.** A tool is `{ name, label, description, parameters, execute(params, host) }` with
-`host = { cwd, signal, onUpdate, confirm }` (`src/lib/host/tool.mjs`). `confirm` resolves `false`, never
-approves, when no human can be asked. No delivery tool uses it now: approvals are given in chat. No `.mjs` module may import a host SDK or touch `ctx.ui`; a test
+`host = { cwd, signal, onUpdate }` (`src/lib/host/tool.mjs`). There is no dialog channel: approvals are given in chat. No `.mjs` module may import a host SDK or touch `ctx.ui`; a test
 enforces this, so a second host (for example an MCP server) can load `tools.mjs` unchanged and write only
 its own adapter beside `src/lib/host/pi.mjs`. That second adapter now exists: `src/lib/host/mcp.mjs` plus the server in
 `mcp/` (see its README, including what it does not yet enforce). Pi uses that server as the only transport for its delivery tools (the `delivery-mcp` extension), approval tools included. Schemas are built with an injected TypeBox-style `Type`.

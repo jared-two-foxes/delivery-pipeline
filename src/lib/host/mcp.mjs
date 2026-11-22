@@ -3,11 +3,10 @@
 // Dependency-free on purpose: it neither imports the MCP SDK nor a JSON Schema validator. The server
 // (mcp/server.mjs) injects both, so this logic is unit-testable and the neutrality guard still holds.
 //
-// Two things Pi did for tools that an MCP server must do itself:
-//   1. Validate arguments against the tool's schema before `execute`. The MCP SDK's low-level server
-//      does not, and workflows rely on `additionalProperties: false` and required fields. `validate` is
-//      therefore mandatory, and an unvalidated call can never reach a tool.
-//   2. Answer `host.confirm`. It fails closed: no way to ask a human means `false`.
+// What Pi did for tools that an MCP server must do itself: validate arguments against the tool's schema
+// before `execute`. The MCP SDK's low-level server does not, and workflows rely on
+// `additionalProperties: false` and required fields. `validate` is therefore mandatory, and an
+// unvalidated call can never reach a tool.
 import { defineTool } from "./tool.mjs";
 
 /** MCP `tools/list` entries. `inputSchema` is the tool's JSON Schema as-is. */
@@ -38,39 +37,15 @@ const describeErrors = (errors) => {
  * @param tools     host-neutral tools
  * @param options.cwd       working directory every tool runs in
  * @param options.validate  (schema, value) => true | array of errors. Required.
- * @param options.confirm   (title, message) => Promise<boolean>. Optional; absent means "cannot ask a human".
  * @param options.heartbeatMs  progress heartbeat interval while a tool runs (only if the call supplies `progress`).
  */
-export function createMcpCaller(tools, { cwd, validate, confirm, heartbeatMs = 15000 } = {}) {
+export function createMcpCaller(tools, { cwd, validate, heartbeatMs = 15000 } = {}) {
   if (typeof validate !== "function") throw new TypeError("createMcpCaller requires a validate(schema, value) function");
   if (typeof cwd !== "string" || !cwd) throw new TypeError("createMcpCaller requires cwd");
   const byName = new Map(tools.map((tool) => [defineTool(tool).name, tool]));
   if (byName.size !== tools.length) throw new Error("Duplicate tool names");
 
-  const host = (signal) => {
-    const self = {
-      cwd,
-      signal,
-      // Why the last confirm was refused, for the tool to report. Never changes the outcome.
-      confirmFailure: undefined,
-      confirm: async (title, message) => {
-        self.confirmFailure = undefined;
-        if (!confirm) {
-          self.confirmFailure = "this host has no way to ask the user for approval";
-          return false;
-        }
-        try {
-          if ((await confirm(title, message)) === true) return true;
-          self.confirmFailure = "the user did not approve";
-        } catch (error) {
-          // A broken approval channel is a refusal, never an approval; keep the reason so it can be shown.
-          self.confirmFailure = error instanceof Error ? error.message : String(error);
-        }
-        return false;
-      },
-    };
-    return self;
-  };
+  const host = (signal) => ({ cwd, signal });
 
   // `progress(n, message)` is supplied only when the client asked for progress (it sent a progressToken).
   // While a tool runs we send a periodic heartbeat: clients such as Pi reset their request timeout on
