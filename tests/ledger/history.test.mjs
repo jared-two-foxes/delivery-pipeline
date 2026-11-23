@@ -41,10 +41,10 @@ async function fixture(t) {
     return response.data;
   };
   const init = () => call("init", { id: "F1", title: "Feature", objective: "Keep history honest",
-    design_ref: "sha256:context", context: "Approved design", acceptance_criteria: ["History matches"],
+    design_ref: "sha256:context", context: "Approved design", requirements: [{ id: "R1", text: "History matches" }],
     baseline: base, branch: "feature/ledger" });
   await init();
-  await call("decompose", [{ id: "a", title: "a", objective: "Do a", acceptance_criteria: ["a works"] }], "F1");
+  await call("decompose", [{ id: "a", title: "a", objective: "Do a", requirements: [{ id: "R1", roles: ["contribute", "verify"] }], acceptance_criteria: ["a works"] }], "F1");
   for (const [id, disposition] of [["F1", "decomposed"], ["a", "leaf"]])
     await call("design-record", { summary: "s", verification: "v", approval: "user", disposition }, id);
   await call("design-finish");

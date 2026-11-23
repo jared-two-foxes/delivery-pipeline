@@ -5,7 +5,7 @@
 
 All Scaffold features use the recursive issue graph (requires the matching
 Scaffold release). There is no opt-in field or alternate lifecycle. The stored
-workflow kind is `recursive-issues/v1`; the state schema is version 2. The root is created from the agreed
+workflow kind is `recursive-issues/v2`; the state schema is version 2. The root is created from the agreed
 ticket. Pi uses `design-select`, `decompose` and `design-record` to approve designs
 downward; `design-finish` gates all implementation. The API retains task IDs.
 `execute_and_review` requires an explicit started issue. For a first attempt (or a

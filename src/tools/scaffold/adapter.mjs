@@ -1,7 +1,7 @@
 // Scaffold CLI adapter owned by the Scaffold extension.
 import { lstat, readFile, realpath } from "node:fs/promises";
 import path from "node:path";
-import { validateRequest, validateResponse } from "../../lib/scaffold/contracts.mjs";
+import { scaffoldArguments, validateRequest, validateResponse } from "../../lib/scaffold/contracts.mjs";
 export { OPERATIONS } from "../../lib/scaffold/contracts.mjs";
 
 const text = x => typeof x === "string" && !!x.trim() && !x.includes("\0");
@@ -12,12 +12,7 @@ const guardedActions = new Set(["design-reopen", "issue-resume"]);
 
 /** @param {import("../../lib/scaffold/contracts.mjs").ScaffoldRequest} params */
 export function buildCommand(params) {
-  const { operation, feature_id, task_id, reason, payload } = validateRequest(params);
-  const args = [operation, "--feature=" + feature_id];
-  if (task_id !== undefined) args.push("--task=" + task_id);
-  if (reason !== undefined) args.push("--reason=" + reason);
-  if (payload !== undefined) args.push("--input", "-");
-  return { args, input: payload === undefined ? "" : JSON.stringify(payload) };
+  return scaffoldArguments(params);
 }
 export { invoke, scaffoldCliUsage, scaffoldCliUsageSince } from "../../lib/scaffold/process.mjs";
 import { invoke } from "../../lib/scaffold/process.mjs";
@@ -92,7 +87,7 @@ async function loadIssueFeature(repository, featureId, designRef, options) {
   );
   const feature = response.data.feature;
   requireValue(
-    feature.workflow.kind === "recursive-issues/v1" &&
+    feature.workflow.kind === "recursive-issues/v2" &&
       feature.design_ref === designRef,
     "Issue workflow/design mismatch",
   );
@@ -144,7 +139,7 @@ export async function scaffoldTasks(params, context = {}, options = {}) {
       const storedFeature = await scaffoldFeatureOrNull(repository, params.feature_id, options);
       if (storedFeature?.workflow) {
         requireValue(
-          storedFeature.workflow.kind === "recursive-issues/v1",
+          storedFeature.workflow.kind === "recursive-issues/v2",
           "Issue workflow/design mismatch",
         );
         const feature = storedFeature;

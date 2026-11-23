@@ -19,7 +19,7 @@ for a small, self-contained change. Be explicit when assumptions remain.
 ## Design output
 
 Provide a proportionate engineering contract describing:
-- Objective, acceptance criteria, scope and non-goals.
+- Objective, requirements (stable ids with text), acceptance criteria, scope and non-goals.
 - Existing interfaces and constraints to preserve.
 - Proposed components and ownership of responsibilities.
 - Inputs, outputs, interactions and important data contracts.
@@ -38,7 +38,10 @@ workflow without registering a Scaffold feature.
 
 When invoked within `init-feature` (or feature-level design recovery), design *one bounded selected
 issue* using its requirements, ancestor contracts and prerequisite context.
-Return a contract suitable for the delivery workflow to persist through
+Read the issue's scoped requirements (stable ids, text and roles) from `issue`/`design-select`
+rather than restating the feature definition. Say which requirements each proposed child
+contributes to or verifies, or justify it as supporting work, and name any requirement still
+without a contributor or verifier. Return a contract suitable for the delivery workflow to persist through
 `scaffold_tasks design-record`, including a concise summary, verification
 strategy, and whether to keep the issue as a leaf or decompose it. The caller
 owns feature approval, decomposition/persistence, `design-finish`, execution,

@@ -65,7 +65,7 @@ export function anchorDeliveryJournal(repository, task, journal, next, instanceI
 export function deliveryContractItems(feature, issue, task) {
   return [
     ["feature_objective", feature.objective],
-    ...feature.acceptance_criteria.map((v, i) => ["feature_criterion_" + i, v]),
+    ...feature.requirements.map((r) => ["feature_requirement_" + r.id, r.text]),
     ...(feature.constraints ?? []).map((v, i) => ["feature_constraint_" + i, v]),
     ...issue.acceptance_criteria.map((v, i) => ["issue_criterion_" + task.taskId + "_" + i, v]),
     ...(issue.constraints ?? []).map((v, i) => ["issue_constraint_" + task.taskId + "_" + i, v]),

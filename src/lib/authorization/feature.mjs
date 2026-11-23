@@ -77,9 +77,9 @@ function scopeFor(args, f, context) {
     );
   }
   requireValue(
-    f.workflow?.kind === "recursive-issues/v1",
+    f.workflow?.kind === "recursive-issues/v2",
     "Feature " + featureId + ": unsupported issue workflow " +
-      JSON.stringify(f.workflow?.kind ?? null) + "; expected recursive-issues/v1",
+      JSON.stringify(f.workflow?.kind ?? null) + "; expected recursive-issues/v2",
   );
   requireValue(
     !["main", "master", defaultBranch].includes(f.branch),
@@ -136,7 +136,7 @@ function scopeFor(args, f, context) {
     baseline: f.original_baseline,
     direction: approvedDesign(repository, f),
     objective: f.objective,
-    acceptanceCriteria: f.acceptance_criteria,
+    requirements: f.requirements,
     constraints: f.constraints ?? [],
     capabilities,
     scopeDigest: f.direction_scope,

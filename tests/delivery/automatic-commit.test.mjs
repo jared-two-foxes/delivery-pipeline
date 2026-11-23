@@ -122,7 +122,7 @@ async function fixture(t) {
       id: "F",
       title: "Automatic commit",
       objective: "Deliver a reviewed change",
-      acceptance_criteria: ["Source says after"],
+      requirements: [{ id: "R1", text: "Source says after" }],
       context: design,
       design_ref: designReference(design),
       baseline: base,

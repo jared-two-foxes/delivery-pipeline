@@ -37,9 +37,14 @@ available, ask the user to paste the ticket contents. Do not create, modify or c
 issues. Capture its identifier,
 URL, title, full description, acceptance criteria and relevant constraints
 verbatim in the original feature context. Preserve the ticket as source material:
-do not invent criteria, silently discard constraints or treat Linear status as
-authorization to modify code. Derive a concise engineering objective and
-testable acceptance criteria; explicitly report important ambiguity before approval.
+do not invent requirements, silently discard constraints or treat Linear status as
+authorization to modify code. Derive a concise engineering objective and extract the
+feature **requirements** as `[{id, text, source}]`: use the stable ids the source already
+gives (a checklist label such as `SA-585.AC1`, or the identifier plus a short stable slug
+such as `SA-585.scope-guard`), the text as the source states it, and the ticket item as
+`source`. For user-supplied requirements, agree ids with the user and use `source: "user"`.
+Ids are never list positions; add, split or drop requirements by id and never renumber.
+Explicitly report important ambiguity.
 
 Inspect the current Git repository root, full baseline commit, feature branch,
 working-tree/index status and repository-specific instructions. Verify the Linear
@@ -91,9 +96,14 @@ obligation you added yourself, say so and ask the user to override it with
 Write a concise overall design direction and the intended local delivery scope:
 design/decomposition, implementation, relevant checks and independent review,
 verified local commits, final build/test checks, and necessary issue/rebase recovery.
-Persist its exact text in feature context using `scaffold_tasks` `init`, immutable
-`design_ref: "sha256:context"`, original full Git baseline and feature branch.
-Scaffold creates the root issue.
+Persist its exact text in feature context using `scaffold_tasks` `init` with the
+requirements, immutable `design_ref: "sha256:context"`, original full Git baseline and
+feature branch. Scaffold creates the root issue and derives its criteria from the requirements.
+Before recording the direction, show the exact requirement set in chat (id, text, source for
+each). If anything is wrong or missing, correct it with `design-revise` (the full
+`requirements` set, ids unchanged where the requirement is unchanged) and show the revised set;
+this is only possible before `approve_feature_direction`. Do not wait for a reply unless
+ambiguity would change scope.
 
 **There is no approval gate.** Do not wait for the user between `init` and the end of the
 design. Immediately after `init`, call native `approve_feature_direction` with featureId and
@@ -132,6 +142,16 @@ Use focused `diff` blocks with changed portions marked when explaining decisions
 these are illustrative design excerpts, not executor input. Keep the implementation
 preview proportional to the issue and cover acceptance criteria and edge cases.
 
+Every issue is mapped to the requirements it serves. Give each child `requirements`
+links (`contribute` for leaves that implement a requirement, `verify` for issues that verify
+it; use both when one leaf does both) **or** a `requirements_rationale` justifying it as
+supporting work. Children claim only what their parent claims. Keep task-local
+`acceptance_criteria` as written; they do not replace requirements. Include an explicit
+verification role: a parent whose children contribute may carry the `verify` link for the
+integrated behaviour. After each `decompose` read the compact `coverage.unmapped` list (or
+query `requirements` with `{unmapped: true}`) and fix every gap, with no new user approval,
+before `design-finish`.
+
 Mandatory decomposition applies when the issue cannot be understood, implemented
 and independently verified in one bounded scope. Add immediate children with
 `decompose`; defer their internal details to their own design passes. Preserve
@@ -149,7 +169,10 @@ Never claim the user approved an individual issue if they did not. Add a parent'
 immediate children before recording its design. Reopened designs retain their
 history and invalidate affected unfinished designs, which the agent redesigns autonomously.
 
-Continue downward until every issue has a complete design, then `design-finish`.
+Continue downward until every issue has a complete design and every requirement has a
+contributor and an ordered verifier, then `design-finish`. If it refuses with
+"Design coverage incomplete", the message names each requirement id and missing role: add or
+re-link issues (`design-reopen` where needed) rather than weakening a requirement.
 No implementation may run before this entire graph design phase completes.
 Scaffold validates structure and association, not authority or verification truth.
 
@@ -169,8 +192,9 @@ phase/blocker.
 
 Your final reply presents the finished design in full so the user can review it (they can
 also explore it in Scaffold): feature ID, Linear source, branch/baseline, direction reference,
-objective and acceptance criteria, scope and non-goals, approach, the issue graph with each
-issue's objective, dependencies and verification, any **Agent-added constraints (not in the
+objective and requirements (id, text, source), scope and non-goals, approach, the issue graph with each
+issue's objective, dependencies, verification and requirement mapping (contributes/verifies,
+or its supporting-work rationale), any **Agent-added constraints (not in the
 ticket)**, risks, unresolved blockers and issue counts. Say plainly that nothing was
 implemented, that no user approval was requested, and that the user can ask for changes.
 Mention that `feature-delivery` starts implementation.

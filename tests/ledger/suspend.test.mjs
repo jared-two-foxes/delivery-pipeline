@@ -40,8 +40,8 @@ async function fixture(t) {
     return response.data;
   };
   await call("init", { id: "F1", title: "Feature", objective: "Park and restore", design_ref: "sha256:context",
-    context: "Approved design", acceptance_criteria: ["Restored"], baseline: base, branch: "feature/suspend" });
-  await call("decompose", [{ id: "a", title: "a", objective: "Do a", acceptance_criteria: ["a works"] }], "F1");
+    context: "Approved design", requirements: [{ id: "R1", text: "Restored" }], baseline: base, branch: "feature/suspend" });
+  await call("decompose", [{ id: "a", title: "a", objective: "Do a", requirements: [{ id: "R1", roles: ["contribute", "verify"] }], acceptance_criteria: ["a works"] }], "F1");
   const design = (id, disposition) => call("design-record", { summary: "s", verification: "v", approval: "user", disposition }, id);
   await design("F1", "decomposed");
   await design("a", "leaf");
@@ -72,7 +72,7 @@ test("an active issue with no attempts is parked, redesigned and restored on the
   assert.equal((await readEvidence(f.dir, parked.suspensionRef)).kind, "issue-suspension");
 
   // Design continues in the same graph, then implementation resumes.
-  await f.call("decompose", [{ id: "fix", title: "fix", objective: "Do the prerequisite", acceptance_criteria: ["fix works"] }], "F1");
+  await f.call("decompose", [{ id: "fix", title: "fix", objective: "Do the prerequisite", requirements: [{ id: "R1", roles: ["contribute", "verify"] }], acceptance_criteria: ["fix works"] }], "F1");
   await f.design("F1", "decomposed");
   await f.design("fix", "leaf");
   await f.design("a", "leaf");

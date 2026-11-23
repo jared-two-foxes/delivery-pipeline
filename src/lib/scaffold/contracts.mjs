@@ -29,6 +29,7 @@ export const OPERATIONS = [
   "failure-record",
   "artifact-put",
   "artifact-get",
+  "requirements",
 ];
 const taskActions = new Set([
   "attempt-record",
@@ -97,17 +98,55 @@ function validateDesign(feature) {
     "Approved design digest mismatch; recover original design before continuing",
   );
 }
+export const REQUIREMENT_ROLES = ["contribute", "verify"];
+const REQUIREMENT_ID = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+const NO_CRITERIA =
+  "Feature acceptance_criteria no longer exist: supply stable requirements [{id, text, source?}] " +
+  "(ids come from the ticket or the user, never from list position)";
+/** Canonical feature requirements: [{id, text, source?}] with stable, unique, author-chosen ids. */
+export function validateRequirements(items) {
+  requireValue(Array.isArray(items) && items.length > 0, "requirements must be a nonempty array of {id, text, source?}");
+  const seen = new Set();
+  items.forEach((r, i) => {
+    const where = "requirements[" + i + "]";
+    requireValue(object(r) && Object.keys(r).every((k) => ["id", "text", "source"].includes(k)),
+      where + " must be an object with only id, text and source");
+    requireValue(typeof r.id === "string" && REQUIREMENT_ID.test(r.id),
+      where + ".id must match [A-Za-z0-9][A-Za-z0-9._-]* (a stable id such as the ticket's own, not a position)");
+    requireValue(text(r.text), where + ".text must be a nonempty string");
+    requireValue(r.source === undefined || text(r.source), where + ".source must be a nonempty string when present");
+    requireValue(!seen.has(r.id), "Duplicate requirement id: " + r.id);
+    seen.add(r.id);
+  });
+}
+/** Links from an issue to feature requirements: [{id, roles: ["contribute"|"verify"]}]. */
+export function validateRequirementLinks(links, where = "requirements") {
+  requireValue(Array.isArray(links) && links.length > 0, where + " must be a nonempty array of {id, roles}");
+  const seen = new Set();
+  links.forEach((l, i) => {
+    const at = where + "[" + i + "]";
+    requireValue(object(l) && Object.keys(l).length === 2 && "id" in l && "roles" in l,
+      at + " must be an object with exactly id and roles");
+    requireValue(text(l.id), at + ".id must be a nonempty requirement id");
+    requireValue(Array.isArray(l.roles) && l.roles.length > 0 && new Set(l.roles).size === l.roles.length &&
+      l.roles.every((r) => REQUIREMENT_ROLES.includes(r)),
+      at + ".roles must be a nonempty unique list of: " + REQUIREMENT_ROLES.join(", "));
+    requireValue(!seen.has(l.id), "Duplicate requirement link: " + l.id);
+    seen.add(l.id);
+  });
+}
 function definition(value, feature = false) {
+  requireValue(!(feature && object(value) && "acceptance_criteria" in value), NO_CRITERIA);
   fields(value, [
     "id",
     "title",
     "objective",
-    "acceptance_criteria",
+    ...(feature ? ["requirements"] : ["acceptance_criteria"]),
     "context",
     "constraints",
     ...(feature
       ? ["design_ref", "baseline", "branch"]
-      : ["dependencies", "origin"]),
+      : ["dependencies", "origin", "requirements", "requirements_rationale"]),
   ]);
   requireValue(
     ["id", "title", "objective", ...(feature ? ["design_ref"] : [])].every(
@@ -115,10 +154,12 @@ function definition(value, feature = false) {
     ),
     "Definition requires nonempty id, title, objective and (for features) design_ref",
   );
-  requireValue(
-    strings(value.acceptance_criteria) && value.acceptance_criteria.length > 0,
-    "acceptance_criteria must be a nonempty string array",
-  );
+  if (feature) validateRequirements(value.requirements);
+  else
+    requireValue(
+      strings(value.acceptance_criteria) && value.acceptance_criteria.length > 0,
+      "Task-local acceptance_criteria must be a nonempty string array (they are preserved as written)",
+    );
   requireValue(
     value.context === undefined || typeof value.context === "string",
     "context must be a string",
@@ -132,6 +173,18 @@ function definition(value, feature = false) {
       /^[a-f0-9]{40}$/.test(value.baseline) && text(value.branch),
       "Issue workflow requires full baseline and feature branch",
     );
+  if (!feature) {
+    // Every task says what it serves: requirement links with roles, or why it is supporting work.
+    const linked = value.requirements !== undefined;
+    const rationale = value.requirements_rationale !== undefined;
+    requireValue(
+      linked !== rationale,
+      "Task " + value.id + " needs exactly one of requirements [{id, roles}] (what it contributes to or verifies) " +
+        "or requirements_rationale (why it is supporting work with no requirement)",
+    );
+    if (linked) validateRequirementLinks(value.requirements, "Task " + value.id + " requirements");
+    else requireValue(text(value.requirements_rationale), "requirements_rationale must be a nonempty string");
+  }
   if (!feature && value.origin !== undefined) {
     fields(value.origin, ["kind", "reference"]);
     requireValue(
@@ -149,7 +202,6 @@ function definition(value, feature = false) {
     );
 }
 
-
 export function validateRequest(params) {
   fields(params, ["operation", "feature_id", "task_id", "payload", "reason"]);
   const { operation, feature_id, task_id, reason } = params;
@@ -162,14 +214,12 @@ export function validateRequest(params) {
   // Pre-approval revision of the feature design; Scaffold refuses it once the direction is approved.
   if (operation === "design-revise") {
     requireValue(object(payload) && text(payload.context), "design-revise requires the full revised design context");
-    // Requirements travel with the context so a criterion dropped from the design stops being mandatory.
-    fields(payload, ["context", "design_ref", "title", "objective", "acceptance_criteria", "constraints"]);
+    // Requirements are replaced whole by stable id; unchanged ids keep identity, nothing is renumbered.
+    requireValue(!("acceptance_criteria" in payload), NO_CRITERIA);
+    fields(payload, ["context", "design_ref", "title", "objective", "requirements", "constraints"]);
     for (const field of ["title", "objective"])
       requireValue(payload[field] === undefined || text(payload[field]), field + " must be a nonempty string");
-    requireValue(
-      payload.acceptance_criteria === undefined || (strings(payload.acceptance_criteria) && payload.acceptance_criteria.length > 0),
-      "acceptance_criteria must be a nonempty string array",
-    );
+    if (payload.requirements !== undefined) validateRequirements(payload.requirements);
     requireValue(payload.constraints === undefined || strings(payload.constraints), "constraints must be a string array");
     payload = { ...payload, design_ref: designReference(payload.context) };
   }
@@ -188,7 +238,7 @@ export function validateRequest(params) {
     "reason is required only for block/fail/retry",
   );
   requireValue(
-    inputActions.has(operation) ? payload !== undefined : payload === undefined,
+    operation === "requirements" ? true : inputActions.has(operation) ? payload !== undefined : payload === undefined,
     "payload is required only for init/add/complete/decompose",
   );
   if (operation === "init") {
@@ -279,6 +329,14 @@ export function validateRequest(params) {
         Array.isArray(payload.history) && isReference(payload.verification),
       "Invalid history rewrite",
     );
+  } else if (operation === "requirements") {
+    requireValue(
+      payload === undefined ||
+        (object(payload) && Object.keys(payload).every((k) => ["ids", "unmapped"].includes(k)) &&
+          (payload.ids === undefined || (strings(payload.ids) && payload.ids.length > 0)) &&
+          (payload.unmapped === undefined || typeof payload.unmapped === "boolean")),
+      "requirements accepts only {ids?: requirement ids, unmapped?: boolean}",
+    );
   } else if (operation === "artifact-put") {
     requireValue(object(payload), "Artifact must be a JSON object");
   } else if (operation === "artifact-get") {
@@ -302,6 +360,20 @@ export function validateRequest(params) {
     );
   }
   return { ...params, payload };
+}
+/** CLI arguments and stdin for a validated request; `requirements` is a flag-based query. */
+export function scaffoldArguments(params) {
+  const { operation, feature_id, task_id, reason, payload } = validateRequest(params);
+  const args = [operation, "--feature=" + feature_id];
+  if (task_id !== undefined) args.push("--task=" + task_id);
+  if (reason !== undefined) args.push("--reason=" + reason);
+  if (operation === "requirements") {
+    for (const id of payload?.ids ?? []) args.push("--requirement=" + id);
+    if (payload?.unmapped) args.push("--unmapped");
+    return { args, input: "" };
+  }
+  if (payload !== undefined) args.push("--input", "-");
+  return { args, input: payload === undefined ? "" : JSON.stringify(payload) };
 }
 function validateTask(task, featureId, taskId) {
   requireValue(
@@ -328,6 +400,7 @@ function validateContract(t) {
       statuses.has(t.status),
     "Invalid issue contract",
   );
+  if (t.requirements !== undefined) validateRequirementLinks(t.requirements, "Issue " + t.id + " requirements");
   if (t.design) {
     const { reference, ...body } = t.design;
     const canonical = JSON.stringify(
@@ -354,6 +427,19 @@ export function validateResponse(data, params) {
     requireValue(object(data.artifact), "Invalid artifact response");
     return;
   }
+  if (params.operation === "requirements") {
+    requireValue(
+      data.schema === "scaffold.requirements/v1" && object(data.feature) && data.feature.id === params.feature_id &&
+        object(data.coverage) && Array.isArray(data.coverage.problems) && object(data.counts) &&
+        Array.isArray(data.requirements),
+      "Invalid scaffold.requirements/v1 response",
+    );
+    for (const r of data.requirements)
+      requireValue(object(r) && text(r.id) && text(r.text) && Array.isArray(r.missing) &&
+        Array.isArray(r.contributors) && Array.isArray(r.verifiers),
+        "Invalid requirement record");
+    return;
+  }
   if (
     ["summary", "issue", "select", "design-select"].includes(params.operation)
   ) {
@@ -367,7 +453,8 @@ export function validateResponse(data, params) {
         /^[a-f0-9]{64}$/.test(v.state_digest) &&
         /^[a-f0-9]{40}$/.test(v.baseline) &&
         text(v.branch) &&
-        object(v.counts),
+        object(v.counts) &&
+        object(v.coverage) && Array.isArray(v.coverage.problems) && object(v.requirements),
       "Invalid scoped feature summary",
     );
     if (params.operation !== "summary") {
@@ -382,9 +469,10 @@ export function validateResponse(data, params) {
             (params.operation !== "issue" || c.issue.id === params.task_id) &&
             strings(c.issue.acceptance_criteria) &&
             statuses.has(c.issue.status) &&
-            ["ancestors", "prerequisites", "children"].every((k) =>
+            ["ancestors", "prerequisites", "children", "requirements"].every((k) =>
               Array.isArray(c[k]),
-            ),
+            ) &&
+            c.requirements.every((r) => object(r) && text(r.id) && text(r.text) && Array.isArray(r.roles)),
           "Invalid scoped issue context",
         );
         [c.issue, ...c.ancestors, ...c.prerequisites, ...c.children].forEach(
@@ -421,6 +509,7 @@ export function validateResponse(data, params) {
       "Invalid feature response or feature identity mismatch",
     );
     validateDesign(data.feature);
+    validateRequirements(data.feature.requirements);
     requireValue(
       object(data.feature.workflow),
       "Recursive issue graph required",
@@ -430,7 +519,7 @@ export function validateResponse(data, params) {
         data.schema_version === 3 &&
           /^[a-f0-9]{64}$/.test(data.feature.direction_scope) &&
           isCommit(data.feature.head) && isCommit(data.feature.base) && Array.isArray(data.feature.history) &&
-          data.feature.workflow.kind === "recursive-issues/v1" &&
+          data.feature.workflow.kind === "recursive-issues/v2" &&
           ["design", "implement"].includes(data.feature.workflow.phase) &&
           data.feature.tasks[data.feature.workflow.root_id] &&
           data.feature.original_baseline === data.feature.baseline &&

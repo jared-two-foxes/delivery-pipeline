@@ -72,7 +72,7 @@ async function fixture(t) {
       id: "F",
       title: "Ticket",
       objective: "Preserve behavior",
-      acceptance_criteria: ["Behavior works"],
+      requirements: [{ id: "R1", text: "Behavior works" }],
       design_ref: designRef,
       context: "User ticket: preserve behavior. Baseline " + base,
       baseline: base,
@@ -97,6 +97,7 @@ async function fixture(t) {
         title: id,
         objective: "Deliver " + id,
         acceptance_criteria: ["Verified " + id],
+        requirements: [{ id: "R1", roles: ["contribute", "verify"] }],
         dependencies: [],
         context: "Verification: focused regression",
         origin: { kind: "design", reference: "F" },
@@ -260,6 +261,7 @@ test(
           title: "leaf",
           objective: "Deliver leaf",
           acceptance_criteria: criteria,
+          requirements: [{ id: "R1", roles: ["contribute", "verify"] }],
           constraints,
           dependencies: [],
           context: "Focused check",
@@ -722,6 +724,7 @@ const obligation_assessments=[...new Set(obligations.map(o=>o.id))].map(id=>({ob
           title: "Integration correction",
           objective: "Handle edge case",
           acceptance_criteria: ["Edge case handled"],
+          requirements_rationale: "Supporting correction found in review",
           dependencies: ["F"],
           context: "Verification: regression",
           origin: { kind: "review", reference: failed.evidenceRef },
@@ -1140,7 +1143,7 @@ test(
     const restored = await f.call("init", {
       payload: {
         id: "F", title: "Ticket", objective: "Preserve behavior",
-        acceptance_criteria: ["Behavior works"], design_ref: original.design_ref,
+        requirements: [{ id: "R1", text: "Behavior works" }], design_ref: original.design_ref,
         context: original.context, baseline: f.base, branch: "feature/issues",
       },
     });

@@ -22,9 +22,10 @@ export async function ledgerFeature(dir, {
   };
   const children = tasks ?? [{ id: taskId }];
   await call("init", { id: featureId, title: "Feature", objective, design_ref: "sha256:context",
-    context: designContext, acceptance_criteria: criteria, baseline, branch });
+    context: designContext, requirements: criteria.map((text, i) => ({ id: "R" + (i + 1), text })), baseline, branch });
   await call("decompose", children.map(c => ({ title: c.id, objective: "Do " + c.id,
-    acceptance_criteria: [c.id + " works"], constraints: [], ...c })), featureId);
+    acceptance_criteria: [c.id + " works"], constraints: [],
+    requirements: criteria.map((_, i) => ({ id: "R" + (i + 1), roles: ["contribute", "verify"] })), ...c })), featureId);
   const design = (id, disposition) => call("design-record",
     { summary: "Approved contract " + id, verification: "Checks", approval: "Fixture user confirmed", disposition }, id);
   await design(featureId, "decomposed");

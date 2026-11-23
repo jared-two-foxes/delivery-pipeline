@@ -150,8 +150,8 @@ export function approvedDesign(repository, feature) {
 export function featureRequirements(feature, design) {
   return (
     design +
-    "\n\nOriginal feature acceptance criteria:\n" +
-    feature.acceptance_criteria.map((c) => "- " + c).join("\n") +
+    "\n\nOriginal feature requirements (stable ids):\n" +
+    feature.requirements.map((r) => "- [" + r.id + "] " + r.text + (r.source ? " (" + r.source + ")" : "")).join("\n") +
     "\n\nConstraints:\n" +
     (feature.constraints ?? []).join("\n") +
     ("\n\nApproved issue designs and contracts:\n" +

@@ -26,7 +26,7 @@ test("a user can override a recorded constraint before the first attempt", { ski
   let design = { summary: "Design A" };
   const feature = () => ({
     objective: "Ship it",
-    acceptance_criteria: ["Works"],
+    requirements: [{ id: "R1", text: "Works" }],
     constraints: [],
     tasks: { T: { acceptance_criteria: ["Issue works"], constraints: ["Resolve SA-588 final validation first"], attempts, delivery, designs: [design] } },
   });

@@ -146,7 +146,7 @@ test("pre-instance delivery journal can continue without a silent anchor migrati
 
 test("contract item identities preserve their persisted hashes", () => {
   const items = deliveryContractItems(
-    { objective: "Objective", acceptance_criteria: ["Feature works"], constraints: ["Preserve errors"] },
+    { objective: "Objective", requirements: [{ id: "R1", text: "Feature works" }], constraints: ["Preserve errors"] },
     { acceptance_criteria: ["Issue works"], constraints: ["No reset"] },
     { taskId: "T" },
   );

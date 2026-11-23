@@ -98,7 +98,7 @@ export async function prepareDelivery(repository, feature, issue, args, options 
     original: issueRequirements(issue, args.requirements ?? "") +
       "\nFeature contract: " + JSON.stringify({
         objective: feature.objective,
-        criteria: feature.acceptance_criteria,
+        requirements: feature.requirements,
         constraints: feature.constraints,
       }),
     design: structuredClone(issue.designs.at(-1)),
