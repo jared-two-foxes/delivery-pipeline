@@ -16,7 +16,7 @@ import { readEvidence, retainEvidence } from "../../lib/evidence/store.mjs";
 import { stripInternalReviewArgs, withReviewCheckpoint } from "../../lib/review/checkpoint.mjs";
 import { retainAttempt } from "../../lib/evidence/attempts.mjs";
 import { ensureWorkDirectory } from "../../lib/git/workspace.mjs";
-import { verifiedResult } from "../../lib/verification/result.mjs";
+import { verificationFailure } from "../../lib/verification/result.mjs";
 import { taskHasNoDelta } from "../../lib/verification/no-delta.mjs";
 import {
   readTaskHandoff,
@@ -704,17 +704,16 @@ export async function executeAndReview(args, context = {}, options = {}) {
       },
     });
     const after = await snapshot(repository);
-    if (
-      result.status === "PASSED" &&
-      !verifiedResult(result, args, {
-        noDelta: taskHasNoDelta(repository, args.baseRef, after.tree),
-      })
-    ) {
+    const unmet = result.status === "PASSED"
+      ? verificationFailure(result, args, { noDelta: taskHasNoDelta(repository, args.baseRef, after.tree) })
+      : null;
+    if (unmet !== null) {
       result = outcome("BLOCKED", "EVIDENCE", {
         repository,
         reason: "INCOMPLETE_VERIFICATION",
         message:
-          "PASSED lacks successful execution, requested verification checks or an APPROVED independent review",
+          "PASSED lacks successful execution, requested verification checks, an APPROVED independent review " +
+          "or the required assessments: " + unmet,
         conductor: result.conductor,
       });
     }

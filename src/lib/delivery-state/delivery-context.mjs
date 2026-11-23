@@ -3,6 +3,13 @@ import { isDeepStrictEqual as equal } from "node:util";
 import { hash } from "./context-digest.mjs";
 import { verificationChecks, meaningfulChecks, meaningfulTestEvaluator } from "../verification/checks.mjs";
 import { git } from "../git/tree.mjs";
+import {
+  requirementObligationId,
+  requirementBinding,
+  isRequirementObligationId,
+  requiredRequirements,
+  deferredRequirements,
+} from "../verification/requirements.mjs";
 const requireValue = (ok, message) => {
   if (!ok) throw new Error(message);
 };
@@ -66,18 +73,64 @@ export function anchorDeliveryJournal(repository, task, journal, next, instanceI
  * Contract items for one task. `requirements` is Scaffold's task-scoped requirement output
  * (`issue` context: stable id, text and this task's roles), never the whole feature definition,
  * so a task is bound only to the requirements it contributes to or verifies.
+ *
+ * A canonical requirement keeps Scaffold's own id (`requirement:<id>`), never a position or a digest of
+ * its text, so the same requirement has the same id in every task, attempt, review and evidence record.
+ * Task-local criteria and constraints stay separate, content-addressed items under their own prefixes.
  */
 export function deliveryContractItems(feature, issue, task, requirements) {
   if (!Array.isArray(requirements))
     throw new Error("TASK_CONTEXT_INVALID: task-scoped requirements from Scaffold are required");
+  const ids = new Set();
+  for (const r of requirements) {
+    if (typeof r?.id !== "string" || !r.id || ids.has(r.id) || typeof r.text !== "string" || !Array.isArray(r.roles))
+      throw new Error("TASK_CONTEXT_INVALID: scoped requirements need unique stable ids, text and roles");
+    ids.add(r.id);
+  }
+  const item = (kind, value) => ({ id: kind + "-" + hash(value).slice(0, 16), text: value });
   return [
-    ["feature_objective", feature.objective],
-    ...requirements.map((r) => ["feature_requirement_" + r.id, r.text, { roles: [...r.roles] }]),
-    ...(feature.constraints ?? []).map((v, i) => ["feature_constraint_" + i, v]),
-    ...issue.acceptance_criteria.map((v, i) => ["issue_criterion_" + task.taskId + "_" + i, v]),
-    ...(issue.constraints ?? []).map((v, i) => ["issue_constraint_" + task.taskId + "_" + i, v]),
-  ].map(([kind, value, extra]) => ({ id: kind + "-" + hash(value).slice(0, 16), text: value, ...extra }));
+    item("feature_objective", feature.objective),
+    ...requirementContractItems(requirements),
+    ...(feature.constraints ?? []).map((v, i) => item("feature_constraint_" + i, v)),
+    ...issue.acceptance_criteria.map((v, i) => item("issue_criterion_" + task.taskId + "_" + i, v)),
+    ...(issue.constraints ?? []).map((v, i) => item("issue_constraint_" + task.taskId + "_" + i, v)),
+  ];
 }
+
+/**
+ * Requirement contract items from Scaffold's scoped output. With the contributor and verifier sets each item
+ * also carries Scaffold's evidence `binding`, so the review is tied to the exact mapping it assessed.
+ */
+export function requirementContractItems(requirements) {
+  return requirements.map((r) => ({
+    id: requirementObligationId(r.id), requirement: r.id, text: r.text, roles: [...r.roles],
+    ...(Array.isArray(r.contributors) && Array.isArray(r.verifiers) ? { binding: requirementBinding(r.id, r) } : {}),
+  }));
+}
+
+/**
+ * Replace the requirement items of a persisted context with Scaffold's current ones. Requirements are
+ * Scaffold's, not part of the original contract, so a mapping, role or text change after an approved
+ * redesign must reach the next review. The change is retained as an update; original text, other items,
+ * obligations and history are untouched. Returns the context unchanged when nothing differs.
+ */
+export function refreshRequirementItems(context, requirements) {
+  const next = requirementContractItems(requirements);
+  const previous = context.contractItems.filter((i) => typeof i.requirement === "string");
+  if (equal(previous, next)) return context;
+  const others = context.contractItems.filter((i) => typeof i.requirement !== "string");
+  const refreshed = structuredClone(context);
+  refreshed.contractItems = [...others.slice(0, 1), ...next, ...others.slice(1)];
+  refreshed.updates.push({
+    kind: "revise_requirements",
+    text: JSON.stringify(next.map(({ requirement, text, roles, binding }) => ({ requirement, text, roles, binding }))),
+    reason: "Scaffold's requirement mapping for this task changed; previous items remain in history",
+  });
+  return refreshed;
+}
+
+// Obligation ids the pipeline itself generates; a caller-chosen id may never use them.
+export const RESERVED_OBLIGATION_PREFIXES = ["requirement:", "finding-", "check-", "amendment-"];
 
 export function updateContext(
   current,
@@ -128,6 +181,15 @@ export function updateContext(
         text(id) && !context.obligations.some((o) => o.id === id),
         "Duplicate obligation identity",
       );
+      // A discovered obligation is a separate, dynamic duty: it may never reuse or shadow a canonical
+      // requirement or an original contract item, whose identity and text belong to Scaffold, nor claim an
+      // id in a namespace the pipeline generates (review findings, failed checks, amendments).
+      requireValue(
+        !isRequirementObligationId(id) && !(context.contractItems ?? []).some((i) => i.id === id) &&
+          (raw.id === undefined || !RESERVED_OBLIGATION_PREFIXES.some((p) => id.startsWith(p))),
+        "Obligation id collides with a canonical requirement, an original contract item or a reserved " +
+          "namespace (" + RESERVED_OBLIGATION_PREFIXES.join(", ") + "); omit id or choose another",
+      );
       context.obligations.push({
         id,
         text: raw.text,
@@ -151,9 +213,15 @@ export function updateContext(
         "Amendment already applied",
       );
       const amendment = approved.get(raw.reference);
+      requireValue(
+        !amendment.ids.some(isRequirementObligationId),
+        "Canonical feature requirements cannot be amended by a delivery amendment; change the feature design",
+      );
+      const amendmentId = "amendment-" + hash(raw.reference).slice(0, 24);
+      requireValue(!context.obligations.some((o) => o.id === amendmentId), "Duplicate obligation identity: " + amendmentId);
       context.amendments.push(amendment);
       context.obligations.push({
-        id: "amendment-" + hash(raw.reference).slice(0, 24),
+        id: amendmentId,
         text: amendment.replacement,
         source: raw.reference,
         status: "open",
@@ -208,6 +276,8 @@ export function renderContext(c) {
       design: c.design,
       verification: c.verification,
       contractItems: c.contractItems,
+      requirements: requiredRequirements(c).map(({ id, text, roles }) => ({ id, text, roles })),
+      deferredRequirements: deferredRequirements(c).map(({ id }) => id),
       approvedAmendments: c.amendments,
       updates: c.updates,
       obligations: c.obligations,
@@ -215,7 +285,16 @@ export function renderContext(c) {
     CONTEXT_JSON_SUFFIX +
     "\nIndependent Review must explicitly assess each open obligation using obligation_assessments " +
     "[{obligation_id, disposition: verified|unresolved|not_applicable, evidence}]. " +
-    "Agent claims are not verification. Explain coverage equivalence of command repairs; reject zero-test selection."
+    "Agent claims are not verification. Explain coverage equivalence of command repairs; reject zero-test selection." +
+    (requiredRequirements(c).length
+      ? "\nThis task holds canonical feature requirements (`requirements`, with its contribute/verify roles). Assess EACH " +
+        "requirement id in obligation_assessments with disposition `verified` and concrete evidence from this change; " +
+        "`not_applicable` cannot waive required work and any other disposition blocks completion."
+      : "") +
+    (deferredRequirements(c).length
+      ? "\nRequirements in `deferredRequirements` are assigned to other tasks: they are context only, this task neither " +
+        "satisfies nor waives them."
+      : "")
   );
 }
 

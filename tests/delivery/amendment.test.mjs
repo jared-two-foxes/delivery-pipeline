@@ -50,7 +50,7 @@ test("a user can override a recorded constraint before the first attempt", { ski
       issueFeature: async () => feature(),
       // The issue query is Scaffold's task-scoped requirement output.
       scaffoldTasks: async (params) => params.operation === "issue"
-        ? { ok: true, data: { context: { requirements: [{ id: "R1", text: "Works", roles: ["contribute", "verify"] }] } } }
+        ? { ok: true, data: { context: { requirements: [{ id: "R1", text: "Works", roles: ["contribute", "verify"], contributors: ["T"], verifiers: ["T"] }] } } }
         : { ok: true, data: { feature: feature() } },
     },
   });

@@ -70,7 +70,7 @@ export function stallDecision(records, args) {
     typeof u.text === 'string' && u.text.trim());
   const alreadyProbed = records.some(r => r.args.contextUpdates?.some(u => u.kind === 'diagnose' && u.signature === last.signature));
   if (diagnosis && !alreadyProbed && (JSON.parse(args.input).operations.length ||
-      args.contextUpdates.some(u => ['repair_check', 'revise_design'].includes(u.kind)))) return null;
+      args.contextUpdates.some(u => ['repair_check', 'revise_design', 'revise_requirements'].includes(u.kind)))) return null;
   return { reason: 'DIAGNOSIS_REQUIRED', signature: last.signature, observations,
     message: 'Equivalent unresolved failures or recurring source states; record a concrete diagnosis and changed correction/plan. History and source are retained.' };
 }

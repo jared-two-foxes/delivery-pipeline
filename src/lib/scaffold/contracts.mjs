@@ -30,9 +30,13 @@ export const OPERATIONS = [
   "artifact-put",
   "artifact-get",
   "requirements",
+  "evidence-record",
+  "evidence-equivalence",
 ];
 const taskActions = new Set([
   "attempt-record",
+  "evidence-record",
+  "evidence-equivalence",
   "delivery-record",
   "issue",
   "start",
@@ -47,6 +51,8 @@ const taskActions = new Set([
 ]);
 const inputActions = new Set([
   "design-revise",
+  "evidence-record",
+  "evidence-equivalence",
   "failure-record",
   "direction-approve",
   "attempt-record",
@@ -316,6 +322,24 @@ export function validateRequest(params) {
         isReference(payload.receipt) && isCommit(payload.base) && isCommit(payload.tree),
       "Invalid attempt record",
     );
+  } else if (operation === "evidence-record") {
+    fields(payload, ["feature_id", "instance_id", "requirement", "role", "result", "basis", "receipt", "tree",
+      "binding", "design", "reference"]);
+    requireValue(
+      payload.feature_id === feature_id && text(payload.instance_id) && text(payload.requirement) &&
+        REQUIREMENT_ROLES.includes(payload.role) && payload.result === "PASSED" &&
+        ["checks", "independent-review"].includes(payload.basis) &&
+        isReference(payload.receipt) && isReference(payload.reference) && isCommit(payload.tree) &&
+        /^[a-f0-9]{64}$/.test(payload.binding) && isReference(payload.design),
+      "Invalid requirement evidence association",
+    );
+  } else if (operation === "evidence-equivalence") {
+    fields(payload, ["requirement", "role", "receipt", "tree", "reference"]);
+    requireValue(
+      text(payload.requirement) && REQUIREMENT_ROLES.includes(payload.role) &&
+        isReference(payload.receipt) && isCommit(payload.tree) && isReference(payload.reference),
+      "Invalid requirement evidence equivalence",
+    );
   } else if (operation === "history-foreign") {
     fields(payload, ["from", "to", "source", "commits", "approval"]);
     requireValue(
@@ -478,7 +502,8 @@ export function validateResponse(data, params) {
             ["ancestors", "prerequisites", "children", "requirements"].every((k) =>
               Array.isArray(c[k]),
             ) &&
-            c.requirements.every((r) => object(r) && text(r.id) && text(r.text) && Array.isArray(r.roles)),
+            c.requirements.every((r) => object(r) && text(r.id) && text(r.text) && Array.isArray(r.roles) &&
+              strings(r.contributors) && strings(r.verifiers)),
           "Invalid scoped issue context",
         );
         [c.issue, ...c.ancestors, ...c.prerequisites, ...c.children].forEach(
@@ -506,6 +531,8 @@ export function validateResponse(data, params) {
     "history-foreign",
     "history-rewrite",
     "failure-record",
+    "evidence-record",
+    "evidence-equivalence",
   ].includes(params.operation);
   if (needsFeature) {
     requireValue(

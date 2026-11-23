@@ -687,13 +687,23 @@ export async function runPipeline(meta, feature, context, options = {}) {
       });
       // If the final command failed before sealing evidence, never infer approval
       // merely from a passed prefix. Its source/receipt gate must also succeed.
-      if (outcome.status === "PASSED")
+      if (outcome.status === "PASSED") {
+        // Name the gate's own reason (for example a requirement the review did not verify) when the same
+        // verification rule the commit stage applies explains the refusal; otherwise report the runner error.
+        let unmet = null;
+        try {
+          unmet = verificationFailure(outcome, plan.args, {
+            noDelta: taskHasNoDelta(plan.repository, plan.args.baseRef, (await snapshot(plan.repository)).tree),
+          });
+        } catch {}
         outcome = result("BLOCKED", "EVIDENCE", {
           reason: "COMMIT_GATE_FAILED",
-          message:
-            runner.error ?? "Commit verification receipt was not retained",
+          message: unmet
+            ? "The commit gate refused the reviewed result: " + unmet
+            : runner.error ?? "Commit verification receipt was not retained",
           conductor,
         });
+      }
     } catch (error) {
       outcome = result("BLOCKED", "CONDUCTOR", {
         reason: ["WORKFLOW_TIMEOUT", "OUTPUT_LIMIT", "CANCELLED"].includes(

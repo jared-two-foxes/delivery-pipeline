@@ -9,6 +9,7 @@ import { scaffoldTasks, checkStatePaths, buildCommand, OPERATIONS } from '../../
 
 import { designCoverage } from '../../src/tools/scaffold/tools.mjs';
 import { compactMutation } from '../../src/tools/scaffold/compact-mutation.mjs';
+import { recordTaskRequirementEvidence } from '../helpers/requirement-evidence.mjs';
 const root = path.resolve(import.meta.dirname, '..', '..');
 const context = 'Approved feature context';
 const feature = { context, id: 'F1', title: 'Feature', objective: 'Deliver feature', design_ref: 'sha256:' + createHash('sha256').update(context).digest('hex'), requirements: [{ id: 'R1', text: 'Feature works' }], baseline: 'a'.repeat(40), branch: 'feature/test' };
@@ -16,7 +17,7 @@ const definition = (id = 'T1') => ({ id, title: id, objective: 'Deliver task', a
 const task = (id = 'T1', status = 'pending') => ({ ...definition(id), feature_id: 'F1', parent_id: null, status, dependencies: [], history: [] });
 const evidence = { feature_id: 'F1', task_id: 'T1', result: 'PASSED', source: 'conductor', reference: 'retained-result-1', summary: 'Verified criteria' };
 const params = operation => ({ operation, feature_id: 'F1',
-  ...(['issue', 'start', 'complete', 'block', 'fail', 'retry', 'decompose', 'design-record', 'checkpoint-record', 'issue-resume', 'delivery-record', 'attempt-record'].includes(operation) ? { task_id: 'T1' } : {}),
+  ...(['issue', 'start', 'complete', 'block', 'fail', 'retry', 'decompose', 'design-record', 'checkpoint-record', 'issue-resume', 'delivery-record', 'attempt-record', 'evidence-record', 'evidence-equivalence'].includes(operation) ? { task_id: 'T1' } : {}),
   ...(['block', 'fail', 'retry'].includes(operation) ? { reason: 'Explicit decision' } : {}),
   ...({ init: { payload: feature }, add: { payload: [definition()] }, complete: { payload: evidence }, decompose: { payload: [definition('child')] },
     'design-record': { payload: { summary: 'Approved', verification: 'Tests', approval: 'User confirmed', disposition: 'leaf' } },
@@ -30,6 +31,9 @@ const params = operation => ({ operation, feature_id: 'F1',
     'history-foreign': { payload: { from: 'a'.repeat(40), to: 'b'.repeat(40), source: 'user-commits', approval: 'sha256:' + 'c'.repeat(64), commits: [{ commit: 'b'.repeat(40), parents: ['a'.repeat(40)], subject: 'user' }] } },
     'history-rewrite': { payload: { old_head: 'a'.repeat(40), new_head: 'b'.repeat(40), new_base: 'c'.repeat(40), history: [], verification: 'sha256:' + 'c'.repeat(64) } },
     'failure-record': { payload: { code: 'CHECK_FAILED', message: 'The test check failed', tool: 'execute_and_review', owner: 'agent', next: ['Fix the test'] } },
+    'evidence-record': { payload: { feature_id: 'F1', instance_id: 'instance', requirement: 'R1', role: 'verify', result: 'PASSED', basis: 'independent-review',
+      receipt: 'sha256:' + 'a'.repeat(64), tree: 'b'.repeat(40), binding: 'c'.repeat(64), design: 'sha256:' + 'd'.repeat(64), reference: 'sha256:' + 'e'.repeat(64) } },
+    'evidence-equivalence': { payload: { requirement: 'R1', role: 'contribute', receipt: 'sha256:' + 'a'.repeat(64), tree: 'b'.repeat(40), reference: 'sha256:' + 'e'.repeat(64) } },
     'artifact-put': { payload: { receipt: 1 } },
     'artifact-get': { payload: { reference: 'sha256:' + 'c'.repeat(64) } },
     'issue-resume': { payload: { reference: 'sha256:' + 'e'.repeat(64), handoff: 'sha256:' + 'f'.repeat(64) } } }[operation] ?? {}),
@@ -329,6 +333,11 @@ test('real Scaffold CLI lifecycle persists dependent tasks and resumes in a new 
   await call({ operation: 'attempt-record', feature_id: 'F1', task_id: 'T1',
     payload: { attempt: 1, status: 'PASSED', receipt, base: 'a'.repeat(40), tree: 'b'.repeat(40) } });
   const passed = { ...evidence, reference: receipt };
+  // Scaffold completes a mapped task only with requirement evidence for every role it holds.
+  const missingEvidence = await scaffoldTasks({ ...params('complete'), payload: passed }, { directory: dir });
+  assert.equal(missingEvidence.ok, false);
+  assert.match(missingEvidence.scaffold_error.error, /Completion needs evidence for the completing attempt: R1 \(contribute\), R1 \(verify\)/);
+  assert.deepEqual((await recordTaskRequirementEvidence(dir, 'F1', 'T1', receipt, 'b'.repeat(40))).map(r => r.role), ['contribute', 'verify']);
   await call({ ...params('complete'), payload: passed });
   const listed = await call(params('list'));
   assert.deepEqual(listed.feature.tasks.T1.history.at(-1).evidence, passed);

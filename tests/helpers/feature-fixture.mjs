@@ -20,6 +20,7 @@ import {
   inspectFeatureValidation,
 } from "../../src/tools/feature-validation/feature.mjs";
 import { approveGraph, requirementsFor } from "./issue-plan.mjs";
+import { recordTaskRequirementEvidence } from "./requirement-evidence.mjs";
 const fixtureScaffold = new Map();
 export async function executeAndReview(args, context, options) {
   const scaffoldOptions = fixtureScaffold.get(context.directory);
@@ -158,6 +159,7 @@ export async function fixture(t) {
       },
     );
     assert.equal(attempt.status, "PASSED", JSON.stringify(attempt));
+    await recordTaskRequirementEvidence(dir, "F5", id, attempt.evidence.reference);
     await call("complete", {
       task_id: id,
       payload: {
@@ -199,6 +201,7 @@ const obligations=[];
 for(const line of requirements.split('\\n')) {
  if(line.startsWith('[{"id":')) for(const task of JSON.parse(line)) obligations.push(...(task.deliveryContext?.obligations??[]));
  if(line.startsWith('Persisted feature obligations: ')) obligations.push(...JSON.parse(line.slice('Persisted feature obligations: '.length)));
+ if(line.startsWith('Requirement obligations: ')) obligations.push(...JSON.parse(line.slice('Requirement obligations: '.length)));
 }
 const obligation_assessments=[...new Set(obligations.map(o=>o.id))].map(id=>({obligation_id:id,disposition:'verified',evidence:'Independent fixture inspected the correction and integration regressions'}));
 console.log(JSON.stringify({schema:'review.result/v1',obligation_assessments,status:${JSON.stringify(status)},reason:${JSON.stringify(status === "INDETERMINATE" ? "BUDGET_EXHAUSTED" : "REVIEW_COMPLETED")},review_id:'feature-review',completed_at:'2026-10-26T00:00:00Z',findings:${status === "CHANGES_REQUESTED" ? "[{blocking:true,severity:'high',message:'Consumer interface mismatches producer'}]" : "[]"}}));process.exit(${{ APPROVED: 0, CHANGES_REQUESTED: 1, INDETERMINATE: 3 }[status]});`,

@@ -3,6 +3,7 @@ import { rewriteFeatureHistory } from "./reconciliation.mjs";
 import { adoptCommits, inspectDrift } from "./foreign-history.mjs";
 import { suspendIssue, resumeIssue } from "./issue-recovery.mjs";
 import { prepareIssueHandoff, inspectIssueHandoff, inspectIssueAttempt } from "./issue-context.mjs";
+import { rebindFeatureRequirementEvidence } from "./requirement-rebinding.mjs";
 import { defineTool, toolResult, withFailureReporting } from "../../lib/host/tool.mjs";
 
 /** Host-neutral tools. `Type` is a TypeBox-style schema builder supplied by the host adapter. */
@@ -192,6 +193,20 @@ export function createExecutionRecoveryTools(Type) {
             confirm: async () => true,
           },
         );
+        return toolResult(result, { isError: result.ok === false });
+      },
+    })),
+    withFailureReporting(defineTool({
+      name: "rebind_requirement_evidence",
+      label: "Re-bind requirement evidence",
+      description:
+        "Recovery when final validation blocks with REQUIREMENT_EVIDENCE_INCOMPLETE because requirement evidence is stale after a corrective issue changed a requirement's contributors or verifiers. Re-records an earlier issue's evidence under the current mapping ONLY when that issue is still completed with the same receipt, design and checkpoint tree, still holds the role, and its retained independent review verified exactly that requirement. Reports what was re-bound, what was skipped and why, and what is still outstanding. Never re-runs work, marks anything verified on its own, or changes task status; skipped items need the issue re-run (or rewrite_feature_history after a rebase). Uses the retained feature authority.",
+      parameters: Type.Object(
+        { featureId: Type.String(), designRef: Type.String() },
+        { additionalProperties: false },
+      ),
+      async execute(params, host) {
+        const result = await rebindFeatureRequirementEvidence(params, { directory: host.cwd, abort: host.signal });
         return toolResult(result, { isError: result.ok === false });
       },
     })),

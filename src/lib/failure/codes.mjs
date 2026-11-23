@@ -65,6 +65,9 @@ export const FAILURE_CODES = {
   REVIEW_RESUME_UNAVAILABLE: { owner: A, next: ["The previous review cannot be continued (no resumable checkpoint, or this attempt applies source operations). Nothing was applied; continue with previousAttempt without reviewResume to review again from the start."] },
   SESSION_STALLED: { owner: A, next: ["The review session stalled. Continue with previousAttempt once; if it stalls again, report it."] },
   // Continuation and evidence
+  REQUIREMENT_SCOPE_CHANGED: { owner: A, next: ["Scaffold's requirement mapping changed after the review. Continue with previousAttempt (empty operations if the source is already right); the next attempt reviews the current requirements. Never amend a requirement to get past this."] },
+  REQUIREMENT_EVIDENCE_INCOMPLETE: { owner: A, next: ["A requirement lacks applicable evidence; message names each requirement, issue and role. Finish or re-run that issue, then rerun the final gate.", "Stale after a corrective issue changed contributors or verifiers: call rebind_requirement_evidence. Stale after a rebase: rewrite_feature_history."] },
+  REQUIREMENT_EVIDENCE_CARRY_INCOMPLETE: { owner: A, next: ["The rebase is recorded but carrying requirement evidence onto the rewritten trees did not finish. Repeat the same rewrite_feature_history call; it finds the recorded rewrite and finishes only what is missing."] },
   EVIDENCE_RECOVERY_REQUIRED: { owner: A, next: ["The retained evidence does not match the current state. Use inspect_issue_attempt for the latest receipt; if commits exist that the ledger did not record, run inspect_feature_drift."] },
   CONTINUATION_RECEIPT_STALE: { owner: A, next: ["A newer attempt exists. Use inspect_issue_attempt and continue from its latest reference; consumed attempts are never reset."] },
   CONTINUATION_RECEIPT_MISSING: { owner: A, next: ["The named receipt is not in this feature's ledger. Use inspect_issue_attempt to find the right reference."] },

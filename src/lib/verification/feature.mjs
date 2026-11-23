@@ -1,4 +1,5 @@
 import { obligationsVerified } from "./obligations.mjs";
+import { unverifiedRequirements, describeUnverifiedRequirements } from "./requirements.mjs";
 import { designReference } from "../scaffold/contracts.mjs";
 // Shared bounded verification contracts for final validation and rebase recovery.
 import { isDeepStrictEqual as equal } from "node:util";
@@ -185,6 +186,7 @@ export function authenticateFeatureRecord(
   requirements,
   schema = "pi.feature-validation/v1",
   reviewTasks = tasks,
+  requirementObligations,
 ) {
   requireValue(
     record.result?.schema === schema &&
@@ -218,6 +220,10 @@ export function authenticateFeatureRecord(
     ),
     "Retained feature findings require explicit independent assessments",
   );
+  // Every canonical feature requirement, by its stable id, needs an explicit verified assessment.
+  requireValue(Array.isArray(requirementObligations), "Feature requirement obligations are required to authenticate a result");
+  const unassessed = unverifiedRequirements(requirementObligations, record.review);
+  requireValue(unassessed.length === 0, describeUnverifiedRequirements(unassessed));
   requireValue(
     record.review.status === "APPROVED" &&
       record.review.baseRef === binding.baseline &&

@@ -5,12 +5,14 @@ import { taskReceipts, recoverAttempt } from "../../lib/evidence/attempts.mjs";
 import { authenticateAttemptChain } from "../../lib/verification/attempt-chain.mjs";
 import { verificationChecks, correctionVerification } from "../../lib/verification/checks.mjs";
 import { issueRequirements } from "../../lib/scaffold/contracts.mjs";
+import { taskRoles } from "../../lib/verification/requirements.mjs";
 import { authenticateAmendment } from "../../lib/authorization/amendment.mjs";
 import { assertPreAttemptAmendmentApplies } from "./context-amendment.mjs";
 import {
   assertDeliveryJournal,
   anchorDeliveryJournal,
   deliveryContractItems,
+  refreshRequirementItems,
   updateContext,
   renderContext,
   validContextContinuation,
@@ -39,7 +41,10 @@ export async function deliveryEvent(repository, task, journal, event, options = 
 
 /**
  * This task's requirements as Scaffold scopes them: stable id, text, source and the task's own
- * roles. Unrelated feature requirements are never included.
+ * roles. Unrelated feature requirements are never included. Roles come from Scaffold's contributor and
+ * verifier sets, the ones it checks evidence against, so a childless root owns every requirement while
+ * a decomposed root sees them only as deferred context (no role). Each requirement also carries those
+ * sets, from which the evidence binding is derived.
  */
 export async function scopedRequirements(repository, task, options = {}) {
   const r = await scaffoldTasks(
@@ -48,8 +53,10 @@ export async function scopedRequirements(repository, task, options = {}) {
     options.scaffoldOptions,
   );
   requireValue(r.ok && r.data.context, "TASK_CONTEXT_INVALID: cannot read scoped requirements: " + (r.message ?? "no issue context"));
-  return r.data.context.requirements.map(({ id, text, source, roles }) =>
-    ({ id, text, ...(source ? { source } : {}), roles }));
+  return r.data.context.requirements.map((req) => ({
+    id: req.id, text: req.text, ...(req.source ? { source: req.source } : {}), roles: taskRoles(req, task.taskId),
+    contributors: [...req.contributors], verifiers: [...req.verifiers],
+  }));
 }
 
 export async function prepareDelivery(repository, feature, issue, args, options = {}) {
@@ -108,13 +115,14 @@ export async function prepareDelivery(repository, feature, issue, args, options 
       "UNSUPPORTED_DELIVERY_FORMAT: retained attempt requires versioned context");
     requireValue(journal, "EVIDENCE_RECOVERY_REQUIRED: delivery journal is missing");
   }
-  const requirements = journal?.context ? undefined : await scopedRequirements(repository, args.task, options);
+  // Read on every attempt: a persisted context is refreshed when Scaffold's mapping changed (see below).
+  const requirements = await scopedRequirements(repository, args.task, options);
   let context = journal?.context ?? {
     schema: "pi.delivery-context/v1",
     original: issueRequirements(issue, args.requirements ?? "") +
       "\nFeature contract: " + JSON.stringify({
         objective: feature.objective,
-        requirements,
+        requirements: requirements.map(({ id, text, source, roles }) => ({ id, text, ...(source ? { source } : {}), roles })),
         constraints: feature.constraints,
       }),
     design: structuredClone(issue.designs.at(-1)),
@@ -138,10 +146,15 @@ export async function prepareDelivery(repository, feature, issue, args, options 
     });
     context.design = structuredClone(issue.designs.at(-1));
   }
+  context = refreshRequirementItems(context, requirements);
   for (const o of findingObligations(records)) {
     const existing = context.obligations.find((v) => v.id === o.id);
-    if (existing) existing.status = o.status;
-    else context.obligations.push(o);
+    if (existing) {
+      // Only the status of the same retained finding may change; another obligation can never take its id.
+      requireValue(existing.text === o.text && existing.source === o.source,
+        "EVIDENCE_RECOVERY_REQUIRED: obligation " + o.id + " in the delivery context does not match its retained finding");
+      existing.status = o.status;
+    } else context.obligations.push(o);
   }
   for (const r of records)
     for (const a of r.result.conductor?.review?.obligation_assessments ?? []) {

@@ -11,6 +11,8 @@ import {
 } from "../../src/tools/feature-validation/feature.mjs";
 import { runCheck } from "../../src/tools/feature-validation/check-process.mjs";
 import { artifactPath, integration, fixture, finished } from "../helpers/feature-fixture.mjs";
+import { requirementBinding } from "../../src/lib/verification/requirements.mjs";
+import { rebindFeatureRequirementEvidence } from "../../src/tools/execution-recovery/requirement-rebinding.mjs";
 
 test(
   "A → B → C → D feature review, failed integration, corrective E and revalidation A → E",
@@ -46,6 +48,53 @@ test(
     assert.equal((await f.validate()).status, "BLOCKED");
     const e = await f.finish("fix");
     await f.reviewer();
+    // Adding the corrective contributor changed the requirements' bindings, so every earlier association is
+    // stale. Both final gates block on that before running any project check, and write nothing.
+    await f.prepare();
+    const before = (await f.call("list")).feature;
+    for (const gate of [f.validate, f.checks]) {
+      const stale = await gate();
+      assert.equal(stale.status, "BLOCKED", JSON.stringify(stale));
+      assert.equal(stale.reason, "REQUIREMENT_EVIDENCE_INCOMPLETE");
+      assert.match(stale.message, /R1: stale/);
+      assert.match(stale.message, /rebind_requirement_evidence/);
+      assert.equal(stale.evidenceRef, undefined);
+      assert.equal(stale.checks, undefined);
+      const unchanged = (await f.call("list")).feature;
+      assert.deepEqual(unchanged.evidence, before.evidence);
+      assert.deepEqual(unchanged.validation, before.validation);
+    }
+    // The explicit recovery re-binds exactly the stale associations of completed earlier tasks whose own
+    // review verified the requirement, each to the current binding, and nothing else.
+    const view = (await f.call("requirements")).requirements;
+    const current = Object.fromEntries(view.map((r) => [r.id, requirementBinding(r.id, {
+      contributors: r.contributors.map((h) => h.id), verifiers: r.verifiers.map((h) => h.id) })]));
+    const stale = before.evidence.filter((entry) => entry.task_id !== "fix" && entry.binding !== current[entry.requirement]);
+    const expected = stale.map((entry) => [entry.task_id, entry.requirement, entry.role]).sort();
+    assert.ok(expected.length >= 4, JSON.stringify(expected));
+    const rebinding = await rebindFeatureRequirementEvidence({ featureId: "F5", designRef: f.args().designRef }, { directory: f.dir });
+    assert.equal(rebinding.ok, true, JSON.stringify(rebinding));
+    assert.deepEqual(rebinding.rebound.map((r) => [r.task, r.requirement, r.role]).sort(), expected);
+    assert.equal(new Set(rebinding.rebound.map((r) => r.reference)).size, rebinding.rebound.length);
+    assert.deepEqual(rebinding.skipped, []);
+    assert.deepEqual(rebinding.outstanding, []);
+    const rebound = (await f.call("list")).feature.evidence;
+    for (const r of rebinding.rebound) {
+      const previous = stale.find((entry) => entry.task_id === r.task && entry.requirement === r.requirement && entry.role === r.role);
+      const added = rebound.find((entry) => entry.reference === r.reference);
+      assert.deepEqual({ ...added, binding: previous.binding, reference: previous.reference }, previous,
+        "same task, role, receipt, design, tree and basis; only the binding and its reference are new");
+      assert.equal(added.binding, current[r.requirement]);
+      const artifact = (await f.call("artifact-get", { payload: { reference: r.reference } })).artifact;
+      assert.equal(artifact.schema, "pi.requirement-evidence-rebinding/v1");
+      assert.deepEqual(artifact.previous, { reference: previous.reference, binding: previous.binding });
+      assert.equal(artifact.binding, current[r.requirement]);
+      assert.equal(artifact.review.obligation_id, "requirement:" + r.requirement);
+      assert.equal(artifact.review.disposition, "verified");
+    }
+    // Repeating it finds nothing left to do.
+    const repeat = await rebindFeatureRequirementEvidence({ featureId: "F5", designRef: f.args().designRef }, { directory: f.dir });
+    assert.deepEqual([repeat.rebound, repeat.skipped, repeat.outstanding], [[], [], []]);
     const passed = await f.validate();
     assert.equal(passed.status, "PASSED", JSON.stringify(passed));
     assert.equal(passed.binding.head, e.commit);

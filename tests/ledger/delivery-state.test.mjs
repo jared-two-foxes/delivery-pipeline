@@ -156,8 +156,13 @@ test("contract item identities preserve their persisted hashes", () => {
   const hash = (value) => createHash("sha256").update(JSON.stringify(value)).digest("hex").slice(0, 16);
   assert.equal(items[0].id, "feature_objective-" + hash("Objective"));
   assert.equal(items[3].id, "issue_criterion_T_0-" + hash("Issue works"));
-  assert.equal(items[1].id, "feature_requirement_R1-" + hash("Feature works"));
-  assert.deepEqual(items[1].roles, ["contribute"]);
+  // A canonical requirement keeps Scaffold's stable id: never a position, never a digest of its text.
+  assert.deepEqual(items[1], { id: "requirement:R1", requirement: "R1", text: "Feature works", roles: ["contribute"] });
+  const reworded = deliveryContractItems({ objective: "Objective", constraints: [] }, { acceptance_criteria: ["Issue works"] },
+    { taskId: "T" }, [{ id: "R0", text: "Earlier", roles: [] }, { id: "R1", text: "Feature works, reworded", roles: ["contribute"] }]);
+  assert.equal(reworded.find((i) => i.requirement === "R1").id, "requirement:R1");
+  assert.throws(() => deliveryContractItems({ objective: "O" }, { acceptance_criteria: ["x"] }, { taskId: "T" },
+    [{ id: "R1", text: "a", roles: [] }, { id: "R1", text: "b", roles: [] }]), /unique stable ids/);
 });
 
 test("contract items bind only the task-scoped requirements and their roles", () => {
@@ -165,8 +170,8 @@ test("contract items bind only the task-scoped requirements and their roles", ()
     requirements: [{ id: "R1", text: "Recorded" }, { id: "R2", text: "Displayed" }, { id: "R3", text: "Survives restart" }] };
   const items = deliveryContractItems(feature, { acceptance_criteria: ["View works"], constraints: [] }, { taskId: "view" },
     [{ id: "R2", text: "Displayed", roles: ["contribute", "verify"] }]);
-  const requirements = items.filter((item) => item.id.startsWith("feature_requirement_"));
-  assert.deepEqual(requirements.map(({ text, roles }) => [text, roles]), [["Displayed", ["contribute", "verify"]]]);
+  const requirements = items.filter((item) => item.id.startsWith("requirement:"));
+  assert.deepEqual(requirements.map(({ id, text, roles }) => [id, text, roles]), [["requirement:R2", "Displayed", ["contribute", "verify"]]]);
   assert.ok(!items.some((item) => ["Recorded", "Survives restart"].includes(item.text)), "unrelated requirements are excluded");
   // The whole feature definition is never a fallback.
   assert.throws(() => deliveryContractItems(feature, { acceptance_criteria: ["x"], constraints: [] }, { taskId: "view" }),
