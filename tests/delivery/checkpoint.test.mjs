@@ -51,7 +51,7 @@ async function fixture(t, { withFeature = true } = {}) {
   // A real Scaffold feature: receipts, attempts, completion and checkpoints all live in its ledger.
   const ledger = withFeature
     ? await ledgerFeature(dir, { featureId: "F4", taskId: "one", branch: "feature/test",
-      designContext: "Approved checkpoint design", objective: "Dependent consumer works", criteria: ["Dependent consumer works"],
+      designContext: "Approved checkpoint design", objective: "Dependent consumer works", requirements: [{ id: "F4.consumer", text: "Dependent consumer works" }],
       tasks: [{ id: "one" }, { id: "two", dependencies: ["one"] }], start: false })
     : null;
   const options = { authorize: async () => true };
