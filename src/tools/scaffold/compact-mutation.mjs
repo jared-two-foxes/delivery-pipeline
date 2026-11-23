@@ -1,11 +1,14 @@
 // Full responses are validated above and retained by native callers. The model only
 // needs an acknowledgement after a mutation; full list is an explicit diagnostic query.
 // `requirements` is an optional unmapped-requirements query result, attached so missing
-// coverage is actionable straight after the mutation that caused it.
+// coverage is actionable straight after the mutation that caused it. A failed query is
+// `{error, retry}` and is reported as unknown coverage (`complete: null`), never as complete.
 export function compactMutation(result, requirements) {
   if (!result.ok || ['list', 'summary', 'issue', 'select', 'design-select', 'requirements'].includes(result.operation)) return result;
   const f = result.data.feature, t = result.data.task;
-  const coverage = requirements && {
+  const coverage = requirements?.error
+    ? { complete: null, error: requirements.error, retry: requirements.retry }
+    : requirements && {
     complete: requirements.coverage.complete,
     problems: requirements.coverage.problems,
     unmapped: requirements.requirements.map(r => ({ id: r.id, missing: r.missing })),

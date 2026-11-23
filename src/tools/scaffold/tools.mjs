@@ -6,12 +6,19 @@ import { defineTool, toolResult, withFailureReporting } from "../../lib/host/too
 
 /** Host-neutral tools. `Type` is a TypeBox-style schema builder supplied by the host adapter. */
 const designMutations = new Set(["init", "add", "decompose", "design-record", "design-reopen", "design-revise", "design-finish"]);
-// After a design-phase mutation, report what is still unmapped so the agent can fix it before design-finish.
-async function designCoverage(params, result, host) {
+// After a design-phase mutation, report what is still unmapped so the agent can fix it before
+// design-finish. A failed follow-up query never hides the mutation's success, and never reads
+// as "fully mapped": it is reported with its diagnostic and a retry query.
+export async function designCoverage(params, result, cwd, options = {}) {
   if (!result.ok || !designMutations.has(params.operation) || params.operation === "design-finish") return undefined;
-  const query = await scaffoldTasks({ operation: "requirements", feature_id: params.feature_id, payload: { unmapped: true } },
-    { directory: host.cwd, abort: host.signal });
-  return query.ok ? query.data : undefined;
+  const retry = { operation: "requirements", feature_id: params.feature_id, payload: { unmapped: true } };
+  let query;
+  try {
+    query = await scaffoldTasks(retry, { directory: cwd.directory, abort: cwd.abort }, options);
+  } catch (error) {
+    query = { ok: false, reason: "EXECUTION_ERROR", message: error.message };
+  }
+  return query.ok ? query.data : { error: { reason: query.reason, message: query.message }, retry };
 }
 
 export function createScaffoldTools(Type) {
@@ -71,7 +78,7 @@ export function createScaffoldTools(Type) {
         const result = await scaffoldTasks(params, { directory: host.cwd, abort: host.signal }, {
           authorizeIssueMutation: authenticateIssueMutation,
         });
-        const compact = compactMutation(result, await designCoverage(params, result, host));
+        const compact = compactMutation(result, await designCoverage(params, result, { directory: host.cwd, abort: host.signal }));
         return toolResult(compact, { isError: !result.ok });
       },
     })),

@@ -128,10 +128,16 @@ export function validateRequirementLinks(links, where = "requirements") {
     requireValue(object(l) && Object.keys(l).length === 2 && "id" in l && "roles" in l,
       at + " must be an object with exactly id and roles");
     requireValue(text(l.id), at + ".id must be a nonempty requirement id");
-    requireValue(Array.isArray(l.roles) && l.roles.length > 0 && new Set(l.roles).size === l.roles.length &&
-      l.roles.every((r) => REQUIREMENT_ROLES.includes(r)),
-      at + ".roles must be a nonempty unique list of: " + REQUIREMENT_ROLES.join(", "));
-    requireValue(!seen.has(l.id), "Duplicate requirement link: " + l.id);
+    const link = where + " link " + l.id;
+    requireValue(Array.isArray(l.roles) && l.roles.length > 0,
+      link + ": roles must be a nonempty unique list of: " + REQUIREMENT_ROLES.join(", "));
+    const invalid = l.roles.filter((r) => !REQUIREMENT_ROLES.includes(r));
+    requireValue(!invalid.length,
+      link + ": invalid role " + invalid.map((r) => JSON.stringify(r)).join(", ") +
+        "; roles must be a nonempty unique list of: " + REQUIREMENT_ROLES.join(", "));
+    requireValue(new Set(l.roles).size === l.roles.length,
+      link + ": duplicate role; roles must be a nonempty unique list of: " + REQUIREMENT_ROLES.join(", "));
+    requireValue(!seen.has(l.id), where + ": duplicate requirement link " + l.id);
     seen.add(l.id);
   });
 }
@@ -182,7 +188,7 @@ function definition(value, feature = false) {
       "Task " + value.id + " needs exactly one of requirements [{id, roles}] (what it contributes to or verifies) " +
         "or requirements_rationale (why it is supporting work with no requirement)",
     );
-    if (linked) validateRequirementLinks(value.requirements, "Task " + value.id + " requirements");
+    if (linked) validateRequirementLinks(value.requirements, "Task " + value.id);
     else requireValue(text(value.requirements_rationale), "requirements_rationale must be a nonempty string");
   }
   if (!feature && value.origin !== undefined) {

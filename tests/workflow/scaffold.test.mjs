@@ -7,6 +7,8 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { scaffoldTasks, checkStatePaths, buildCommand, OPERATIONS } from '../../src/tools/scaffold/adapter.mjs';
 
+import { designCoverage } from '../../src/tools/scaffold/tools.mjs';
+import { compactMutation } from '../../src/tools/scaffold/compact-mutation.mjs';
 const root = path.resolve(import.meta.dirname, '..', '..');
 const context = 'Approved feature context';
 const feature = { context, id: 'F1', title: 'Feature', objective: 'Deliver feature', design_ref: 'sha256:' + createHash('sha256').update(context).digest('hex'), requirements: [{ id: 'R1', text: 'Feature works' }], baseline: 'a'.repeat(40), branch: 'feature/test' };
@@ -410,9 +412,18 @@ test('every added issue is mapped to requirements or justified, with actionable 
   const add = (extra) => () => buildCommand({ ...params('decompose'), payload: [{ ...definition('child'), requirements: undefined, ...extra }] });
   assert.throws(add({}), /needs exactly one of requirements .* or requirements_rationale/);
   assert.throws(add({ requirements: [{ id: 'R1', roles: ['contribute'] }], requirements_rationale: 'why' }), /exactly one of/);
-  assert.throws(add({ requirements: [{ id: 'R1', roles: ['implement'] }] }), /roles must be a nonempty unique list of: contribute, verify/);
-  assert.throws(add({ requirements: [{ id: 'R1', roles: [] }] }), /roles must be a nonempty/);
-  assert.throws(add({ requirements: [{ id: 'R1', roles: ['verify'] }, { id: 'R1', roles: ['contribute'] }] }), /Duplicate requirement link: R1/);
+  // Each message names the issue, the requirement link and the offending value.
+  assert.throws(add({ requirements: [{ id: 'R1', roles: ['implement'] }] }),
+    /^Error: Task child link R1: invalid role "implement"; roles must be a nonempty unique list of: contribute, verify$/);
+  assert.throws(add({ requirements: [{ id: 'R1', roles: [] }] }), /Task child link R1: roles must be a nonempty/);
+  assert.throws(add({ requirements: [{ id: 'R1', roles: ['verify', 'verify'] }] }), /Task child link R1: duplicate role/);
+  assert.throws(add({ requirements: [{ id: 'R1', roles: ['verify'] }, { id: 'R1', roles: ['contribute'] }] }), /Task child: duplicate requirement link R1/);
+  // In a multi-issue batch the message identifies which issue and link to fix.
+  const batch = [
+    { ...definition('first'), requirements: [{ id: 'R1', roles: ['contribute'] }] },
+    { ...definition('second'), requirements: [{ id: 'R1', roles: ['verify'] }, { id: 'R2', roles: ['contribute', 'implement'] }] },
+  ];
+  assert.throws(() => buildCommand({ ...params('decompose'), payload: batch }), /Task second link R2: invalid role "implement"/);
   assert.throws(add({ requirements_rationale: ' ' }), /requirements_rationale/);
   assert.doesNotThrow(add({ requirements_rationale: 'Unblocks the contributor' }));
   assert.doesNotThrow(add({ requirements: [{ id: 'R1', roles: ['verify', 'contribute'] }] }));
@@ -423,4 +434,39 @@ test('requirements queries accept only ids and unmapped and build flags', () => 
   assert.deepEqual(buildCommand({ operation: 'requirements', feature_id: 'F1', payload: { unmapped: true } }).args, ['requirements', '--feature=F1', '--unmapped']);
   assert.throws(() => buildCommand({ operation: 'requirements', feature_id: 'F1', payload: { status: 'x' } }), /only \{ids/);
   assert.throws(() => buildCommand({ operation: 'requirements', feature_id: 'F1', payload: { ids: [] } }), /only \{ids/);
+});
+
+test('a successful mutation whose coverage query fails reports unknown coverage and a retry', async t => {
+  const dir = await fixture(t);
+  const request = params('decompose');
+  const mutation = { ok: true, operation: 'decompose', feature_id: 'F1', task_id: 'T1', data: JSON.parse(response('decompose').stdout) };
+  const failed = await designCoverage(request, mutation, { directory: dir }, {
+    invokeScaffold: async () => ({ code: 1, stdout: '', stderr: JSON.stringify({ schema_version: 3, error: 'ledger locked' }) }),
+  });
+  assert.equal(failed.error.reason, 'COMMAND_FAILED');
+  assert.match(failed.error.message, /ledger locked/);
+  assert.deepEqual(failed.retry, { operation: 'requirements', feature_id: 'F1', payload: { unmapped: true } });
+  const compact = compactMutation(mutation, failed);
+  assert.equal(compact.ok, true, 'the mutation itself still succeeded');
+  assert.equal(compact.data.coverage.complete, null, 'unknown coverage is never reported as complete');
+  assert.match(compact.data.coverage.error.message, /ledger locked/);
+  assert.deepEqual(compact.data.coverage.retry, failed.retry);
+  assert.equal(compact.data.coverage.unmapped, undefined);
+
+  // A successful query reports the gaps; a non-design operation adds nothing.
+  const found = await designCoverage(request, mutation, { directory: dir }, { invokeScaffold: async () => response('requirements') });
+  assert.deepEqual(compactMutation(mutation, found).data.coverage,
+    { complete: false, problems: ['R1: missing verifier (no issue verifies it)'], unmapped: [{ id: 'R1', missing: ['verify'] }] });
+  assert.equal(await designCoverage(params('start'), mutation, { directory: dir }), undefined);
+});
+
+test('contracts.d.mts declares every runtime export and exactly the runtime operations', async () => {
+  const declarations = await readFile(path.join(root, 'src', 'lib', 'scaffold', 'contracts.d.mts'), 'utf8');
+  const runtime = await import('../../src/lib/scaffold/contracts.mjs');
+  const declared = new Set([...declarations.matchAll(/^export (?:const|function) (\w+)/gm)].map(m => m[1]));
+  assert.deepEqual(Object.keys(runtime).filter(name => !declared.has(name)), [], 'undeclared runtime exports');
+  assert.deepEqual([...declared].filter(name => !(name in runtime)), [], 'declared exports missing at runtime');
+  const union = declarations.match(/export type ScaffoldOperation =([^;]+);/)[1];
+  assert.deepEqual([...union.matchAll(/"([\w-]+)"/g)].map(m => m[1]).sort(), [...runtime.OPERATIONS].sort());
+  assert.match(declarations, /requirements\?: RequirementsView\["requirements"\]/);
 });

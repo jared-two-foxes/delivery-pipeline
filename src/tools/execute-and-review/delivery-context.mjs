@@ -37,6 +37,21 @@ export async function deliveryEvent(repository, task, journal, event, options = 
     r.data.feature.tasks[task.taskId].delivery, options.featureInstanceId);
 }
 
+/**
+ * This task's requirements as Scaffold scopes them: stable id, text, source and the task's own
+ * roles. Unrelated feature requirements are never included.
+ */
+export async function scopedRequirements(repository, task, options = {}) {
+  const r = await scaffoldTasks(
+    { operation: "issue", feature_id: task.featureId, task_id: task.taskId },
+    { directory: repository },
+    options.scaffoldOptions,
+  );
+  requireValue(r.ok && r.data.context, "TASK_CONTEXT_INVALID: cannot read scoped requirements: " + (r.message ?? "no issue context"));
+  return r.data.context.requirements.map(({ id, text, source, roles }) =>
+    ({ id, text, ...(source ? { source } : {}), roles }));
+}
+
 export async function prepareDelivery(repository, feature, issue, args, options = {}) {
   requireValue(
     issue.delivery_policy === "versioned-context/v1",
@@ -93,18 +108,19 @@ export async function prepareDelivery(repository, feature, issue, args, options 
       "UNSUPPORTED_DELIVERY_FORMAT: retained attempt requires versioned context");
     requireValue(journal, "EVIDENCE_RECOVERY_REQUIRED: delivery journal is missing");
   }
+  const requirements = journal?.context ? undefined : await scopedRequirements(repository, args.task, options);
   let context = journal?.context ?? {
     schema: "pi.delivery-context/v1",
     original: issueRequirements(issue, args.requirements ?? "") +
       "\nFeature contract: " + JSON.stringify({
         objective: feature.objective,
-        requirements: feature.requirements,
+        requirements,
         constraints: feature.constraints,
       }),
     design: structuredClone(issue.designs.at(-1)),
     obligations: [],
     updates: [],
-    contractItems: deliveryContractItems(feature, issue, args.task),
+    contractItems: deliveryContractItems(feature, issue, args.task, requirements),
   };
   context = structuredClone(context);
   requireValue(context.schema === "pi.delivery-context/v1" && Array.isArray(context.contractItems),

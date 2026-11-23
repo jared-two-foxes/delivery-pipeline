@@ -46,7 +46,13 @@ test("a user can override a recorded constraint before the first attempt", { ski
     },
   });
   suite.mock.module("../../src/tools/scaffold/adapter.mjs", {
-    namedExports: { issueFeature: async () => feature(), scaffoldTasks: async () => ({ ok: true, data: { feature: feature() } }) },
+    namedExports: {
+      issueFeature: async () => feature(),
+      // The issue query is Scaffold's task-scoped requirement output.
+      scaffoldTasks: async (params) => params.operation === "issue"
+        ? { ok: true, data: { context: { requirements: [{ id: "R1", text: "Works", roles: ["contribute", "verify"] }] } } }
+        : { ok: true, data: { feature: feature() } },
+    },
   });
   suite.mock.module("../../src/tools/scaffold/feature-authorization.mjs", {
     namedExports: { requireFeatureAuthorization: async () => true },
@@ -55,7 +61,7 @@ test("a user can override a recorded constraint before the first attempt", { ski
   const { authenticateAmendment } = await import("../../src/lib/authorization/amendment.mjs");
   const { deliveryContractItems } = await import("../../src/lib/delivery-state/delivery-context.mjs");
 
-  const items = deliveryContractItems(feature(), feature().tasks.T, task);
+  const items = deliveryContractItems(feature(), feature().tasks.T, task, [{ id: "R1", text: "Works", roles: ["contribute", "verify"] }]);
   const gate = items.find((i) => i.text.startsWith("Resolve SA-588"));
   assert.ok(gate, "the recorded constraint is a contract item");
   const request = { task, ids: [gate.id], replacement: "SA-588's merged PR and checks are sufficient", reason: "The gate was not in the ticket" };

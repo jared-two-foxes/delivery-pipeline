@@ -3,7 +3,9 @@ export type ScaffoldOperation =
   | "fail" | "retry" | "decompose" | "design-record"
   | "design-finish" | "design-reopen" | "checkpoint-record" | "issue-resume"
   | "summary" | "issue" | "select" | "design-select" | "delivery-record"
-  | "design-revise" | "direction-approve" | "requirements";
+  | "direction-approve" | "design-revise" | "attempt-record" | "history-foreign"
+  | "history-rewrite" | "failure-record" | "artifact-put" | "artifact-get"
+  | "requirements";
 
 export interface IssueBinding {
   featureId: string;
@@ -128,6 +130,11 @@ export interface ScaffoldResponse {
   task?: Issue | null;
   summary?: FeatureSummary;
   context?: IssueCapsule | null;
+  /** `requirements` operation (scaffold.requirements/v1). */
+  schema?: RequirementsView["schema"];
+  coverage?: CoverageStatus;
+  counts?: RequirementsView["counts"];
+  requirements?: RequirementsView["requirements"];
 }
 
 export function scaffoldArguments(params: unknown): { args: string[]; input: string };
@@ -139,6 +146,10 @@ export type ScaffoldResult =
       reason: string; message: string; exit_code?: number; stderr?: string };
 
 export const OPERATIONS: ScaffoldOperation[];
+export function isReference(value: unknown): value is string;
+export const REQUIREMENT_ROLES: RequirementRole[];
+export function validateRequirements(items: unknown): asserts items is Requirement[];
+export function validateRequirementLinks(links: unknown, where?: string): asserts links is RequirementLink[];
 export function designReference(context: string): string;
 export function validateRequest(params: unknown): ScaffoldRequest;
 export function validateResponse(data: unknown, params: ScaffoldRequest): asserts data is ScaffoldResponse;

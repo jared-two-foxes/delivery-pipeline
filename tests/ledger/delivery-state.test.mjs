@@ -149,12 +149,28 @@ test("contract item identities preserve their persisted hashes", () => {
     { objective: "Objective", requirements: [{ id: "R1", text: "Feature works" }], constraints: ["Preserve errors"] },
     { acceptance_criteria: ["Issue works"], constraints: ["No reset"] },
     { taskId: "T" },
+    [{ id: "R1", text: "Feature works", roles: ["contribute"] }],
   );
   assert.deepEqual(items.map((item) => item.text),
     ["Objective", "Feature works", "Preserve errors", "Issue works", "No reset"]);
   const hash = (value) => createHash("sha256").update(JSON.stringify(value)).digest("hex").slice(0, 16);
   assert.equal(items[0].id, "feature_objective-" + hash("Objective"));
   assert.equal(items[3].id, "issue_criterion_T_0-" + hash("Issue works"));
+  assert.equal(items[1].id, "feature_requirement_R1-" + hash("Feature works"));
+  assert.deepEqual(items[1].roles, ["contribute"]);
+});
+
+test("contract items bind only the task-scoped requirements and their roles", () => {
+  const feature = { objective: "Objective", constraints: [],
+    requirements: [{ id: "R1", text: "Recorded" }, { id: "R2", text: "Displayed" }, { id: "R3", text: "Survives restart" }] };
+  const items = deliveryContractItems(feature, { acceptance_criteria: ["View works"], constraints: [] }, { taskId: "view" },
+    [{ id: "R2", text: "Displayed", roles: ["contribute", "verify"] }]);
+  const requirements = items.filter((item) => item.id.startsWith("feature_requirement_"));
+  assert.deepEqual(requirements.map(({ text, roles }) => [text, roles]), [["Displayed", ["contribute", "verify"]]]);
+  assert.ok(!items.some((item) => ["Recorded", "Survives restart"].includes(item.text)), "unrelated requirements are excluded");
+  // The whole feature definition is never a fallback.
+  assert.throws(() => deliveryContractItems(feature, { acceptance_criteria: ["x"], constraints: [] }, { taskId: "view" }),
+    /task-scoped requirements from Scaffold are required/);
 });
 
 test("Scaffold callers own reads, writes and post-save freshness checks", {

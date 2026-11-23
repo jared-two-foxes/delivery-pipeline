@@ -62,14 +62,21 @@ export function anchorDeliveryJournal(repository, task, journal, next, instanceI
   return next;
 }
 
-export function deliveryContractItems(feature, issue, task) {
+/**
+ * Contract items for one task. `requirements` is Scaffold's task-scoped requirement output
+ * (`issue` context: stable id, text and this task's roles), never the whole feature definition,
+ * so a task is bound only to the requirements it contributes to or verifies.
+ */
+export function deliveryContractItems(feature, issue, task, requirements) {
+  if (!Array.isArray(requirements))
+    throw new Error("TASK_CONTEXT_INVALID: task-scoped requirements from Scaffold are required");
   return [
     ["feature_objective", feature.objective],
-    ...feature.requirements.map((r) => ["feature_requirement_" + r.id, r.text]),
+    ...requirements.map((r) => ["feature_requirement_" + r.id, r.text, { roles: [...r.roles] }]),
     ...(feature.constraints ?? []).map((v, i) => ["feature_constraint_" + i, v]),
     ...issue.acceptance_criteria.map((v, i) => ["issue_criterion_" + task.taskId + "_" + i, v]),
     ...(issue.constraints ?? []).map((v, i) => ["issue_constraint_" + task.taskId + "_" + i, v]),
-  ].map(([kind, value]) => ({ id: kind + "-" + hash(value).slice(0, 16), text: value }));
+  ].map(([kind, value, extra]) => ({ id: kind + "-" + hash(value).slice(0, 16), text: value, ...extra }));
 }
 
 export function updateContext(

@@ -2,7 +2,7 @@
 // scoped context and actionable coverage gaps, driven only through the shared host-neutral tool.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -10,6 +10,8 @@ import { designReference } from "../../src/lib/scaffold/contracts.mjs";
 import { createScaffoldTools } from "../../src/tools/scaffold/tools.mjs";
 import { approveFeatureDirection } from "../../src/tools/scaffold/feature-authorization.mjs";
 import { integration } from "../helpers/feature-fixture.mjs";
+import { scopedRequirements } from "../../src/tools/execute-and-review/delivery-context.mjs";
+import { deliveryContractItems } from "../../src/lib/delivery-state/delivery-context.mjs";
 
 const Type = new Proxy({}, { get: (_t, kind) => (...args) => ({ kind, args }) });
 const [tool] = createScaffoldTools(Type);
@@ -92,6 +94,23 @@ test("a fully mapped feature is initialized, revised, approved, decomposed and f
   assert.equal(finished.data.phase, "implement");
   const summary = await w.ok({ operation: "summary" });
   assert.equal(summary.data.summary.coverage.complete, true);
+
+  // Delivery consumes Scaffold's task-scoped output: each task sees only its requirements and roles.
+  const feature = (await w.ok({ operation: "list" })).data.feature;
+  const binding = (taskId) => ({ featureId: "SA-1", taskId, designRef: feature.design_ref });
+  const scoped = {};
+  for (const id of ["store", "view", "e2e", "tooling"]) {
+    scoped[id] = await scopedRequirements(w.dir, binding(id));
+    const items = deliveryContractItems(feature, feature.tasks[id], binding(id), scoped[id])
+      .filter((item) => item.id.startsWith("feature_requirement_"));
+    assert.deepEqual(items.map((item) => [item.text, item.roles]), scoped[id].map((r) => [r.text, r.roles]));
+  }
+  assert.deepEqual(Object.fromEntries(Object.entries(scoped).map(([id, list]) => [id, list.map((r) => [r.id, r.roles])])), {
+    store: [["SA-1.AC1", ["contribute"]], ["SA-1.AC3", ["contribute"]]],
+    view: [["SA-1.AC2", ["contribute", "verify"]]],
+    e2e: [["SA-1.AC1", ["verify"]], ["SA-1.AC3", ["verify"]]],
+    tooling: [],
+  });
   assert.equal(summary.data.summary.requirements.unmapped, 0);
 });
 
@@ -102,7 +121,8 @@ test("invalid mappings and a missing verification plan fail with actionable mess
   // Request-level mistakes are caught before Scaffold runs.
   for (const [payload, message] of [
     [[child("a")], /exactly one of requirements/],
-    [[child("a", { requirements: [{ id: "SA-1.AC1", roles: ["build"] }] })], /roles must be/],
+    [[child("a", { requirements: [{ id: "SA-1.AC1", roles: ["contribute"] }] }), child("b", { requirements: [{ id: "SA-1.AC2", roles: ["build"] }] })],
+      /Task b link SA-1\.AC2: invalid role "build"/],
     [[child("a", { requirements: [both("SA-1.AC1")], requirements_rationale: "x" })], /exactly one of/],
   ]) {
     const r = await w.call({ operation: "decompose", task_id: "SA-1", payload });
@@ -142,14 +162,72 @@ test("invalid mappings and a missing verification plan fail with actionable mess
   assert.equal((await w.ok({ operation: "design-finish" })).data.phase, "implement");
 });
 
-test("legacy criteria and positional ids are refused rather than translated", integration, async (t) => {
+test("a revision that drops and reorders requirements keeps every surviving id and never renumbers", integration, async (t) => {
+  const w = await workspace(t);
+  const original = [...w.requirements, { id: "SA-1.AC3", text: "Activity survives restart", source: "SA-1 acceptance criterion 3" }];
+  await w.ok({ operation: "init", payload: w.feature(original) });
+
+  // Drop AC1 and supply the rest in a different order. Positional ids would make AC2 "first" here.
+  const revised = [original[2], { ...original[1], text: "Activity is displayed newest first" }];
+  await w.ok({ operation: "design-revise", payload: { context: w.context + " (AC1 dropped)", requirements: revised } });
+  const view = await w.ok({ operation: "requirements" });
+  assert.deepEqual(view.data.requirements.map(({ id, text, source }) => ({ id, text, source })), [
+    { id: "SA-1.AC2", text: "Activity is displayed newest first", source: "SA-1 acceptance criterion 2" },
+    { id: "SA-1.AC3", text: "Activity survives restart", source: "SA-1 acceptance criterion 3" },
+  ]);
+  // The dropped id cannot come back under a new meaning.
+  const reused = await w.call({ operation: "design-revise", payload: { context: w.context + " (AC1 reused)",
+    requirements: [...revised, { id: "SA-1.AC1", text: "Something else" }] } });
+  assert.equal(reused.error, true);
+  assert.match(reused.data.message, /SA-1\.AC1/);
+
+  const approved = await approveFeatureDirection({ featureId: "SA-1" }, { directory: w.dir }, { confirm: async () => true });
+  assert.equal(approved.ok, true, JSON.stringify(approved));
+
+  // A link to the dropped id is unknown; the surviving ids decompose and finish.
+  const stale = await w.call({ operation: "decompose", task_id: "SA-1", payload: [child("old", { requirements: [both("SA-1.AC1")] })] });
+  assert.equal(stale.error, true);
+  assert.match(stale.data.message, /unknown requirement ids: SA-1\.AC1/);
+  const added = await w.ok({ operation: "decompose", task_id: "SA-1", payload: [
+    child("view", { requirements: [both("SA-1.AC2")] }), child("persist", { requirements: [both("SA-1.AC3")] }) ] });
+  assert.equal(added.data.coverage.complete, true);
+  await w.ok({ operation: "design-record", task_id: "SA-1", payload: record("decomposed") });
+  for (const id of ["view", "persist"]) await w.ok({ operation: "design-record", task_id: id, payload: record("leaf") });
+  assert.equal((await w.ok({ operation: "design-finish" })).data.phase, "implement");
+  const issue = await w.ok({ operation: "issue", task_id: "persist" });
+  assert.deepEqual(issue.data.context.requirements.map((r) => [r.id, r.text, r.roles]),
+    [["SA-1.AC3", "Activity survives restart", ["contribute", "verify"]]]);
+});
+
+test("legacy criteria are refused rather than translated into generated ids", integration, async (t) => {
   const w = await workspace(t);
   const { requirements, ...rest } = w.feature(w.requirements);
-  const legacy = await w.call({ operation: "init", payload: { ...rest, acceptance_criteria: ["Activity is recorded"] } });
-  assert.equal(legacy.error, true);
-  assert.match(legacy.data.message, /acceptance_criteria no longer exist/);
-  const positional = await w.call({ operation: "init", payload: w.feature([{ id: "bad id", text: "x" }]) });
-  assert.equal(positional.error, true);
-  assert.match(positional.data.message, /must match/);
-  assert.equal(designReference("x").length, 71);
+  const legacy = { ...rest, acceptance_criteria: ["Activity is recorded", "Activity is displayed"] };
+  const refused = await w.call({ operation: "init", payload: legacy });
+  assert.equal(refused.error, true);
+  assert.match(refused.data.message, /acceptance_criteria no longer exist/);
+  // Supplying both is refused as well: criteria are never merged into, or alongside, requirements.
+  const mixed = await w.call({ operation: "init", payload: { ...legacy, requirements } });
+  assert.equal(mixed.error, true);
+  assert.match(mixed.data.message, /acceptance_criteria no longer exist/);
+  // Nothing was created, so no generated R1/R2 (or any other) ids exist anywhere.
+  const summary = await w.call({ operation: "summary" });
+  assert.equal(summary.error, true);
+  assert.match(summary.data.message, /Unknown feature/);
+  // Scaffold itself refuses the legacy shape too: there is no translation path below the adapter.
+  const direct = spawnSync("scaffold", ["init", "--feature=SA-1", "--input", "-"],
+    { cwd: w.dir, input: JSON.stringify({ ...legacy, design_ref: designReference(w.context) }), encoding: "utf8" });
+  assert.notEqual(direct.status, 0);
+  assert.match(direct.stderr, /acceptance_criteria are replaced by requirements/);
+  assert.equal((await w.call({ operation: "summary" })).error, true);
+});
+
+test("malformed requirement ids are refused by the id syntax check", integration, async (t) => {
+  const w = await workspace(t);
+  for (const id of ["bad id", "-leading", "", "a/b"]) {
+    const r = await w.call({ operation: "init", payload: w.feature([{ id, text: "x" }]) });
+    assert.equal(r.error, true, id);
+    assert.match(r.data.message, /must match/);
+  }
+  assert.equal(designReference("x"), "sha256:2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881");
 });
