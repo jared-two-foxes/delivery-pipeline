@@ -31,6 +31,7 @@ import {
 } from "../../src/tools/execution-recovery/issue-context.mjs";
 import { verifyHistory } from "../../src/lib/verification/history.mjs";
 import { recordTaskRequirementEvidence } from "../helpers/requirement-evidence.mjs";
+import { plannedRequirementEvidence } from "../../src/tools/checkpoint/requirement-evidence.mjs";
 const hasScaffold = spawnSync("scaffold", ["--help"], { encoding: "utf8" }).status === 0;
 const integration = { skip: !hasScaffold && "Real Scaffold (schema 3) is not on PATH" };
 async function fixture(t) {
@@ -459,6 +460,20 @@ test(
     });
     const receipt = await readEvidence(f.dir, c.evidenceRef);
     assert.equal(receipt.attempt, 4);
+    // The redesign moved R1 from the childless root to its new child, so F now holds no role for it.
+    // Attempts 1-3 reviewed F as R1's contributor and verifier; attempt 4 reviews Scaffold's current
+    // mapping (R1 deferred to the child) and retains the change, so the task recovers instead of being
+    // refused forever with REQUIREMENT_SCOPE_CHANGED.
+    const third = await readEvidence(f.dir, latest);
+    assert.deepEqual(third.args.deliveryContext.contractItems.filter((i) => i.requirement).map((i) => [i.id, i.roles]),
+      [["requirement:R1", ["contribute", "verify"]]]);
+    assert.deepEqual(receipt.args.deliveryContext.contractItems.filter((i) => i.requirement).map((i) => [i.id, i.roles]),
+      [["requirement:R1", []]]);
+    assert.equal(receipt.args.deliveryContext.updates.filter((u) => u.kind === "revise_requirements").length, 1);
+    assert.equal(receipt.args.deliveryContext.original, third.args.deliveryContext.original);
+    const listed = (await f.call("list")).feature;
+    await assert.rejects(plannedRequirementEvidence(f.dir, listed, third, latest), /REQUIREMENT_SCOPE_CHANGED/);
+    assert.deepEqual(await plannedRequirementEvidence(f.dir, listed, receipt, c.evidenceRef), []);
     const chain = await authenticateAttemptChain(
       f.dir,
       c.evidenceRef,

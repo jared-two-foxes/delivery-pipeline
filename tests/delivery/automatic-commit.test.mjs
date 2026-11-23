@@ -25,8 +25,10 @@ import {
 } from "../../src/tools/scaffold/feature-authorization.mjs";
 import { validateFeature } from "../../src/tools/feature-validation/feature.mjs";
 import { issueDesignRequirements, issueRequirements } from "../../src/lib/scaffold/contracts.mjs";
-import { digest, readEvidence, retainEvidence } from "../../src/lib/evidence/store.mjs";
+import { digest, readEvidence, retainEvidence, readFeatureEvidence } from "../../src/lib/evidence/store.mjs";
 import { authenticateTaskEvidence } from "../../src/lib/verification/task-evidence.mjs";
+import { requirementBinding } from "../../src/lib/verification/requirements.mjs";
+import { plannedRequirementEvidence } from "../../src/tools/checkpoint/requirement-evidence.mjs";
 import { conductorFixture, executorFixture, reviewFixture } from "../helpers/conductor-executables.mjs";
 import { approveGraph } from "../helpers/issue-plan.mjs";
 import {
@@ -71,6 +73,12 @@ async function fixture(t) {
     path.join(bin, "scaffold"),
     "#!/usr/bin/env python3\nimport sys,os\n" +
       'if os.environ.get("FAIL_SCAFFOLD_COMPLETE") and sys.argv[1:2] == ["complete"]: sys.exit(9)\n' +
+      // Fail the Nth evidence-record call (counted across processes in a file), to interrupt a partial write.
+      'if os.environ.get("FAIL_SCAFFOLD_EVIDENCE_AT") and sys.argv[1:2] == ["evidence-record"]:\n' +
+      '    p = os.environ["FAIL_SCAFFOLD_EVIDENCE_COUNTER"]\n' +
+      '    n = (int(open(p).read()) if os.path.exists(p) else 0) + 1\n' +
+      '    open(p, "w").write(str(n))\n' +
+      '    if n == int(os.environ["FAIL_SCAFFOLD_EVIDENCE_AT"]): sys.exit(9)\n' +
       "sys.path.insert(0, " +
       JSON.stringify(path.join(process.env.SCAFFOLD_SOURCE, "src")) +
       ")\nfrom scaffold_cli.cli import main\nmain()\n",
@@ -93,6 +101,8 @@ async function fixture(t) {
       "REVIEW_FIXTURE_REQUIRE_CHECK_EVIDENCE",
       "REVIEW_FIXTURE_REQUIREMENT_DISPOSITION",
       "REVIEW_FIXTURE_SKIP_REQUIREMENTS",
+      "REVIEW_FIXTURE_REQUIREMENT_ID",
+      "REVIEW_FIXTURE_REQUIREMENT_EVIDENCE",
     ].map((k) => [k, process.env[k]]),
   );
   Object.assign(process.env, {
@@ -1428,6 +1438,39 @@ test(
 );
 
 test(
+  "an interrupted evidence write resumes finalization with exactly one association per role and one completion",
+  integration,
+  async (t) => {
+    const f = await fixture(t);
+    const counter = path.join(f.directory, ".git", "evidence-calls");
+    t.after(() => { delete process.env.FAIL_SCAFFOLD_EVIDENCE_AT; delete process.env.FAIL_SCAFFOLD_EVIDENCE_COUNTER; });
+    process.env.FAIL_SCAFFOLD_EVIDENCE_AT = "2";
+    process.env.FAIL_SCAFFOLD_EVIDENCE_COUNTER = counter;
+    const result = await executeAndCheckpoint(f.args, f.context, { invokeConductor: f.finalCommand });
+    assert.equal(result.status, "BLOCKED", JSON.stringify(result));
+    assert.equal(result.implementationStatus, "PASSED");
+    // The first association landed, the second did not; nothing was completed or committed.
+    let feature = (await f.call("list")).feature;
+    assert.deepEqual(feature.evidence.map((e) => [e.requirement, e.role]), [["R1", "contribute"]]);
+    assert.equal(feature.tasks.F.status, "in_progress");
+    assert.equal(f.git("rev-parse", "HEAD"), f.base);
+    const attempts = feature.tasks.F.attempts;
+    delete process.env.FAIL_SCAFFOLD_EVIDENCE_AT;
+    const recovered = await finalizeVerifiedTask(f.finalizeArgs(result), f.context);
+    assert.equal(recovered.ok, true, JSON.stringify(recovered));
+    feature = (await f.call("list")).feature;
+    // The retry replays the first association unchanged and adds only the missing one.
+    assert.deepEqual(feature.evidence.map((e) => [e.requirement, e.role, e.receipt]),
+      [["R1", "contribute", result.evidence.reference], ["R1", "verify", result.evidence.reference]]);
+    assert.deepEqual(feature.tasks.F.attempts, attempts, "consumed attempts are unchanged");
+    assert.equal(feature.tasks.F.history.filter((h) => h.evidence).length, 1, "completed once");
+    assert.deepEqual(feature.history.map((h) => [h.kind, h.task_id]), [["checkpoint", "F"]]);
+    assert.equal(f.git("rev-list", "--count", f.base + "..HEAD"), "1");
+    assert.equal((await f.call("requirements")).requirements[0].evidence.status, "satisfied");
+  },
+);
+
+test(
   "requirement evidence binds the stable id to the completing attempt, its tree and the independent review",
   integration,
   async (t) => {
@@ -1437,18 +1480,35 @@ test(
     const record = await readEvidence(f.directory, result.evidence.reference);
     // The reviewer was asked for the stable id, never a position, and verified it.
     const item = record.args.deliveryContext.contractItems.find((i) => i.requirement === "R1");
-    assert.deepEqual(item, { id: "requirement:R1", requirement: "R1", text: "Source says after", roles: ["contribute", "verify"] });
+    const binding = requirementBinding("R1", { contributors: ["F"], verifiers: ["F"] });
+    assert.deepEqual(item, { id: "requirement:R1", requirement: "R1", text: "Source says after", roles: ["contribute", "verify"], binding });
     assert.match(record.args.requirements, /"requirements":\[\{"id":"requirement:R1"/);
     const feature = (await f.call("list")).feature;
-    assert.deepEqual(feature.evidence.map((e) => [e.task_id, e.requirement, e.role, e.basis, e.receipt, e.tree]), [
-      ["F", "R1", "contribute", "independent-review", result.evidence.reference, record.after.tree],
-      ["F", "R1", "verify", "independent-review", result.evidence.reference, record.after.tree],
+    const design = feature.tasks.F.designs.at(-1).reference;
+    assert.deepEqual(feature.evidence.map((e) => [e.task_id, e.requirement, e.role, e.basis, e.receipt, e.tree, e.binding, e.design]), [
+      ["F", "R1", "contribute", "independent-review", result.evidence.reference, record.after.tree, binding, design],
+      ["F", "R1", "verify", "independent-review", result.evidence.reference, record.after.tree, binding, design],
     ]);
-    const retained = (await f.call("artifact-get", { payload: { reference: feature.evidence[1].reference } })).artifact;
-    assert.equal(retained.schema, "pi.requirement-evidence/v1");
-    assert.deepEqual(retained.requirement, { id: "R1", text: "Source says after" });
-    assert.equal(retained.review.obligation_id, "requirement:R1");
-    assert.equal(retained.review.disposition, "verified");
+    // Each retained artifact is exactly what the authenticated receipt and Scaffold's mapping say, including
+    // the reviewer's own evidence text, the attempt's Git base and tree.
+    const review = record.result.conductor.review;
+    const assessment = review.obligation_assessments.find((a) => a.obligation_id === "requirement:R1");
+    assert.equal(record.args.baseRef, f.base);
+    for (const [index, role] of ["contribute", "verify"].entries()) {
+      const retained = (await f.call("artifact-get", { payload: { reference: feature.evidence[index].reference } })).artifact;
+      assert.deepEqual(retained, {
+        schema: "pi.requirement-evidence/v1", feature_id: "F", instance_id: feature.workflow.instance_id, task_id: "F",
+        requirement: { id: "R1", text: "Source says after" }, role, basis: "independent-review",
+        receipt: result.evidence.reference, attempt: record.attempt, base: f.base, tree: record.after.tree, design, binding,
+        review: { review_id: review.review_id, obligation_id: "requirement:R1", disposition: "verified", evidence: assessment.evidence },
+      });
+    }
+    // Planning again from the same receipt and mapping yields identical artifacts, whose content-addressed
+    // references are the ones already recorded: a retry can only replay, never add.
+    const again = await plannedRequirementEvidence(f.directory, feature, record, result.evidence.reference);
+    assert.deepEqual(again, await plannedRequirementEvidence(f.directory, feature, record, result.evidence.reference));
+    for (const [index, planned] of again.entries())
+      assert.equal((await f.call("artifact-put", { payload: planned.artifact })).reference, feature.evidence[index].reference);
     const view = (await f.call("requirements")).requirements[0];
     assert.equal(view.evidence.status, "satisfied");
     assert.equal(view.evidence.independent_verification, true);
@@ -1467,23 +1527,54 @@ test(
     delete process.env.REVIEW_FIXTURE_SKIP_REQUIREMENTS;
     const passed = await validateFeature(finalArgs, f.context, { authorize: () => featureAuthorized(finalArgs, f.context) });
     assert.equal(passed.status, "PASSED", JSON.stringify(passed));
+
+    // Re-authenticating a retained result applies the same per-id rule. Each forged copy differs from the
+    // genuine record only in one requirement assessment, so nothing else can be what refuses it.
+    const retainedResult = await readFeatureEvidence(f.directory, passed.evidenceRef);
+    const resume = (resumeEvidenceRef) => validateFeature({ ...finalArgs, resumeEvidenceRef }, f.context,
+      { authorize: () => featureAuthorized(finalArgs, f.context) });
+    const requirementAssessment = (a) => a.obligation_id === "requirement:R1";
+    for (const [mutate, shown] of [
+      [(list) => list.filter((a) => !requirementAssessment(a)), /requirement:R1 \[not assessed\]/],
+      [(list) => list.map((a) => requirementAssessment(a) ? { ...a, obligation_id: "R1" } : a), /requirement:R1 \[not assessed\]/],
+      [(list) => list.map((a) => requirementAssessment(a) ? { ...a, disposition: "unresolved" } : a), /requirement:R1 \[unresolved\]/],
+      [(list) => list.map((a) => requirementAssessment(a) ? { ...a, disposition: "not_applicable" } : a), /requirement:R1 \[not_applicable\]/],
+      [(list) => list.map((a) => requirementAssessment(a) ? { ...a, evidence: " " } : a), /Invalid independent obligation assessments/],
+    ]) {
+      const forged = structuredClone(retainedResult);
+      forged.review.obligation_assessments = mutate(forged.review.obligation_assessments);
+      const { reference } = await f.call("artifact-put", { payload: forged });
+      const refused = await resume(reference);
+      assert.equal(refused.status, "BLOCKED", JSON.stringify(refused));
+      assert.match(refused.message, shown);
+    }
+    const recovered = await resume(passed.evidenceRef);
+    assert.equal(recovered.status, "PASSED", JSON.stringify(recovered));
+    assert.equal(recovered.recovered, true);
   },
 );
 
 for (const [label, configure, shown] of [
-  ["not_applicable", () => { process.env.REVIEW_FIXTURE_REQUIREMENT_DISPOSITION = "not_applicable"; }, "not_applicable"],
-  ["unresolved", () => { process.env.REVIEW_FIXTURE_REQUIREMENT_DISPOSITION = "unresolved"; }, "unresolved"],
-  ["missing", () => { process.env.REVIEW_FIXTURE_SKIP_REQUIREMENTS = "1"; }, "not assessed"],
+  ["not_applicable", () => { process.env.REVIEW_FIXTURE_REQUIREMENT_DISPOSITION = "not_applicable"; }, /requirement:R1 \[not_applicable\]/],
+  ["unresolved", () => { process.env.REVIEW_FIXTURE_REQUIREMENT_DISPOSITION = "unresolved"; }, /requirement:R1 \[unresolved\]/],
+  ["missing", () => { process.env.REVIEW_FIXTURE_SKIP_REQUIREMENTS = "1"; }, /requirement:R1 \[not assessed\]/],
+  // The bare ticket id is not the requirement's review id.
+  ["assessed under a wrong id", () => { process.env.REVIEW_FIXTURE_REQUIREMENT_ID = "R1"; }, /requirement:R1 \[not assessed\]/],
+  // Review CLI output with an empty evidence string is itself invalid, so it can never authorize anything.
+  ["verified with empty evidence", () => { process.env.REVIEW_FIXTURE_REQUIREMENT_EVIDENCE = " "; }, /Invalid independent obligation assessments/],
 ])
+  for (const change of [true, false])
   test(
-    "an approved review that leaves a required requirement " + label + " cannot complete the task",
+    "an approved review that leaves a required requirement " + label + " cannot complete the task (" +
+      (change ? "with" : "without") + " a source change)",
     integration,
     async (t) => {
       const f = await fixture(t);
       configure();
+      if (!change) f.args.input = JSON.stringify({ operations: [] });
       const result = await executeAndCheckpoint(f.args, f.context, { invokeConductor: f.finalCommand });
       assert.notEqual(result.status, "PASSED", JSON.stringify(result));
-      assert.match(JSON.stringify(result), new RegExp("requirement:R1 \\[" + shown + "\\]"));
+      assert.match(JSON.stringify(result), shown, JSON.stringify({ status: result.status, reason: result.reason, message: result.message }));
       const feature = (await f.call("list")).feature;
       assert.equal(feature.tasks.F.status, "in_progress");
       assert.deepEqual(feature.evidence ?? [], [], "nothing is recorded for unverified work");

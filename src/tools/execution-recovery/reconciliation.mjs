@@ -155,7 +155,8 @@ export async function rewriteFeatureHistory(args, context = {}, options = {}) {
       try { diagnosticEvidenceRef = await retainFeatureEvidence(repository, { ...verification, result: result('BLOCKED', error.message),
         ...(monitor?.total() ? { monitorDiagnostics: monitor.diagnostics() } : {}) }); } catch {}
     }
-    return { ...result('BLOCKED', error.message), evidenceRef: reference, diagnosticEvidenceRef,
+    return { ...result('BLOCKED', error.message), ...(error.recorded ? { reason: 'REQUIREMENT_EVIDENCE_CARRY_INCOMPLETE', recorded: true } : {}),
+      evidenceRef: reference, diagnosticEvidenceRef,
       recovery: error.recorded
         ? 'The rewrite is recorded in Scaffold; Git was not changed. Repeat the same reconciliation to finish carrying requirement evidence'
         : 'Nothing was changed in Scaffold or Git. Inspect retained evidence and the actual Git state; never edit the ledger or reset work' };

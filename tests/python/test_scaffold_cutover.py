@@ -199,10 +199,18 @@ def test_ledger_lifecycle_persists_across_subprocesses_and_ignores_legacy_files(
     assert [segment["task_id"] for segment in complete["history"]] == ["model", "api", FEATURE_ID]
     assert all(t["status"] == "completed" and t["checkpoint"] for t in complete["tasks"].values())
     assert tasks(directory, "summary")["summary"]["validation_status"] == "awaiting_validation"
+    # The requirement associations are persisted, one per holder role, and R1 is fully covered.
+    assert [(e["task_id"], e["requirement"], e["role"]) for e in complete["evidence"]] == [
+        ("model", "R1", "contribute"), ("api", "R1", "verify")]
+    coverage = command(directory, "requirements", "--feature", FEATURE_ID)
+    assert [(r["id"], r["evidence"]["status"]) for r in coverage["requirements"]] == [("R1", "satisfied")]
 
     # State is a fold of the ledger: a fresh process reads the same graph, and a lost lock is recreated.
     (directory / ".scaffold" / ".tasks.lock").unlink()
-    assert tasks(directory, "list")["feature"]["tasks"] == complete["tasks"]
+    fresh = tasks(directory, "list")["feature"]
+    assert fresh["tasks"] == complete["tasks"]
+    assert fresh["evidence"] == complete["evidence"]
+    assert command(directory, "requirements", "--feature", FEATURE_ID) == coverage
     assert (directory / ".scaffold" / ".tasks.lock").is_file()
     assert legacy_state.read_bytes() == legacy_before  # a schema-2 file is neither read nor rewritten
     assert ledger.is_file()

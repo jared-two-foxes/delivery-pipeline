@@ -98,7 +98,7 @@ test("the tool inventory is stable across hosts", async () => {
   assert.deepEqual(all.map((t) => t.name).sort(), [
     "accept_feature", "adopt_foreign_commits", "approve_delivery_amendment", "approve_feature_direction", "checkpoint_verified_task",
     "abandon_inflight_attempt", "execute_and_review", "inspect_conductor_evidence", "inspect_feature_drift", "inspect_feature_validation",
-    "inspect_issue_attempt", "inspect_issue_handoff", "prepare_issue_handoff", "reconcile_external_changes", "review_changes",
+    "inspect_issue_attempt", "inspect_issue_handoff", "prepare_issue_handoff", "rebind_requirement_evidence", "reconcile_external_changes", "review_changes",
     "resume_issue", "rewrite_feature_history", "run_feature_checks", "scaffold_tasks", "suspend_issue", "validate_feature",
   ].sort());
   assert.equal(new Set(all.map((t) => t.name)).size, all.length, "tool names are unique");

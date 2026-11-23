@@ -34,24 +34,28 @@ export async function plannedRequirementEvidence(repository, feature, record, re
   const task = feature.tasks[record.task.taskId];
   const design = task.designs?.at(-1)?.reference;
   requireValue(design, "Requirement evidence needs the task's approved design record");
-  const current = (await scopedRequirements(repository, record.task, options, { withHolders: true }))
-    .filter((r) => r.roles.length > 0);
+  const current = (await scopedRequirements(repository, record.task, options))
+    .filter((r) => r.roles.length > 0)
+    .map((r) => ({ ...r, binding: requirementBinding(r.id, r) }));
   const reviewed = requiredRequirements(record.args?.deliveryContext);
-  const scope = (items) => items.map((r) => ({ id: r.requirement ?? r.id, text: r.text, roles: [...r.roles].sort() }))
-    .sort((a, b) => a.id.localeCompare(b.id));
+  // The binding covers every holder of the requirement, not only this task's roles: evidence is never
+  // recorded under a mapping the review did not see.
+  const scope = (items) => items.map((r) => ({ id: r.requirement ?? r.id, text: r.text, roles: [...r.roles].sort(),
+    binding: r.binding ?? null })).sort((a, b) => a.id.localeCompare(b.id));
   requireValue(
     equal(scope(current), scope(reviewed)),
     "REQUIREMENT_SCOPE_CHANGED: the reviewed attempt assessed requirements " +
       JSON.stringify(scope(reviewed).map(({ id, roles }) => ({ id, roles }))) + " but Scaffold now assigns this task " +
       JSON.stringify(scope(current).map(({ id, roles }) => ({ id, roles }))) +
-      ". The evidence cannot be bound to a different mapping; run the task again under the current design",
+      " (or another task's role, or the text, changed). The evidence cannot be bound to a mapping the review did not " +
+      "see; run the task again: the next attempt reviews Scaffold's current requirements",
   );
   const review = record.result?.conductor?.review;
   const open = unverifiedRequirements(reviewed, review);
   requireValue(open.length === 0, describeUnverifiedRequirements(open));
   return current.flatMap((r) => {
     const assessment = review.obligation_assessments.find((a) => a.obligation_id === requirementObligationId(r.id));
-    const binding = requirementBinding(r.id, r);
+    const binding = r.binding;
     return r.roles.map((role) => ({
       artifact: {
         schema: "pi.requirement-evidence/v1",
@@ -63,6 +67,8 @@ export async function plannedRequirementEvidence(repository, feature, record, re
         basis: "independent-review",
         receipt,
         attempt: record.attempt,
+        // The authenticated attempt's Git base and resulting tree (the receipt binds both).
+        base: record.args.baseRef,
         tree: record.after.tree,
         design,
         binding,
@@ -158,50 +164,66 @@ export async function carryRequirementEvidence(repository, featureId, verificati
 }
 
 /**
- * Reassess completed work after the coverage binding changed (for example a corrective task was added as
- * another contributor). Scaffold makes every association of that requirement stale, and accepts the same
- * completing receipt again only as a new association under the new binding with its own reference.
+ * Which stale associations can be re-recorded under the requirement's current binding, and why the others
+ * cannot. Writes nothing. Used by the explicit `rebind_requirement_evidence` recovery tool only: the final
+ * gates never re-bind, they block on stale coverage.
  *
- * Nothing is re-bound on trust. An association is carried only when the task is still completed with the
- * same receipt, design and checkpoint tree, still holds the role, and the retained receipt re-authenticates
- * with an independent review that verified exactly this requirement. Anything else stays stale and blocks.
- * `authenticate(repository, reference, binding)` is the task-receipt authentication used by checkpoints.
+ * Adding a corrective task as another contributor or verifier changes a requirement's binding, and Scaffold
+ * then marks every association of it stale; it accepts the same completing receipt again only as a new
+ * association under the new binding with its own reference. Nothing is re-bound on trust. An association
+ * qualifies only when the task is still completed with the same receipt, design and checkpoint tree, still
+ * holds the role, and the retained receipt re-authenticates with an independent review that verified exactly
+ * this requirement in this role. `authenticate(repository, reference, binding)` is the task-receipt
+ * authentication used by checkpoints. `feature` is Scaffold's `list` feature and `view` its `requirements`.
  */
-export async function rebindRequirementEvidence(repository, featureId, authenticate, options = {}) {
-  const feature = (await scaffold(repository, { operation: "list", feature_id: featureId }, options)).feature;
-  const view = await scaffold(repository, { operation: "requirements", feature_id: featureId }, options);
+export async function planRebinding(repository, feature, view, authenticate) {
   const holders = new Map(view.requirements.map((r) => [r.id, {
     contributors: r.contributors.map((h) => h.id), verifiers: r.verifiers.map((h) => h.id),
   }]));
-  const rebound = [], skipped = [];
-  const keys = new Map();
-  for (const entry of feature.evidence ?? [])
-    keys.set(JSON.stringify([entry.task_id, entry.requirement, entry.role, entry.receipt]), entry);
-  for (const [key, entry] of keys) {
+  const key = (e) => JSON.stringify([e.task_id, e.requirement, e.role, e.receipt]);
+  const latest = new Map();
+  for (const entry of feature.evidence ?? []) latest.set(key(entry), entry);
+  const plan = [], skipped = [];
+  for (const entry of latest.values()) {
     const current = holders.get(entry.requirement);
     if (!current) continue;
     const binding = requirementBinding(entry.requirement, current);
-    if ((feature.evidence ?? []).some((e) => JSON.stringify([e.task_id, e.requirement, e.role, e.receipt]) === key &&
-      e.binding === binding)) continue;
+    if ((feature.evidence ?? []).some((e) => key(e) === key(entry) && e.binding === binding)) continue;
     const task = feature.tasks[entry.task_id];
     const completion = [...(task?.history ?? [])].reverse().find((h) => h.evidence)?.evidence?.reference;
     // Associations of attempts that did not complete the task are history, not outstanding work.
     if (task?.status !== "completed" || completion !== entry.receipt) continue;
-    const why = entry.design !== task.designs?.at(-1)?.reference ? "the task's design changed"
-      : !(entry.role === "contribute" ? current.contributors : current.verifiers).includes(entry.task_id) ? "the task no longer holds this role"
-      : task.checkpoint?.tree !== entry.tree ? "the checkpoint tree was rewritten after this association"
-      : null;
-    if (why) { skipped.push({ task: entry.task_id, requirement: entry.requirement, role: entry.role, reason: why }); continue; }
-    const record = await authenticate(repository, entry.receipt, { featureId, taskId: entry.task_id, designRef: feature.design_ref });
-    const reviewed = requiredRequirements(record.args?.deliveryContext).find((r) => r.requirement === entry.requirement);
-    const open = unverifiedRequirements(reviewed ? [reviewed] : [], record.result?.conductor?.review);
-    if (!reviewed || !reviewed.roles.includes(entry.role) || open.length) {
-      skipped.push({ task: entry.task_id, requirement: entry.requirement, role: entry.role,
-        reason: "the retained review did not verify this requirement in this role" });
-      continue;
+    const skip = (reason) => skipped.push({ task: entry.task_id, requirement: entry.requirement, role: entry.role, reason });
+    if (entry.design !== task.designs?.at(-1)?.reference) { skip("the task's design changed"); continue; }
+    if (!(entry.role === "contribute" ? current.contributors : current.verifiers).includes(entry.task_id)) {
+      skip("the task no longer holds this role"); continue;
     }
-    const assessment = record.result.conductor.review.obligation_assessments
-      .find((a) => a.obligation_id === requirementObligationId(entry.requirement));
+    if (task.checkpoint?.tree !== entry.tree) { skip("the checkpoint tree was rewritten after this association"); continue; }
+    let record;
+    try {
+      record = await authenticate(repository, entry.receipt, { featureId: feature.id, taskId: entry.task_id, designRef: feature.design_ref });
+    } catch (error) {
+      skip("the completing receipt no longer authenticates: " + error.message); continue;
+    }
+    const reviewed = requiredRequirements(record.args?.deliveryContext).find((r) => r.requirement === entry.requirement);
+    const review = record.result?.conductor?.review;
+    if (!reviewed || !reviewed.roles.includes(entry.role) || unverifiedRequirements([reviewed], review).length) {
+      skip("the retained review did not verify this requirement in this role"); continue;
+    }
+    const assessment = review.obligation_assessments.find((a) => a.obligation_id === requirementObligationId(entry.requirement));
+    plan.push({ entry, binding, holders: current, review: { review_id: review.review_id, obligation_id: assessment.obligation_id,
+      disposition: assessment.disposition, evidence: assessment.evidence } });
+  }
+  return { plan, skipped };
+}
+
+/** Re-record the qualifying associations (see planRebinding) and report what was re-bound and skipped. */
+export async function rebindRequirementEvidence(repository, featureId, authenticate, options = {}) {
+  const feature = (await scaffold(repository, { operation: "list", feature_id: featureId }, options)).feature;
+  const view = await scaffold(repository, { operation: "requirements", feature_id: featureId }, options);
+  const { plan, skipped } = await planRebinding(repository, feature, view, authenticate);
+  const rebound = [];
+  for (const { entry, binding, holders, review } of plan) {
     const { reference } = await scaffold(repository, {
       operation: "artifact-put",
       feature_id: featureId,
@@ -217,9 +239,8 @@ export async function rebindRequirementEvidence(repository, featureId, authentic
         design: entry.design,
         previous: { reference: entry.reference, binding: entry.binding },
         binding,
-        holders: current,
-        review: { review_id: record.result.conductor.review.review_id, obligation_id: assessment.obligation_id,
-          disposition: assessment.disposition, evidence: assessment.evidence },
+        holders,
+        review,
       },
     }, options);
     await scaffold(repository, {

@@ -92,8 +92,8 @@ const obligation_assessments = obligations.filter(o => o.status !== 'independent
     }
     return { obligation_id: o.id, disposition: 'verified', evidence: 'Independent fixture inspected source and regression output' };
   }).concat(process.env.REVIEW_FIXTURE_SKIP_REQUIREMENTS ? [] : (context?.requirements ?? featureRequirements).map(r => ({
-    obligation_id: r.id, disposition: process.env.REVIEW_FIXTURE_REQUIREMENT_DISPOSITION ?? 'verified',
-    evidence: 'Independent fixture inspected the change against ' + r.id })));
+    obligation_id: process.env.REVIEW_FIXTURE_REQUIREMENT_ID ?? r.id, disposition: process.env.REVIEW_FIXTURE_REQUIREMENT_DISPOSITION ?? 'verified',
+    evidence: process.env.REVIEW_FIXTURE_REQUIREMENT_EVIDENCE ?? 'Independent fixture inspected the change against ' + r.id })));
 if (process.env.REVIEW_FIXTURE_MALFORMED) { console.log('{invalid JSON'); process.exit(0); }
 if (process.env.REVIEW_FIXTURE_TAMPER) {
   const file = path.join(path.dirname(value('--request')), '0.receipt.json');

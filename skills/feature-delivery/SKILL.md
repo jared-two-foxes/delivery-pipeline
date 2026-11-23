@@ -148,9 +148,10 @@ or BLOCKED is BLOCKED.
 Before running any check, both final gates require every canonical requirement to have
 applicable implementation and verification evidence in Scaffold. `REQUIREMENT_EVIDENCE_INCOMPLETE`
 names each requirement and the issue and role still outstanding: finish, re-run or add a corrective
-issue for it, never mark it done. Stale evidence after a corrective issue changed a requirement's
-contributors or verifiers is re-recorded automatically only where the earlier issue's own review verified
-it, and the result's `requirementEvidence` reports what was re-bound or skipped.
+issue for it, never mark it done. When the evidence is stale because a corrective issue changed a
+requirement's contributors or verifiers, call `rebind_requirement_evidence`: it re-records only evidence whose
+own review verified the requirement, and reports what it re-bound, skipped (re-run those issues) and what is
+still outstanding. Then rerun the final checks.
 
 This gate is mechanical. It performs **no independent or agent-based feature review**,
 so do not call `validate_feature` from this workflow. Per-issue review during

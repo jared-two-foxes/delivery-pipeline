@@ -13,6 +13,7 @@ import { rewriteFeatureHistory } from "../../src/tools/execution-recovery/reconc
 import { verifyHistory, foreignHistoryRequirements } from "../../src/lib/verification/history.mjs";
 import { planRewrite } from "../../src/lib/verification/rewrite-history.mjs";
 import { recordTaskRequirementEvidence } from "../helpers/requirement-evidence.mjs";
+import { invoke } from "../../src/lib/scaffold/process.mjs";
 
 const hasScaffold = spawnSync("scaffold", ["--help"], { encoding: "utf8" }).status === 0;
 const real = { skip: !hasScaffold && "Real Scaffold (schema 3) is not on PATH" };
@@ -171,6 +172,43 @@ test("recording the same rewrite again is idempotent and asks for nothing new", 
   assert.equal(again.recovered, true);
   assert.equal(again.evidenceRef, first.evidenceRef);
   assert.equal((await f.feature()).epochs.length, 1);
+});
+
+test("an interrupted evidence carry-over keeps the recorded rewrite and a repeat finishes only what is missing", real, async t => {
+  const f = await fixture(t);
+  await f.checkpoint("a", "a.txt");
+  const old = await f.feature();
+  await f.upstream();
+  f.g("rebase", "-q", "main");
+  // Fail the second evidence-equivalence, after the rewrite and the first equivalence were recorded.
+  let equivalences = 0;
+  const failing = { scaffoldOptions: { invokeScaffold: async (program, args, options) => {
+    if (args[0] === "evidence-equivalence" && ++equivalences === 2)
+      return { code: 1, stdout: "", stderr: JSON.stringify({ schema_version: 3, error: "simulated interruption" }) };
+    return invoke(program, args, options);
+  } } };
+  const interrupted = await f.rewrite({}, failing);
+  assert.equal(interrupted.status, "BLOCKED", JSON.stringify(interrupted));
+  assert.equal(interrupted.reason, "REQUIREMENT_EVIDENCE_CARRY_INCOMPLETE");
+  assert.equal(interrupted.recorded, true);
+  assert.match(interrupted.message, /history rewrite is recorded/);
+  assert.match(interrupted.recovery, /rewrite is recorded in Scaffold/);
+  let state = await f.feature();
+  assert.equal(state.epochs.length, 1, "the rewrite stays recorded");
+  assert.deepEqual(state.evidence.map(e => [e.role, (e.equivalent ?? []).length]), [["contribute", 1], ["verify", 0]]);
+  const statuses = async () => (await f.call("requirements")).requirements[0].evidence.obligations
+    .filter(o => o.task_id === "a").map(o => [o.role, o.status]);
+  assert.deepEqual(await statuses(), [["contribute", "satisfied"], ["verify", "stale"]]);
+
+  // Repeating the same reconciliation finds the recorded rewrite and carries only the missing one.
+  const repeated = await f.rewrite({ oldHeadRef: old.head });
+  assert.equal(repeated.status, "PASSED", JSON.stringify(repeated));
+  assert.equal(repeated.recovered, true);
+  assert.deepEqual(repeated.requirementEvidence.map(e => [e.task, e.requirement, e.role]), [["a", "R1", "verify"]]);
+  state = await f.feature();
+  assert.equal(state.epochs.length, 1, "no second rewrite");
+  assert.deepEqual(state.evidence.map(e => [e.role, (e.equivalent ?? []).length]), [["contribute", 1], ["verify", 1]]);
+  assert.deepEqual(await statuses(), [["contribute", "satisfied"], ["verify", "satisfied"]]);
 });
 
 test("a retained verification resumes after a lost response without re-running anything", real, async t => {

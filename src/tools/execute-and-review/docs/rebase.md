@@ -28,8 +28,11 @@ What it does, in order:
    citing that verification, and returns what it carried as `requirementEvidence`. A repeat carries only what is
    still missing. See [requirement-traceability.md](requirement-traceability.md).
 
-`PASSED` is returned only after the entry is recorded. Any other status records nothing; the evidence of a rejected
-review or failed check is retained for diagnosis. A repeat, or a retry after a lost response, returns the same
+`PASSED` is returned only after the entry is recorded and the requirement evidence carried. If the checks or review
+fail, or anything else stops the run before the entry is recorded, nothing is recorded; the evidence of a rejected
+review or failed check is retained for diagnosis. The one exception: when carrying the requirement evidence fails
+**after** the entry was recorded, the result is `BLOCKED` with reason `REQUIREMENT_EVIDENCE_CARRY_INCOMPLETE` and
+`recorded: true`. The rewrite stays recorded; repeat the same call to finish only the missing equivalences. A repeat, or a retry after a lost response, returns the same
 record without needing a clean tree; pass the retained `evidenceRef` as `resumeEvidenceRef` to record a verification
 that passed but whose entry was not recorded. Final validation then binds to the new base.
 

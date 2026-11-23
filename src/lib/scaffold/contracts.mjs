@@ -502,7 +502,8 @@ export function validateResponse(data, params) {
             ["ancestors", "prerequisites", "children", "requirements"].every((k) =>
               Array.isArray(c[k]),
             ) &&
-            c.requirements.every((r) => object(r) && text(r.id) && text(r.text) && Array.isArray(r.roles)),
+            c.requirements.every((r) => object(r) && text(r.id) && text(r.text) && Array.isArray(r.roles) &&
+              strings(r.contributors) && strings(r.verifiers)),
           "Invalid scoped issue context",
         );
         [c.issue, ...c.ancestors, ...c.prerequisites, ...c.children].forEach(

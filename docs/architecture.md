@@ -86,6 +86,7 @@ records for the completing attempt. Final validation requires every requirement 
 | `prepare_issue_handoff` | execution-recovery | Save scoped context for a fresh session | evidence |
 | `rewrite_feature_history` | execution-recovery | After a user rebase between tasks: map the recorded history onto the rebased commits, re-verify, record a `history-rewrite` | ledger |
 | `adopt_foreign_commits` | execution-recovery | Record user commits that are not task checkpoints (`history-foreign`), between tasks | ledger |
+| `rebind_requirement_evidence` | execution-recovery | After a corrective issue changed a requirement's contributors or verifiers: re-record stale evidence whose own review verified it | ledger |
 | `inspect_feature_drift` | execution-recovery | Read-only: classify Git drift, name the recovery (PR #87) | none |
 | `review_changes` | review | Standalone review | none |
 | `write_plan`, `write_ticket_file` | plan | Write planning documents | files |
@@ -204,6 +205,7 @@ needs its own accommodation here. That is the source of most special cases.
 | Clean user commits between tasks | `adopt_foreign_commits` |
 | You rebased between tasks | `rewrite_feature_history` |
 | You rebased while a task was active | `suspend_issue`, `rewrite_feature_history`, `resume_issue` |
+| Final checks blocked on stale requirement evidence after a corrective issue | `rebind_requirement_evidence` |
 | A task failed or was interrupted | continue with `previousAttempt` / issue handoff |
 | Checkpoint commit lost or interrupted | repeat `checkpoint_verified_task` |
 | Need to park an issue and return to design | `suspend_issue`, then `resume_issue` |

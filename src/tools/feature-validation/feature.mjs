@@ -35,8 +35,6 @@ import { monitorTrackedInputs } from '../../lib/git/monitor.mjs';
 import { runCheck } from './check-process.mjs';
 import { obligationsVerified, findingObligations } from '../../lib/verification/obligations.mjs';
 import { authenticateAmendment } from '../../lib/authorization/amendment.mjs';
-import { authenticateTaskEvidence } from '../../lib/verification/task-evidence.mjs';
-import { rebindRequirementEvidence } from '../checkpoint/requirement-evidence.mjs';
 import {
   requirementObligationId,
   unverifiedRequirements,
@@ -45,6 +43,8 @@ import {
 
 const requireValue = (ok, message) => { if (!ok) throw new Error(message); };
 const result = (status, fields = {}) => ({ schema: 'pi.feature-validation/v1', status, ...fields });
+// A failure whose message starts with a known code carries it as `reason`, so failure reporting names the remedy.
+const codeOf = (error) => /^(REQUIREMENT_[A-Z_]+):/.exec(error.message) ? { reason: /^(REQUIREMENT_[A-Z_]+):/.exec(error.message)[1] } : {};
 const stable = (a, b) => a.head === b.head && a.tree === b.tree && a.digest === b.digest && b.clean && !b.bookkeepingVisible;
 
 async function state(repository, featureId, options) {
@@ -149,23 +149,15 @@ async function requirementTraceability(repository, featureId, options) {
       return r.id + ': ' + (e.status ?? 'missing') + ' (implementation ' + (e.implementation ?? 'missing') +
         ', verification ' + (e.verification ?? 'missing') + (roles.length ? '; ' + roles.join(', ') : '') + ')';
     })].join('; ') +
-    '. Stale evidence follows a design, mapping or history change: re-run the affected task, or reconcile a rebase so ' +
-    'evidence is carried onto the rewritten trees. Nothing here is waived or marked satisfied by validation');
+    '. Stale evidence follows a design, mapping or history change. If a corrective issue changed a requirement\'s ' +
+    'contributors or verifiers, rebind_requirement_evidence re-records evidence whose own review verified it; after a ' +
+    'rebase, rewrite_feature_history carries it onto the rewritten trees; otherwise re-run the affected issue. ' +
+    'Validation itself never re-binds, waives or marks anything satisfied');
   return view.requirements.map(r => ({
     id: requirementObligationId(r.id), requirement: r.id, text: r.text, status: r.evidence.status,
     independent_verification: r.evidence.independent_verification,
     evidence: r.evidence.obligations.map(o => ({ task: o.task_id, role: o.role, status: o.status, ...(o.evidence ?? {}) })),
   }));
-}
-
-// Re-bind completed work whose evidence went stale only because the requirement's contributor/verifier set
-// changed (for example a corrective task was added). Strictly conditional (see rebindRequirementEvidence) and
-// always reported; anything it cannot re-bind stays stale and the preconditions below block on it.
-async function reassessRequirementEvidence(repository, featureId, options) {
-  const feature = await state(repository, featureId, options);
-  if (feature.workflow.phase !== 'implement') return undefined;
-  const outcome = await rebindRequirementEvidence(repository, featureId, authenticateTaskEvidence, options);
-  return outcome.rebound.length || outcome.skipped.length ? outcome : undefined;
 }
 
 function handoff(record, reference) {
@@ -186,7 +178,7 @@ function assembledRequirements(pre, args) {
 }
 const requirementIds = pre => pre.traceability.map(r => ({ id: r.id }));
 export async function validateFeature(args, context = {}, options = {}) {
-  let repository, startedReference, reference, record, monitor, started = false, requirementEvidence;
+  let repository, startedReference, reference, record, monitor, started = false;
   const totalClock = stopwatch();
   const checkTimings = [], rechecks = { count: 0, ms: 0 };
   const cache = createPreconditionCache();
@@ -208,7 +200,6 @@ export async function validateFeature(args, context = {}, options = {}) {
     context.abort?.throwIfAborted();
     const plan = planFor(args);
     repository = path.resolve(git(context.directory, ['rev-parse', '--show-toplevel']));
-    requirementEvidence = await reassessRequirementEvidence(repository, args.featureId, options);
     const pre = await derive(repository, args, options, { fresh: true });
     const binding = { feature_id: args.featureId, design_ref: args.designRef, baseline: args.featureBaseRef,
       head: args.headRef, tree: pre.before.tree, branch: args.branch, task_revision: pre.feature.task_revision,
@@ -293,10 +284,9 @@ export async function validateFeature(args, context = {}, options = {}) {
     await lifecycle(repository, 'validation-record', args.featureId, handoff(record, reference), options);
     await options.interrupt?.('afterCompletion');
     await unchanged();
-    return { ...record.result, binding, evidenceRef: reference, startedReference, checks: record.checks, review: record.review,
-      ...(requirementEvidence ? { requirementEvidence } : {}) };
+    return { ...record.result, binding, evidenceRef: reference, startedReference, checks: record.checks, review: record.review };
   } catch (error) {
-    const blocked = result('BLOCKED', { message: error.message, ...(reference ? { evidenceRef: reference } : {}),
+    const blocked = result('BLOCKED', { message: error.message, ...codeOf(error), ...(reference ? { evidenceRef: reference } : {}),
       ...(startedReference ? { startedReference } : {}), recovery: 'Inspect Scaffold, actual Git state and retained feature evidence; never infer success from interruption' });
     if (repository && started) {
       // Preserve diagnostics without overwriting a retained PASSED receipt needed for recovery.
@@ -331,7 +321,7 @@ const checksHandoff = (record, reference) => ({ schema: record.result.schema, at
   binding: record.binding, status: record.result.status, reference, checks: record.checks, review: null,
   message: record.result.message ?? '' });
 export async function runFeatureChecks(args, context = {}, options = {}) {
-  let repository, reference, record, monitor, started = false, recording = false, recorded = false, requirementEvidence;
+  let repository, reference, record, monitor, started = false, recording = false, recorded = false;
   const totalClock = stopwatch();
   const checkTimings = [], rechecks = { count: 0, ms: 0 };
   const cache = createPreconditionCache();
@@ -346,7 +336,6 @@ export async function runFeatureChecks(args, context = {}, options = {}) {
     context.abort?.throwIfAborted();
     const plan = planFor(args, { review: false });
     repository = path.resolve(git(context.directory, ['rev-parse', '--show-toplevel']));
-    requirementEvidence = await reassessRequirementEvidence(repository, args.featureId, options);
     const pre = await derive(repository, args, options, { fresh: true });
     const binding = { feature_id: args.featureId, design_ref: args.designRef, baseline: args.featureBaseRef,
       head: args.headRef, tree: pre.before.tree, branch: args.branch, task_revision: pre.feature.task_revision,
@@ -417,10 +406,9 @@ export async function runFeatureChecks(args, context = {}, options = {}) {
       : { recorded: false, validation_status: standing, reason: standing === 'accepted'
         ? 'Already accepted by the user at this head; left unchanged'
         : 'Already verified by a reviewed validation at this head; left unchanged' };
-    return { ...record.result, binding, evidenceRef: reference, checks: record.checks, review: null, scaffold,
-      ...(requirementEvidence ? { requirementEvidence } : {}) };
+    return { ...record.result, binding, evidenceRef: reference, checks: record.checks, review: null, scaffold };
   } catch (error) {
-    const blocked = checksResult('BLOCKED', { message: error.message, ...(reference ? { evidenceRef: reference } : {}),
+    const blocked = checksResult('BLOCKED', { message: error.message, ...codeOf(error), ...(reference ? { evidenceRef: reference } : {}),
       recovery: 'Inspect actual Git state and Scaffold; an interrupted check run proves nothing, so rerun run_feature_checks' });
     if (repository && record) {
       // Keep diagnostics whenever a run was in progress. Then make Scaffold agree with the BLOCKED result
