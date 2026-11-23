@@ -87,6 +87,12 @@ final feature validation must still verify it; missing, unresolved or evidence-f
 assessments do not authorize a checkpoint. Final feature review also carries earlier feature findings and issue
 contexts. Bookkeeping, READY and migration never mean PASSED.
 
+Canonical feature requirements are different: each `requirement:<id>` the task contributes to or verifies
+needs a `verified` assessment with evidence in the completing attempt's own review, and `not_applicable`
+never defers or waives one. Their evidence is recorded in Scaffold before completion, carried across a
+rebase, and re-bound after a corrective task changes the coverage binding. See
+[docs/requirement-traceability.md](docs/requirement-traceability.md).
+
 ## Pauses, infrastructure and resources
 
 There is no per-issue five-attempt limit. Every invocation remains counted and

@@ -12,6 +12,7 @@ import { adoptCommits } from "../../src/tools/execution-recovery/foreign-history
 import { rewriteFeatureHistory } from "../../src/tools/execution-recovery/reconciliation.mjs";
 import { verifyHistory, foreignHistoryRequirements } from "../../src/lib/verification/history.mjs";
 import { planRewrite } from "../../src/lib/verification/rewrite-history.mjs";
+import { recordTaskRequirementEvidence } from "../helpers/requirement-evidence.mjs";
 
 const hasScaffold = spawnSync("scaffold", ["--help"], { encoding: "utf8" }).status === 0;
 const real = { skip: !hasScaffold && "Real Scaffold (schema 3) is not on PATH" };
@@ -60,6 +61,7 @@ async function fixture(t) {
     g("commit", "-qm", "Checkpoint verified task " + taskId + "\n\nPi-Checkpoint: " + taskId);
     const commit = g("rev-parse", "HEAD"), tree = g("rev-parse", "HEAD^{tree}");
     await call("attempt-record", { attempt: 1, status: "PASSED", receipt, base: before.head, tree }, taskId);
+    await recordTaskRequirementEvidence(dir, "F1", taskId, receipt, tree);
     await call("complete", { feature_id: "F1", task_id: taskId, result: "PASSED", source: "conductor", reference: receipt, summary: "ok" }, taskId);
     await call("checkpoint-record", { commit, parent: before.head, tree, reference: receipt }, taskId);
     return commit;
@@ -124,6 +126,23 @@ test("a rebase is mapped, freshly verified and recorded; the old history is kept
   assert.equal(after.epochs[0].verification, result.evidenceRef);
   verifyHistory(f.dir, after, { head: after.head });
   assert.match(foreignHistoryRequirements(after), /user: user\.txt/);
+
+  // Requirement evidence follows the rewritten checkpoint tree: each association of the completed task is
+  // carried onto it, citing the verification of the rebased result, so nothing goes stale or is re-asserted.
+  assert.deepEqual(result.requirementEvidence.map(e => [e.task, e.requirement, e.role]),
+    [["a", "R1", "contribute"], ["a", "R1", "verify"]]);
+  const carried = (await f.feature()).evidence.filter(e => e.task_id === "a");
+  assert.ok(carried.every(e => e.equivalent?.[0]?.tree === after.tasks.a.checkpoint.tree));
+  const link = (await f.call("artifact-get", { reference: carried[0].equivalent[0].reference })).artifact;
+  assert.equal(link.schema, "pi.requirement-evidence-equivalence/v1");
+  assert.equal(link.verification, result.evidenceRef);
+  assert.equal(link.previous_tree, carried[0].tree);
+  const obligations = (await f.call("requirements")).requirements[0].evidence.obligations;
+  assert.deepEqual(obligations.filter(o => o.task_id === "a").map(o => o.status), ["satisfied", "satisfied"]);
+  // Repeating the reconciliation finds the recorded rewrite and carries nothing twice.
+  const again = await f.rewrite({ oldHeadRef: old.head });
+  assert.equal(again.recovered, true, JSON.stringify(again));
+  assert.deepEqual(again.requirementEvidence, []);
 
   // The retained verification records exactly what was checked and reviewed.
   const stored = (await f.call("artifact-get", { reference: result.evidenceRef })).artifact;

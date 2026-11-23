@@ -145,6 +145,13 @@ another confirmation. Zero exit status alone never establishes coverage; require
 concrete successful test output (the approved `testSuccessPattern`). INDETERMINATE
 or BLOCKED is BLOCKED.
 
+Before running any check, both final gates require every canonical requirement to have
+applicable implementation and verification evidence in Scaffold. `REQUIREMENT_EVIDENCE_INCOMPLETE`
+names each requirement and the issue and role still outstanding: finish, re-run or add a corrective
+issue for it, never mark it done. Stale evidence after a corrective issue changed a requirement's
+contributors or verifiers is re-recorded automatically only where the earlier issue's own review verified
+it, and the result's `requirementEvidence` reports what was re-bound or skipped.
+
 This gate is mechanical. It performs **no independent or agent-based feature review**,
 so do not call `validate_feature` from this workflow. Per-issue review during
 `execute_and_review` is unchanged. Do not describe the feature as
@@ -179,6 +186,8 @@ If a clean user commit lands after authorization but before any task starts, or 
 For a user-performed rebase use `rewrite_feature_history` between tasks; if a task is active, `suspend_issue` it first and
 `resume_issue` it afterwards. Preserve original receipts, baseline, criteria and budget. The retained feature authority covers
 verification/recovery, not performing a rebase or arbitrary history rewriting. See src/tools/execute-and-review/docs/rebase.md for exact inputs.
+A recorded rewrite also carries requirement evidence onto the rewritten checkpoint trees. If it reports
+`REQUIREMENT_EVIDENCE_CARRY_INCOMPLETE`, repeat the same reconciliation to finish it.
 
 
 ## Scoped feature state and handoffs

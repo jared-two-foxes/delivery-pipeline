@@ -13,6 +13,11 @@ Git metadata. The CLI lifecycle pins the original baseline, validates all-task
 completion and preserves attempts. Applicability is computed against actual Git
 and task state, not the historical Scaffold status alone.
 
+Before any project check runs, every canonical requirement must have `satisfied` evidence in Scaffold's
+`requirements` view; anything unmapped, missing, unresolved or stale blocks with
+`REQUIREMENT_EVIDENCE_INCOMPLETE`. The final review must assess each `requirement:<id>`. See
+[requirement-traceability.md](requirement-traceability.md).
+
 Run the integration suite against the companion Scaffold checkout:
 
 ```sh

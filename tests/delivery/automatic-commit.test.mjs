@@ -91,6 +91,8 @@ async function fixture(t) {
       "REVIEW_FIXTURE_TAMPER",
       "REVIEW_FIXTURE_TERMINAL_LOCK",
       "REVIEW_FIXTURE_REQUIRE_CHECK_EVIDENCE",
+      "REVIEW_FIXTURE_REQUIREMENT_DISPOSITION",
+      "REVIEW_FIXTURE_SKIP_REQUIREMENTS",
     ].map((k) => [k, process.env[k]]),
   );
   Object.assign(process.env, {
@@ -521,9 +523,11 @@ test(
       final.checks.map((check) => check.name),
       ["build", "test"],
     );
+    // The final review assesses every canonical requirement by its stable id, and nothing else here:
+    // resolved task checks are not re-proved.
     assert.deepEqual(
-      final.review.obligation_assessments,
-      [],
+      final.review.obligation_assessments.map((a) => [a.obligation_id, a.disposition]),
+      [["requirement:R1", "verified"]],
       "final review does not re-prove resolved task checks",
     );
   },
@@ -1074,12 +1078,17 @@ test(
     assert.equal(result.implementationStatus, "PASSED");
     assert.equal((await f.call("list")).feature.tasks.F.status, "in_progress");
     assert.equal(f.git("rev-parse", "HEAD"), f.base);
+    // Requirement evidence was recorded before the refused completion; the task is not complete.
+    const before = (await f.call("list")).feature.evidence;
+    assert.deepEqual(before.map((e) => [e.requirement, e.role]), [["R1", "contribute"], ["R1", "verify"]]);
     delete process.env.FAIL_SCAFFOLD_COMPLETE;
     const recovered = await finalizeVerifiedTask(
       f.finalizeArgs(result),
       f.context,
     );
     assert.equal(recovered.ok, true, JSON.stringify(recovered));
+    // The retry replays the identical associations: nothing is duplicated or re-asserted.
+    assert.deepEqual((await f.call("list")).feature.evidence, before);
     assert.equal(f.git("rev-list", "--count", f.base + "..HEAD"), "1");
     assert.equal(
       await readFile(path.join(f.directory, ".git/trace"), "utf8"),
@@ -1417,3 +1426,71 @@ test(
     assert.equal(f.confirmations(), 1);
   },
 );
+
+test(
+  "requirement evidence binds the stable id to the completing attempt, its tree and the independent review",
+  integration,
+  async (t) => {
+    const f = await fixture(t);
+    const result = await executeAndCheckpoint(f.args, f.context, { invokeConductor: f.finalCommand });
+    assert.equal(result.status, "PASSED", JSON.stringify(result));
+    const record = await readEvidence(f.directory, result.evidence.reference);
+    // The reviewer was asked for the stable id, never a position, and verified it.
+    const item = record.args.deliveryContext.contractItems.find((i) => i.requirement === "R1");
+    assert.deepEqual(item, { id: "requirement:R1", requirement: "R1", text: "Source says after", roles: ["contribute", "verify"] });
+    assert.match(record.args.requirements, /"requirements":\[\{"id":"requirement:R1"/);
+    const feature = (await f.call("list")).feature;
+    assert.deepEqual(feature.evidence.map((e) => [e.task_id, e.requirement, e.role, e.basis, e.receipt, e.tree]), [
+      ["F", "R1", "contribute", "independent-review", result.evidence.reference, record.after.tree],
+      ["F", "R1", "verify", "independent-review", result.evidence.reference, record.after.tree],
+    ]);
+    const retained = (await f.call("artifact-get", { payload: { reference: feature.evidence[1].reference } })).artifact;
+    assert.equal(retained.schema, "pi.requirement-evidence/v1");
+    assert.deepEqual(retained.requirement, { id: "R1", text: "Source says after" });
+    assert.equal(retained.review.obligation_id, "requirement:R1");
+    assert.equal(retained.review.disposition, "verified");
+    const view = (await f.call("requirements")).requirements[0];
+    assert.equal(view.evidence.status, "satisfied");
+    assert.equal(view.evidence.independent_verification, true);
+
+    // Final validation asks the reviewer to assess every canonical requirement by id; skipping one blocks.
+    const finalArgs = {
+      featureId: "F", designRef: f.args.task.designRef, branch: "feature/automatic", featureBaseRef: f.base,
+      headRef: result.nextBaseRef, buildCommand: [process.execPath, "-e", 'console.log("build passed")'],
+      testCommand: [process.execPath, "-e", 'console.log("3 tests passed")'], testSuccessPattern: "3 tests passed",
+    };
+    process.env.EXPECTED_REVIEW_REQUIREMENTS = "*";
+    process.env.REVIEW_FIXTURE_SKIP_REQUIREMENTS = "1";
+    const unassessed = await validateFeature(finalArgs, f.context, { authorize: () => featureAuthorized(finalArgs, f.context) });
+    assert.equal(unassessed.status, "BLOCKED", JSON.stringify(unassessed));
+    assert.match(unassessed.message, /requirement:R1 \[not assessed\]/);
+    delete process.env.REVIEW_FIXTURE_SKIP_REQUIREMENTS;
+    const passed = await validateFeature(finalArgs, f.context, { authorize: () => featureAuthorized(finalArgs, f.context) });
+    assert.equal(passed.status, "PASSED", JSON.stringify(passed));
+  },
+);
+
+for (const [label, configure, shown] of [
+  ["not_applicable", () => { process.env.REVIEW_FIXTURE_REQUIREMENT_DISPOSITION = "not_applicable"; }, "not_applicable"],
+  ["unresolved", () => { process.env.REVIEW_FIXTURE_REQUIREMENT_DISPOSITION = "unresolved"; }, "unresolved"],
+  ["missing", () => { process.env.REVIEW_FIXTURE_SKIP_REQUIREMENTS = "1"; }, "not assessed"],
+])
+  test(
+    "an approved review that leaves a required requirement " + label + " cannot complete the task",
+    integration,
+    async (t) => {
+      const f = await fixture(t);
+      configure();
+      const result = await executeAndCheckpoint(f.args, f.context, { invokeConductor: f.finalCommand });
+      assert.notEqual(result.status, "PASSED", JSON.stringify(result));
+      assert.match(JSON.stringify(result), new RegExp("requirement:R1 \\[" + shown + "\\]"));
+      const feature = (await f.call("list")).feature;
+      assert.equal(feature.tasks.F.status, "in_progress");
+      assert.deepEqual(feature.evidence ?? [], [], "nothing is recorded for unverified work");
+      assert.equal(f.git("rev-parse", "HEAD"), f.base);
+      // Finalizing the same receipt by hand is refused as well.
+      const forced = await finalizeVerifiedTask(f.finalizeArgs(result), f.context);
+      assert.equal(forced.ok, false);
+      assert.equal((await f.call("list")).feature.tasks.F.status, "in_progress");
+    },
+  );

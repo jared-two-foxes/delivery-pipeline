@@ -9,6 +9,7 @@ import { assertLatestAttempt } from "../../lib/verification/attempt-chain.mjs";
 import { issueExecutionScope } from "../../lib/verification/issue-scope.mjs";
 import { issueDesignRequirements } from "../../lib/scaffold/contracts.mjs";
 import { scaffoldTasks } from "../scaffold/adapter.mjs";
+import { recordRequirementEvidence } from "./requirement-evidence.mjs";
 import { git, assertNoGitOperation } from "../../lib/git/tree.mjs";
 import path from "node:path";
 const requireValue = (ok, message) => {
@@ -83,6 +84,9 @@ export async function commitVerifiedTask(args, context = {}, options = {}) {
         "Source changed after review; task not completed",
       );
       await issueExecutionScope(repository, feature, record.args);
+      // Scaffold completes a task only with evidence for every requirement role it holds, bound to this
+      // completing attempt. Recorded first; a retry replays the identical associations.
+      await recordRequirementEvidence(repository, feature, record, args.evidenceRef, options);
       const completed = await scaffoldTasks(
         {
           operation: "complete",

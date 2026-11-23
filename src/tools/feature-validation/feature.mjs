@@ -35,6 +35,13 @@ import { monitorTrackedInputs } from '../../lib/git/monitor.mjs';
 import { runCheck } from './check-process.mjs';
 import { obligationsVerified, findingObligations } from '../../lib/verification/obligations.mjs';
 import { authenticateAmendment } from '../../lib/authorization/amendment.mjs';
+import { authenticateTaskEvidence } from '../../lib/verification/task-evidence.mjs';
+import { rebindRequirementEvidence } from '../checkpoint/requirement-evidence.mjs';
+import {
+  requirementObligationId,
+  unverifiedRequirements,
+  describeUnverifiedRequirements,
+} from '../../lib/verification/requirements.mjs';
 
 const requireValue = (ok, message) => { if (!ok) throw new Error(message); };
 const result = (status, fields = {}) => ({ schema: 'pi.feature-validation/v1', status, ...fields });
@@ -74,6 +81,9 @@ export async function featurePreconditions(repository, args, options = {}, memo)
   const design = approvedDesign(repository, feature);
   requireValue(feature.base === args.featureBaseRef, 'History base mismatch: the ledger records ' + feature.base + ' (the fork point, or the commit the branch was last rebased onto)');
   requireValue(feature.workflow.phase === 'implement', 'Finish issue graph design before feature validation');
+  // Every canonical requirement must have applicable evidence for every contributor and verifier before any
+  // project check runs. Scaffold refuses validation-start otherwise; this names exactly what is outstanding.
+  const traceability = await requirementTraceability(repository, args.featureId, options);
   // The authentication below is a pure function of the feature (minus the validation
   // state only this gate writes), these arguments, immutable Git objects and the
   // evidence files, so it can be reused while all of those are unchanged.
@@ -121,7 +131,41 @@ export async function featurePreconditions(repository, args, options = {}, memo)
     .map(r => ({ result: { conductor: { review: r.review } } })));
   return { checkpoints, reviewTasks, obligations };
   }, { fresh: memo?.fresh });
-  return { feature, before, design, ...derived };
+  return { feature, before, design, traceability, ...derived };
+}
+
+// Scaffold's per-requirement coverage (scaffold.requirements/v1). Throws when any requirement is not
+// `satisfied`: unmapped, missing, unresolved and stale coverage all block, each named with its roles.
+async function requirementTraceability(repository, featureId, options) {
+  const response = await scaffoldTasks({ operation: 'requirements', feature_id: featureId }, { directory: repository }, options.scaffoldOptions);
+  requireValue(response.ok, 'Cannot read requirement coverage: ' + (response.message ?? 'invalid response'));
+  const view = response.data;
+  const outstanding = view.requirements.filter(r => r.evidence?.status !== 'satisfied');
+  requireValue(!view.coverage.problems.length && !outstanding.length,
+    'REQUIREMENT_EVIDENCE_INCOMPLETE: every feature requirement needs applicable implementation and verification ' +
+    'evidence before final validation. ' + [...view.coverage.problems, ...outstanding.map(r => {
+      const e = r.evidence ?? {};
+      const roles = (e.obligations ?? []).filter(o => o.status !== 'satisfied').map(o => o.task_id + ' ' + o.role + ' ' + o.status);
+      return r.id + ': ' + (e.status ?? 'missing') + ' (implementation ' + (e.implementation ?? 'missing') +
+        ', verification ' + (e.verification ?? 'missing') + (roles.length ? '; ' + roles.join(', ') : '') + ')';
+    })].join('; ') +
+    '. Stale evidence follows a design, mapping or history change: re-run the affected task, or reconcile a rebase so ' +
+    'evidence is carried onto the rewritten trees. Nothing here is waived or marked satisfied by validation');
+  return view.requirements.map(r => ({
+    id: requirementObligationId(r.id), requirement: r.id, text: r.text, status: r.evidence.status,
+    independent_verification: r.evidence.independent_verification,
+    evidence: r.evidence.obligations.map(o => ({ task: o.task_id, role: o.role, status: o.status, ...(o.evidence ?? {}) })),
+  }));
+}
+
+// Re-bind completed work whose evidence went stale only because the requirement's contributor/verifier set
+// changed (for example a corrective task was added). Strictly conditional (see rebindRequirementEvidence) and
+// always reported; anything it cannot re-bind stays stale and the preconditions below block on it.
+async function reassessRequirementEvidence(repository, featureId, options) {
+  const feature = await state(repository, featureId, options);
+  if (feature.workflow.phase !== 'implement') return undefined;
+  const outcome = await rebindRequirementEvidence(repository, featureId, authenticateTaskEvidence, options);
+  return outcome.rebound.length || outcome.skipped.length ? outcome : undefined;
 }
 
 function handoff(record, reference) {
@@ -134,10 +178,15 @@ function assembledRequirements(pre, args) {
     '\n\nPersisted feature obligations: ' + JSON.stringify(pre.obligations) +
     '\nOpen obligations requiring explicit assessment (feature-level and task-level): ' +
     JSON.stringify(obligationsToAssess(pre.reviewTasks, pre.obligations).map(({ id, text, path }) => ({ id, text, path }))) +
-    '\nExplicitly assess every open ID using obligation_assessments with disposition verified and concrete evidence; agent claims do not close findings.');
+    '\nExplicitly assess every open ID using obligation_assessments with disposition verified and concrete evidence; agent claims do not close findings.' +
+    '\nRequirement obligations: ' + JSON.stringify(pre.traceability) +
+    '\nEvery canonical feature requirement above must be assessed by its exact id (requirement:<id>) with disposition ' +
+    'verified and concrete evidence against the whole approved change range. Recorded task evidence is an association ' +
+    'with a passing attempt, not proof of correctness; not_applicable never waives a requirement.');
 }
+const requirementIds = pre => pre.traceability.map(r => ({ id: r.id }));
 export async function validateFeature(args, context = {}, options = {}) {
-  let repository, startedReference, reference, record, monitor, started = false;
+  let repository, startedReference, reference, record, monitor, started = false, requirementEvidence;
   const totalClock = stopwatch();
   const checkTimings = [], rechecks = { count: 0, ms: 0 };
   const cache = createPreconditionCache();
@@ -159,6 +208,7 @@ export async function validateFeature(args, context = {}, options = {}) {
     context.abort?.throwIfAborted();
     const plan = planFor(args);
     repository = path.resolve(git(context.directory, ['rev-parse', '--show-toplevel']));
+    requirementEvidence = await reassessRequirementEvidence(repository, args.featureId, options);
     const pre = await derive(repository, args, options, { fresh: true });
     const binding = { feature_id: args.featureId, design_ref: args.designRef, baseline: args.featureBaseRef,
       head: args.headRef, tree: pre.before.tree, branch: args.branch, task_revision: pre.feature.task_revision,
@@ -171,7 +221,7 @@ export async function validateFeature(args, context = {}, options = {}) {
       const expectedRequirements = assembledRequirements(pre, args);
       requireValue(record.requirements === expectedRequirements, 'Approved feature requirements changed');
       authenticateFeatureRecord(record, binding, plan, pre.feature.tasks, expectedRequirements, undefined,
-        reviewTasks);
+        reviewTasks, requirementIds(pre));
       // Idempotent Scaffold recording handles loss of the original confirmation.
       const current = pre.feature.validation;
       requireValue(current?.current === record.attemptId, 'Result is superseded; run a new validation');
@@ -223,9 +273,12 @@ export async function validateFeature(args, context = {}, options = {}) {
       reviewMs = reviewClock.elapsed();
       record.review = { ...review, requirementsDigest: digest(reviewScope(requirements, record.checks)) };
       await unchanged();
+      const unassessed = unverifiedRequirements(requirementIds(pre), review);
       record.result = result(review.status === 'APPROVED' && featureObligationsVerified(reviewTasks, review) &&
-        obligationsVerified({ deliveryContext: { obligations: pre.obligations } }, review) ? 'PASSED' : review.status === 'CHANGES_REQUESTED' ? 'NEEDS_DESIGN' : 'BLOCKED',
-        { message: review.reason ?? review.message ?? 'Independent review indeterminate' });
+        obligationsVerified({ deliveryContext: { obligations: pre.obligations } }, review) && !unassessed.length
+        ? 'PASSED' : review.status === 'CHANGES_REQUESTED' ? 'NEEDS_DESIGN' : 'BLOCKED',
+        { message: review.status === 'APPROVED' && unassessed.length ? describeUnverifiedRequirements(unassessed)
+          : review.reason ?? review.message ?? 'Independent review indeterminate' });
     }
     monitor.mark('retention');
     await unchanged({ fresh: true });
@@ -240,7 +293,8 @@ export async function validateFeature(args, context = {}, options = {}) {
     await lifecycle(repository, 'validation-record', args.featureId, handoff(record, reference), options);
     await options.interrupt?.('afterCompletion');
     await unchanged();
-    return { ...record.result, binding, evidenceRef: reference, startedReference, checks: record.checks, review: record.review };
+    return { ...record.result, binding, evidenceRef: reference, startedReference, checks: record.checks, review: record.review,
+      ...(requirementEvidence ? { requirementEvidence } : {}) };
   } catch (error) {
     const blocked = result('BLOCKED', { message: error.message, ...(reference ? { evidenceRef: reference } : {}),
       ...(startedReference ? { startedReference } : {}), recovery: 'Inspect Scaffold, actual Git state and retained feature evidence; never infer success from interruption' });
@@ -277,7 +331,7 @@ const checksHandoff = (record, reference) => ({ schema: record.result.schema, at
   binding: record.binding, status: record.result.status, reference, checks: record.checks, review: null,
   message: record.result.message ?? '' });
 export async function runFeatureChecks(args, context = {}, options = {}) {
-  let repository, reference, record, monitor, started = false, recording = false, recorded = false;
+  let repository, reference, record, monitor, started = false, recording = false, recorded = false, requirementEvidence;
   const totalClock = stopwatch();
   const checkTimings = [], rechecks = { count: 0, ms: 0 };
   const cache = createPreconditionCache();
@@ -292,6 +346,7 @@ export async function runFeatureChecks(args, context = {}, options = {}) {
     context.abort?.throwIfAborted();
     const plan = planFor(args, { review: false });
     repository = path.resolve(git(context.directory, ['rev-parse', '--show-toplevel']));
+    requirementEvidence = await reassessRequirementEvidence(repository, args.featureId, options);
     const pre = await derive(repository, args, options, { fresh: true });
     const binding = { feature_id: args.featureId, design_ref: args.designRef, baseline: args.featureBaseRef,
       head: args.headRef, tree: pre.before.tree, branch: args.branch, task_revision: pre.feature.task_revision,
@@ -362,7 +417,8 @@ export async function runFeatureChecks(args, context = {}, options = {}) {
       : { recorded: false, validation_status: standing, reason: standing === 'accepted'
         ? 'Already accepted by the user at this head; left unchanged'
         : 'Already verified by a reviewed validation at this head; left unchanged' };
-    return { ...record.result, binding, evidenceRef: reference, checks: record.checks, review: null, scaffold };
+    return { ...record.result, binding, evidenceRef: reference, checks: record.checks, review: null, scaffold,
+      ...(requirementEvidence ? { requirementEvidence } : {}) };
   } catch (error) {
     const blocked = checksResult('BLOCKED', { message: error.message, ...(reference ? { evidenceRef: reference } : {}),
       recovery: 'Inspect actual Git state and Scaffold; an interrupted check run proves nothing, so rerun run_feature_checks' });
@@ -424,7 +480,7 @@ export async function inspectFeatureValidation(args, context = {}, options = {})
         }
         authenticateFeatureRecord(record, { ...b, task_revision: pre.feature.task_revision }, record.plan,
           pre.feature.tasks, assembledRequirements(pre, args),
-          undefined, pre.reviewTasks);
+          undefined, pre.reviewTasks, requirementIds(pre));
         applicable = true;
       } catch (error) { reason = error.message; }
       results.push({ reference, record, ...(checksOnly ? { kind: 'checks-only' } : {}), applicable, ...(reason ? { reason } : {}) });

@@ -48,6 +48,15 @@ test(
     await f.reviewer();
     const passed = await f.validate();
     assert.equal(passed.status, "PASSED", JSON.stringify(passed));
+    // Adding the corrective contributor changed R1's binding. The earlier tasks' completing receipts were
+    // re-bound only because their retained reviews verified it; the result reports each one.
+    assert.ok(passed.requirementEvidence.rebound.length > 0, JSON.stringify(passed.requirementEvidence));
+    assert.ok(passed.requirementEvidence.rebound.every((r) => r.task !== "fix"), JSON.stringify(passed.requirementEvidence));
+    assert.deepEqual(passed.requirementEvidence.skipped, []);
+    const rebinding = (await f.call("artifact-get", { payload: { reference: passed.requirementEvidence.rebound[0].reference } })).artifact;
+    assert.equal(rebinding.schema, "pi.requirement-evidence-rebinding/v1");
+    assert.equal(rebinding.review.disposition, "verified");
+    assert.notEqual(rebinding.previous.binding, rebinding.binding);
     assert.equal(passed.binding.head, e.commit);
     assert.equal(passed.binding.baseline, f.base);
     // Telemetry is retained beside, never inside, the authenticated fields.

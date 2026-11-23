@@ -15,10 +15,21 @@ import { approved } from '../../lib/authorization/feature.mjs';
 import { monitorTrackedInputs } from '../../lib/git/monitor.mjs';
 import { reviewChanges } from '../../lib/review/adapter.mjs';
 import { runCheck } from '../feature-validation/check-process.mjs';
+import { carryRequirementEvidence as carry } from '../checkpoint/requirement-evidence.mjs';
 
 const requireValue = (ok, message) => { if (!ok) throw new Error(message); };
 const sha = x => /^[a-f0-9]{40}$/.test(x ?? '');
 const result = (status, message) => ({ schema: 'pi.history-rewrite/v1', status, message });
+
+// Runs only after Scaffold recorded the rewrite, so a failure here must not be reported as "nothing changed".
+async function carryRequirementEvidence(repository, featureId, verification, options) {
+  try { return await carry(repository, featureId, verification, options); }
+  catch (error) {
+    throw Object.assign(new Error('REQUIREMENT_EVIDENCE_CARRY_INCOMPLETE: the history rewrite is recorded, but carrying ' +
+      'requirement evidence onto the rewritten checkpoint trees failed: ' + error.message +
+      '. Run the same reconciliation again: it finds the recorded rewrite and finishes the carry-over idempotently'), { recorded: true });
+  }
+}
 
 async function readFeature(repository, featureId, options) {
   const feature = await scaffoldFeatureOrNull(repository, featureId, options.scaffoldOptions);
@@ -67,7 +78,9 @@ export async function rewriteFeatureHistory(args, context = {}, options = {}) {
     const known = await readFeature(repository, args.featureId, options);
     const last = known.epochs?.at(-1);
     if (known.head === args.headRef && known.base === args.upstreamBaseRef && last?.head === args.oldHeadRef)
-      return { ...result('PASSED', 'Already recorded'), recovered: true, evidenceRef: last.verification };
+      return { ...result('PASSED', 'Already recorded'), recovered: true, evidenceRef: last.verification,
+        // A response lost after the rewrite may also have lost the evidence carry-over: finish it.
+        requirementEvidence: await carryRequirementEvidence(repository, args.featureId, last.verification, options) };
     requireValue(args.headRef !== args.oldHeadRef, 'No history change to reconcile');
     const first = await preconditions();
     const { feature } = first;
@@ -94,7 +107,8 @@ export async function rewriteFeatureHistory(args, context = {}, options = {}) {
         equal(stored.binding, binding) && equal(stored.newHistory, first.planned.history) && equal(stored.plan, plan) && stored.requirements === requirements,
       'The retained verification is stale or covers a different rebase');
       await commitRewrite(args.resumeEvidenceRef);
-      return { ...stored.result, evidenceRef: args.resumeEvidenceRef, binding, recovered: true };
+      return { ...stored.result, evidenceRef: args.resumeEvidenceRef, binding, recovered: true,
+        requirementEvidence: await carryRequirementEvidence(repository, args.featureId, args.resumeEvidenceRef, options) };
     }
 
     const unchanged = async () => {
@@ -127,8 +141,14 @@ export async function rewriteFeatureHistory(args, context = {}, options = {}) {
     reference = await record_({ checks, review, result: outcome, after: await snapshot(repository) });
     // Record the rewrite only after the verification is retained, so a lost response can resume from it.
     await unchanged();
-    if (outcome.status === 'PASSED') await commitRewrite(reference);
-    return { ...outcome, evidenceRef: reference, binding, checks, review };
+    let requirementEvidence;
+    if (outcome.status === 'PASSED') {
+      await commitRewrite(reference);
+      // Rewritten checkpoint trees make recorded requirement evidence stale until each association is
+      // carried onto its new tree, citing the verification that authenticated the rebased result.
+      requirementEvidence = await carryRequirementEvidence(repository, args.featureId, reference, options);
+    }
+    return { ...outcome, evidenceRef: reference, binding, checks, review, ...(requirementEvidence ? { requirementEvidence } : {}) };
   } catch (error) {
     let diagnosticEvidenceRef;
     if (verification && repository && !reference) {
@@ -136,6 +156,8 @@ export async function rewriteFeatureHistory(args, context = {}, options = {}) {
         ...(monitor?.total() ? { monitorDiagnostics: monitor.diagnostics() } : {}) }); } catch {}
     }
     return { ...result('BLOCKED', error.message), evidenceRef: reference, diagnosticEvidenceRef,
-      recovery: 'Nothing was changed in Scaffold or Git. Inspect retained evidence and the actual Git state; never edit the ledger or reset work' };
+      recovery: error.recorded
+        ? 'The rewrite is recorded in Scaffold; Git was not changed. Repeat the same reconciliation to finish carrying requirement evidence'
+        : 'Nothing was changed in Scaffold or Git. Inspect retained evidence and the actual Git state; never edit the ledger or reset work' };
   } finally { monitor?.close(); }
 }

@@ -10,6 +10,7 @@ import { validateBinding } from "../../lib/delivery-state/binding.mjs";
 import { deliveryContractItems } from "../../lib/delivery-state/delivery-context.mjs";
 import { scopedRequirements } from "./delivery-context.mjs";
 import { hash } from "../../lib/delivery-state/context-digest.mjs";
+import { isRequirementObligationId } from "../../lib/verification/requirements.mjs";
 import { taskReceipts } from "../../lib/evidence/attempts.mjs";
 import { issueFeature } from "../scaffold/adapter.mjs";
 const requireValue = (ok, message) => {
@@ -109,6 +110,14 @@ export async function approveDeliveryAmendment(args, context, options = {}) {
       args.ids.every((id) => items.some((i) => i.id === id)),
       "Unknown original criterion/finding identity; available: " +
         items.map((i) => i.id + " (" + String(i.text).slice(0, 60) + ")").join("; "),
+    );
+    // Canonical requirements belong to Scaffold: a delivery amendment can never reword, narrow or drop one.
+    // Changing a requirement is a material scope change made through the feature design and its approval.
+    requireValue(
+      !args.ids.some(isRequirementObligationId),
+      "Canonical feature requirements cannot be amended here: " +
+        args.ids.filter(isRequirementObligationId).join(", ") +
+        ". Change them through the feature design (a material scope change needing explicit approval)",
     );
     const scope = {
       task,

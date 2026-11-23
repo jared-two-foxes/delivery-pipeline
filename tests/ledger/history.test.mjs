@@ -14,6 +14,7 @@ import {
 } from "../../src/tools/scaffold/feature-authorization.mjs";
 import { adoptCommits, inspectDrift } from "../../src/tools/execution-recovery/foreign-history.mjs";
 import { verifyHistory, foreignHistoryRequirements } from "../../src/lib/verification/history.mjs";
+import { recordTaskRequirementEvidence } from "../helpers/requirement-evidence.mjs";
 
 const hasScaffold = spawnSync("scaffold", ["--help"], { encoding: "utf8" }).status === 0;
 const real = { skip: !hasScaffold && "Real Scaffold (schema 3) is not on PATH" };
@@ -165,6 +166,7 @@ test("a task checkpoints after the recorded commits and the whole chain verifies
   const commit = f.g("rev-parse", "HEAD");
   const tree = f.g("rev-parse", "HEAD^{tree}");
   await f.call("attempt-record", { attempt: 1, status: "PASSED", receipt, base: state.head, tree }, "a");
+  await recordTaskRequirementEvidence(f.dir, "F1", "a", receipt, tree);
   await f.call("complete", { feature_id: "F1", task_id: "a", result: "PASSED", source: "conductor", reference: receipt, summary: "ok" }, "a");
   const recorded = await f.call("checkpoint-record", { commit, parent: head, tree, reference: receipt }, "a");
   assert.equal(recorded.feature.head, commit);

@@ -30,6 +30,7 @@ import {
   inspectIssueAttempt,
 } from "../../src/tools/execution-recovery/issue-context.mjs";
 import { verifyHistory } from "../../src/lib/verification/history.mjs";
+import { recordTaskRequirementEvidence } from "../helpers/requirement-evidence.mjs";
 const hasScaffold = spawnSync("scaffold", ["--help"], { encoding: "utf8" }).status === 0;
 const integration = { skip: !hasScaffold && "Real Scaffold (schema 3) is not on PATH" };
 async function fixture(t) {
@@ -164,6 +165,7 @@ async function fixture(t) {
     }
     const r = await run(a, "PASSED", change);
     assert.equal(r.status, "PASSED", JSON.stringify(r));
+    await recordTaskRequirementEvidence(dir, "F", id, r.evidence.reference);
     await call("complete", {
       task_id: id,
       payload: {
@@ -683,6 +685,7 @@ const obligations=[];
 for(const line of requirements.split('\\n')) {
  if(line.startsWith('[{"id":')) for(const task of JSON.parse(line)) obligations.push(...(task.deliveryContext?.obligations??[]));
  if(line.startsWith('Persisted feature obligations: ')) obligations.push(...JSON.parse(line.slice('Persisted feature obligations: '.length)));
+ if(line.startsWith('Requirement obligations: ')) obligations.push(...JSON.parse(line.slice('Requirement obligations: '.length)));
 }
 const obligation_assessments=[...new Set(obligations.map(o=>o.id))].map(id=>({obligation_id:id,disposition:'verified',evidence:'Independent fixture inspected the correction and integration regressions'}));
  if (!requirements.includes('Approved solution F')) process.exit(9); console.log(JSON.stringify({schema:'review.result/v1',obligation_assessments,status:${JSON.stringify(status)},reason:'REVIEW_COMPLETED',review_id:'issue-feature-review',completed_at:'2026-10-29T00:00:00Z',findings:${status === "APPROVED" ? "[]" : "[{blocking:true,severity:'high',message:'Integration edge case missing'}]"}})); process.exit(${status === "APPROVED" ? 0 : 1});`,
@@ -1479,7 +1482,16 @@ test(
     assert.equal(authority.ok, true, JSON.stringify(authority));
     const first = await f.run(await f.args("F"), "NEEDS_DESIGN");
     const record = await readEvidence(f.dir, first.evidence.reference);
-    const id = record.args.deliveryContext.contractItems[1].id;
+    // Canonical requirements belong to Scaffold and are never amended here; a task-local criterion can be.
+    const requirementItem = record.args.deliveryContext.contractItems.find((i) => i.requirement);
+    assert.equal(requirementItem.id, "requirement:" + requirementItem.requirement);
+    const refused = await approveDeliveryAmendment(
+      { previousAttempt: first.evidence.reference, ids: [requirementItem.id], replacement: "Weaker", reason: "Narrow it" },
+      { directory: f.dir },
+      { ...f.options, confirm: async () => assert.fail("A requirement amendment must not reach approval") },
+    );
+    assert.match(refused.message, /Canonical feature requirements cannot be amended here: requirement:/);
+    const id = record.args.deliveryContext.contractItems.find((i) => i.id.startsWith("issue_criterion_")).id;
     const request = {
       previousAttempt: first.evidence.reference,
       ids: [id],
@@ -1546,10 +1558,12 @@ test(
     assert.equal(authority.ok, true, JSON.stringify(authority));
     const args = await f.args("F");
     const feature = (await f.call("list")).feature;
-    const items = deliveryContractItems(feature, feature.tasks.F, args.task);
+    // Task-local criteria do not depend on the requirement scope.
+    const items = deliveryContractItems(feature, feature.tasks.F, args.task, []);
+    const criterion = items.find((i) => i.id.startsWith("issue_criterion_"));
     const request = {
       task: args.task,
-      ids: [items[1].id],
+      ids: [criterion.id],
       replacement: "Behavior works; the ticket's own dependency evidence is sufficient",
       reason: "The recorded gate was added by the agent and is not in the ticket",
     };
@@ -1580,7 +1594,7 @@ test(
     );
     assert.equal(granted.ok, true, JSON.stringify(granted));
     assert.equal(shown[0].previousAttempt, null);
-    assert.deepEqual(shown[0].original.map((o) => o.id), [items[1].id]);
+    assert.deepEqual(shown[0].original.map((o) => o.id), [criterion.id]);
     const result = await f.run({
       ...args,
       contextUpdates: [{ kind: "apply_amendment", reference: granted.reference, reason: request.reason }],
@@ -1590,7 +1604,7 @@ test(
     assert.equal(record.args.deliveryContext.amendments[0].reference, granted.reference);
     assert.ok(record.args.deliveryContext.obligations.some((o) => o.source === granted.reference));
     // The original stays retained; only the user's explicit delta supersedes it.
-    assert.ok(record.args.deliveryContext.contractItems.some((o) => o.id === items[1].id));
+    assert.ok(record.args.deliveryContext.contractItems.some((o) => o.id === criterion.id));
     // Once an attempt exists, the pre-execution form is no longer available.
     const late = await approveDeliveryAmendment(
       { ...request, ids: [items[2]?.id ?? items[0].id] },

@@ -1,4 +1,9 @@
 import { unverifiedObligations } from "./obligations.mjs";
+import {
+  requiredRequirements,
+  unverifiedRequirements,
+  describeUnverifiedRequirements,
+} from "./requirements.mjs";
 import { verificationChecks } from "./checks.mjs";
 import { authenticNormalized } from "./workflow.mjs";
 
@@ -36,6 +41,10 @@ export function verificationFailure(result, args, { noDelta = false } = {}) {
       return 'check "' + check.name + '" exited ' + got.exit_code;
   }
   if (c.review?.status !== "APPROVED") return "review status is " + c.review?.status + ", not APPROVED";
+  // Canonical requirements this task contributes to or verifies need an explicit verified assessment in
+  // THIS review, even without a source delta: the evidence Scaffold records cites this passing attempt.
+  const requirements = unverifiedRequirements(requiredRequirements(args?.deliveryContext), c.review);
+  if (requirements.length) return describeUnverifiedRequirements(requirements);
   if (!noDelta) {
     const open = unverifiedObligations(args ?? {}, c.review, { deferNotApplicable: true });
     if (open.length)

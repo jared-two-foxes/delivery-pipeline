@@ -24,6 +24,9 @@ What it does, in order:
    historical and do not verify the rewritten trees.
 4. Retains the verification (checks, review, the new history) as a ledger artifact, then records a `history-rewrite`
    entry. The previous history, its base and the verification reference stay in the ledger (`epochs`).
+5. Carries each completed task's requirement evidence onto its rewritten checkpoint tree (`evidence-equivalence`),
+   citing that verification, and returns what it carried as `requirementEvidence`. A repeat carries only what is
+   still missing. See [requirement-traceability.md](requirement-traceability.md).
 
 `PASSED` is returned only after the entry is recorded. Any other status records nothing; the evidence of a rejected
 review or failed check is retained for diagnosis. A repeat, or a retry after a lost response, returns the same

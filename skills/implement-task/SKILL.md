@@ -155,6 +155,17 @@ and obligation removal go through Design approval. Findings have stable IDs;
 propose_addressed is an author claim, never independent verification. Review must
 explicitly assess every open obligation before checkpointing.
 
+The review context lists the canonical feature requirements this issue contributes to or
+verifies (`requirements`, ids `requirement:<id>` with its roles) and those assigned to other
+issues (`deferredRequirements`, context only). Each required id needs a `verified` assessment
+with evidence in this attempt's review; `not_applicable`, `unresolved` or a missing assessment
+blocks the checkpoint, and the result names the id. Never work around this with an obligation,
+an amendment or a rationale: canonical requirements cannot be amended here. If a requirement is
+mapped to the wrong issue, correct the mapping through the issue design. On success the native
+tools record the requirement evidence in Scaffold before completion; never call Scaffold for it.
+`REQUIREMENT_SCOPE_CHANGED` at finalization means the mapping changed after review: run the issue
+again under the current design. See src/tools/execute-and-review/docs/requirement-traceability.md.
+
 Empty operations support verification-only continuation. Optional
 checkEnvironmentInputs declares non-secret files, variables and executables for
 pure deterministic checks. Reuse requires exact source/index/HEAD, unchanged

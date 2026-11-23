@@ -102,8 +102,10 @@ test("a fully mapped feature is initialized, revised, approved, decomposed and f
   for (const id of ["store", "view", "e2e", "tooling"]) {
     scoped[id] = await scopedRequirements(w.dir, binding(id));
     const items = deliveryContractItems(feature, feature.tasks[id], binding(id), scoped[id])
-      .filter((item) => item.id.startsWith("feature_requirement_"));
-    assert.deepEqual(items.map((item) => [item.text, item.roles]), scoped[id].map((r) => [r.text, r.roles]));
+      .filter((item) => item.requirement);
+    // Stable Scaffold ids flow straight into the review obligations: never positions, never text digests.
+    assert.deepEqual(items.map((item) => [item.id, item.text, item.roles]),
+      scoped[id].map((r) => ["requirement:" + r.id, r.text, r.roles]));
   }
   assert.deepEqual(Object.fromEntries(Object.entries(scoped).map(([id, list]) => [id, list.map((r) => [r.id, r.roles])])), {
     store: [["SA-1.AC1", ["contribute"]], ["SA-1.AC3", ["contribute"]]],

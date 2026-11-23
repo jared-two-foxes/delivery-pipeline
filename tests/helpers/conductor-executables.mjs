@@ -70,6 +70,8 @@ const status = process.env.REVIEW_FIXTURE_STATUS;
 const requirements = fs.readFileSync(request.requirements, 'utf8');
 const contextLine = requirements.split('\\n').find(l => l.startsWith('{"design":'));
 const context = contextLine ? JSON.parse(contextLine) : null;
+const featureRequirementsLine = requirements.split('\\n').find(l => l.startsWith('Requirement obligations: '));
+const featureRequirements = featureRequirementsLine ? JSON.parse(featureRequirementsLine.slice('Requirement obligations: '.length)) : [];
 const obligations = context?.obligations ?? [];
 const taskEvidenceLine = requirements.split('\\n').find(l => l.startsWith('{"schema":"pi.task-review-evidence/v1"'));
 const taskEvidence = taskEvidenceLine ? JSON.parse(taskEvidenceLine) : null;
@@ -89,7 +91,9 @@ const obligation_assessments = obligations.filter(o => o.status !== 'independent
         evidence: check ? 'Passing command receipt ' + check.commandReceiptSha256 : 'No passing retry evidence' };
     }
     return { obligation_id: o.id, disposition: 'verified', evidence: 'Independent fixture inspected source and regression output' };
-  });
+  }).concat(process.env.REVIEW_FIXTURE_SKIP_REQUIREMENTS ? [] : (context?.requirements ?? featureRequirements).map(r => ({
+    obligation_id: r.id, disposition: process.env.REVIEW_FIXTURE_REQUIREMENT_DISPOSITION ?? 'verified',
+    evidence: 'Independent fixture inspected the change against ' + r.id })));
 if (process.env.REVIEW_FIXTURE_MALFORMED) { console.log('{invalid JSON'); process.exit(0); }
 if (process.env.REVIEW_FIXTURE_TAMPER) {
   const file = path.join(path.dirname(value('--request')), '0.receipt.json');

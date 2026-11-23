@@ -11,6 +11,7 @@ import { readEvidence, retainEvidence } from "../../src/lib/evidence/store.mjs";
 import { snapshot } from "../../src/lib/git/snapshot.mjs";
 import { approveGraph, requirementsFor } from "../helpers/issue-plan.mjs";
 import { ledgerFeature } from "../helpers/ledger-feature.mjs";
+import { recordTaskRequirementEvidence } from "../helpers/requirement-evidence.mjs";
 import {
   checkpointVerifiedTask,
   checkpointAuthorization,
@@ -103,9 +104,11 @@ async function fixture(t, { withFeature = true } = {}) {
     );
     assert.equal(result.status, "PASSED", JSON.stringify(result));
     // The pipeline's own completion is separate from checkpointing; do it as Scaffold would record it.
-    if (complete)
+    if (complete) {
+      await recordTaskRequirementEvidence(dir, "F4", id, result.evidence.reference);
       await ledger.call("complete", { feature_id: "F4", task_id: id, result: "PASSED", source: "conductor",
         reference: result.evidence.reference, summary: "Checks and review passed" }, id);
+    }
     return {
       task,
       evidenceRef: result.evidence.reference,
@@ -227,6 +230,7 @@ test("completed task, matching Scaffold evidence and ignored bookkeeping are man
   const args = await f.verify(undefined, undefined, undefined, { complete: false });
   // The task is still in progress: Scaffold has not recorded its completion.
   assert.equal((await f.checkpoint(args)).ok, false);
+  await recordTaskRequirementEvidence(f.dir, "F4", "one", args.evidenceRef);
   await f.ledger.call("complete", { feature_id: "F4", task_id: "one", result: "PASSED", source: "conductor",
     reference: args.evidenceRef, summary: "Checks and review passed" }, "one");
   // Completion cites exactly this receipt; a different one is refused (and Scaffold would refuse to record it).

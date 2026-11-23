@@ -20,6 +20,7 @@ import { ledgerCheckpoints } from "../../src/lib/verification/checkpoints.mjs";
 import { rewriteFeatureHistory } from "../../src/tools/execution-recovery/reconciliation.mjs";
 import { executeAndReview as executeTaskAttempt } from "../helpers/conductor-v2.mjs";
 import { requirementsFor } from "../helpers/issue-plan.mjs";
+import { recordTaskRequirementEvidence } from "../helpers/requirement-evidence.mjs";
 
 const hasScaffold = spawnSync("scaffold", ["--help"], { encoding: "utf8" }).status === 0;
 const real = { skip: !hasScaffold && "Real Scaffold (schema 3) is not on PATH" };
@@ -140,6 +141,7 @@ test("two dependent tasks complete and checkpoint into one chain that verifies a
     await f.call("start", undefined, taskId);
     const result = await f.attempt(taskId);
     assert.equal(result.status, "PASSED", JSON.stringify(result));
+    await recordTaskRequirementEvidence(f.dir, "F1", taskId, result.evidence.reference);
     await f.call("complete", { feature_id: "F1", task_id: taskId, result: "PASSED", source: "conductor",
       reference: result.evidence.reference, summary: "Checks and review passed" }, taskId);
     const checkpoint = await f.checkpoint(taskId, result.evidence.reference);
@@ -195,6 +197,7 @@ test("checkpoints still line up with completed tasks after a rebase is recorded 
   for (const id of ["a", "b"]) {
     await f.call("start", undefined, id);
     const result = await f.attempt(id);
+    await recordTaskRequirementEvidence(f.dir, "F1", id, result.evidence.reference);
     await f.call("complete", { feature_id: "F1", task_id: id, result: "PASSED", source: "conductor",
       reference: result.evidence.reference, summary: "ok" }, id);
     assert.equal((await f.checkpoint(id, result.evidence.reference)).ok, true);

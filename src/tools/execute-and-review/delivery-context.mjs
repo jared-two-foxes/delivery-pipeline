@@ -5,6 +5,7 @@ import { taskReceipts, recoverAttempt } from "../../lib/evidence/attempts.mjs";
 import { authenticateAttemptChain } from "../../lib/verification/attempt-chain.mjs";
 import { verificationChecks, correctionVerification } from "../../lib/verification/checks.mjs";
 import { issueRequirements } from "../../lib/scaffold/contracts.mjs";
+import { taskRoles } from "../../lib/verification/requirements.mjs";
 import { authenticateAmendment } from "../../lib/authorization/amendment.mjs";
 import { assertPreAttemptAmendmentApplies } from "./context-amendment.mjs";
 import {
@@ -39,17 +40,22 @@ export async function deliveryEvent(repository, task, journal, event, options = 
 
 /**
  * This task's requirements as Scaffold scopes them: stable id, text, source and the task's own
- * roles. Unrelated feature requirements are never included.
+ * roles. Unrelated feature requirements are never included. Roles come from Scaffold's contributor and
+ * verifier sets, the ones it checks evidence against, so a childless root owns every requirement while
+ * a decomposed root sees them only as deferred context (no role). With `{ withHolders: true }` each
+ * requirement also carries those sets, from which the evidence binding is derived.
  */
-export async function scopedRequirements(repository, task, options = {}) {
+export async function scopedRequirements(repository, task, options = {}, { withHolders = false } = {}) {
   const r = await scaffoldTasks(
     { operation: "issue", feature_id: task.featureId, task_id: task.taskId },
     { directory: repository },
     options.scaffoldOptions,
   );
   requireValue(r.ok && r.data.context, "TASK_CONTEXT_INVALID: cannot read scoped requirements: " + (r.message ?? "no issue context"));
-  return r.data.context.requirements.map(({ id, text, source, roles }) =>
-    ({ id, text, ...(source ? { source } : {}), roles }));
+  return r.data.context.requirements.map((req) => ({
+    id: req.id, text: req.text, ...(req.source ? { source: req.source } : {}), roles: taskRoles(req, task.taskId),
+    ...(withHolders ? { contributors: req.contributors, verifiers: req.verifiers } : {}),
+  }));
 }
 
 export async function prepareDelivery(repository, feature, issue, args, options = {}) {

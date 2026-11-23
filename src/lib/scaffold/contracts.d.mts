@@ -5,7 +5,7 @@ export type ScaffoldOperation =
   | "summary" | "issue" | "select" | "design-select" | "delivery-record"
   | "direction-approve" | "design-revise" | "attempt-record" | "history-foreign"
   | "history-rewrite" | "failure-record" | "artifact-put" | "artifact-get"
-  | "requirements";
+  | "requirements" | "evidence-record" | "evidence-equivalence";
 
 export interface IssueBinding {
   featureId: string;

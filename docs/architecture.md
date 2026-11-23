@@ -51,7 +51,12 @@ flowchart LR
 Note the order: the direction is recorded **before** the issue graph is designed, with no
 user approval step. The "direction" is the feature-level design context, objective, structured
 requirements (stable ids with text and source) and constraints. Issue designs are produced afterwards, inside that recorded scope, and the
-user reviews the finished design afterwards. Later departures use `approve_delivery_amendment`.
+user reviews the finished design afterwards. Later departures use `approve_delivery_amendment`, which can never amend a canonical requirement.
+
+Requirement ids flow unchanged from the feature definition to each task's review context
+(`requirement:<id>`), to the independent review's per-id assessment, and to the evidence Scaffold
+records for the completing attempt. Final validation requires every requirement to be satisfied. See
+[`src/tools/execute-and-review/docs/requirement-traceability.md`](../src/tools/execute-and-review/docs/requirement-traceability.md).
 
 | Stage | Skill | Native tool(s) | Code |
 |---|---|---|---|

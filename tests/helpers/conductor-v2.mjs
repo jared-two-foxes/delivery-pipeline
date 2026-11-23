@@ -69,6 +69,7 @@ export async function domainResponse(request, response) {
         const line = view.review.requirements.split('\n').find(l => l.startsWith('{"design":'));
         const context = line ? JSON.parse(line) : null;
         review.obligation_assessments ??= (context?.obligations ?? []).filter(o => o.status !== 'independently_verified')
+          .concat(context?.requirements ?? [])
           .map(o => ({ obligation_id: o.id, disposition: 'verified', evidence: 'Independent fixture inspected the correction and regression output' }));
       }
       if (review?.findings) review.findings = review.findings.map(f => ({
