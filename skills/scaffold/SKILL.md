@@ -43,7 +43,7 @@ and `design-finish` without implementation. Use `feature-delivery` for
 multi-task implementation and final validation, `implement-task` for one
 eligible issue, and `design` for independently requested designs.
 
-The user provides a ticket; a feature retains its original objective, criteria,
+The user provides a ticket; a feature retains its original objective, structured requirements,
 branch and baseline; all graph nodes are issues. Existing API names remain
 `task`, `task_id` and `tasks` in the current wire contract. Issue origin records whether it
 came from the ticket, design, review or an implementation discovery.
@@ -56,8 +56,24 @@ the agent's current Git root; there is no arbitrary repo path or implicit curren
 For a new feature initialize from the agreed ticket scope:
 
 ```json
-{"operation":"init","feature_id":"F1","payload":{"id":"F1","title":"Client activity","objective":"Record and display activity","acceptance_criteria":["Recorded activity is displayed"],"context":"Exact agreed ticket, constraints, original full Git baseline and feature branch","design_ref":"sha256:context","baseline":"<full original SHA>","branch":"feature/activity"}}
+{"operation":"init","feature_id":"F1","payload":{"id":"F1","title":"Client activity","objective":"Record and display activity","requirements":[{"id":"SA-1.AC1","text":"Recorded activity is displayed","source":"SA-1 acceptance criterion 1"},{"id":"SA-1.AC2","text":"Activity survives restart","source":"SA-1 acceptance criterion 2"}],"context":"Exact agreed ticket, constraints, original full Git baseline and feature branch","design_ref":"sha256:context","baseline":"<full original SHA>","branch":"feature/activity"}}
 ```
+
+### Feature requirements
+
+A feature's mandatory criteria are `requirements: [{id, text, source?}]`. Ids are stable and
+author-chosen (the ticket's own labels, such as `SA-1.AC1`, or a short stable slug the user
+agreed); they must match `[A-Za-z0-9][A-Za-z0-9._-]*`, are unique, and are **never** derived from
+list position. `text` is the requirement as the source states it; `source` records provenance
+(ticket identifier and item, or "user"). Every requirement is mandatory: there is no optional or
+waived state. Feature `acceptance_criteria` no longer exist, and a legacy positional or
+`acceptance_criteria` payload is refused, never translated. The root issue's criteria are derived
+from the requirements by Scaffold.
+
+Before the direction is approved, `design-revise` replaces the whole requirement set by id
+(`{context, requirements, ...}`): unchanged ids keep their identity, removed ids are dropped and
+cannot be reused, and nothing is renumbered. It is refused after approval and once any issue
+design exists.
 
 The adapter replaces `sha256:context` with the digest of the exact context. Retain
 the returned reference. A root issue with the feature ID is created automatically;
@@ -69,8 +85,25 @@ parent/prerequisite contract. Selection never claims or starts work. Design only
 this issue and its immediate responsibilities; use delegated authority from the overall feature direction approval.
 
 If it requires smaller units, `decompose` with an atomic array of child definitions.
-Every definition needs ID, title, narrow objective, acceptance_criteria, relevant
-context, inherited constraints and explicit dependencies (`[]` when none). Put
+Every definition needs ID, title, narrow objective, task-local acceptance_criteria
+(preserved as written), relevant context, inherited constraints, explicit dependencies
+(`[]` when none) and **exactly one** of:
+
+- `requirements: [{"id":"SA-1.AC1","roles":["contribute","verify"]}]`: the feature requirements
+  this issue serves. `contribute` means this leaf implements it; `verify` means this issue (leaf or
+  parent integration check) verifies it. Children may only narrow their parent's links.
+- `requirements_rationale: "<why>"`: for supporting work with no requirement (for example a
+  refactor that unblocks a contributor). It must justify the task; links and a rationale are
+  mutually exclusive.
+
+Coverage counts executable work only: each requirement needs a leaf contributor and a verifier that
+is the same issue or ordered after it (a parent verifies through its descendants). The root owns
+nothing once it has children. Unknown ids, widening beyond a parent, a missing link/rationale and
+missing contributors or verifiers fail with the requirement id named; fix the mapping rather than
+weakening a requirement. After each `add`/`decompose`/`design-record` the compact response lists
+`coverage.unmapped`; resolve every entry before `design-finish`, which refuses an incomplete plan.
+Query `requirements` (optional `{ids, unmapped}`) for per-requirement contributors, verifiers,
+missing roles and evidence, or `summary` for coverage counts and plan status. Put
 `Verification:` strategy, edge cases and expected outcomes in context. Optional
 `origin: {kind: "ticket"|"design"|"review"|"discovery", reference: "<issue/evidence>"}`
 records provenance. Forward dependencies within the batch are allowed; cycles,
@@ -104,7 +137,9 @@ Design-specified suffix in fixed Conductor requirements. The retained overall di
 | Operation | Additional fields | Meaning |
 | --- | --- | --- |
 | `summary`, `select`, `design-select`, `design-finish` | none | Scoped phase/selection or explicitly finish design |
-| `issue` | task_id | Current issue and relevant contracts |
+| `issue` | task_id | Current issue, its scoped requirements (stable ids, text, roles) and relevant contracts |
+| `requirements` | optional payload `{ids, unmapped}` | Feature requirement traceability: contributors, verifiers, missing roles, evidence |
+| `design-revise` | payload: context, optional requirements | Replace the design/requirement set before direction approval only |
 | `list` | none | Explicit full-state diagnostics |
 | `add` | payload: issue definitions | Add top-level/dependent corrections during Design |
 | `decompose` | task_id, payload: children | Add immediate children during Design |

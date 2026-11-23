@@ -8,7 +8,9 @@ import { requirementsFor } from "./issue-plan.mjs";
 
 export async function ledgerFeature(dir, {
   featureId = "F", taskId = "T", branch = "feature/ledger", tasks, start = true, approve = true,
-  objective = "Deliver the feature", criteria = ["Feature works"], designContext = "Approved design",
+  objective = "Deliver the feature", designContext = "Approved design",
+  // Explicit stable ids: identity never depends on list position.
+  requirements = [{ id: "F.works", text: "Feature works" }],
 } = {}) {
   const g = (...args) => git(dir, args);
   if (g("symbolic-ref", "--quiet", "--short", "HEAD") !== branch) g("switch", "-qc", branch);
@@ -22,9 +24,10 @@ export async function ledgerFeature(dir, {
   };
   const children = tasks ?? [{ id: taskId }];
   await call("init", { id: featureId, title: "Feature", objective, design_ref: "sha256:context",
-    context: designContext, acceptance_criteria: criteria, baseline, branch });
+    context: designContext, requirements, baseline, branch });
   await call("decompose", children.map(c => ({ title: c.id, objective: "Do " + c.id,
-    acceptance_criteria: [c.id + " works"], constraints: [], ...c })), featureId);
+    acceptance_criteria: [c.id + " works"], constraints: [],
+    requirements: requirements.map(({ id }) => ({ id, roles: ["contribute", "verify"] })), ...c })), featureId);
   const design = (id, disposition) => call("design-record",
     { summary: "Approved contract " + id, verification: "Checks", approval: "Fixture user confirmed", disposition }, id);
   await design(featureId, "decomposed");

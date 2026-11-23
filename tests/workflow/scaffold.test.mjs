@@ -7,10 +7,12 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { scaffoldTasks, checkStatePaths, buildCommand, OPERATIONS } from '../../src/tools/scaffold/adapter.mjs';
 
+import { designCoverage } from '../../src/tools/scaffold/tools.mjs';
+import { compactMutation } from '../../src/tools/scaffold/compact-mutation.mjs';
 const root = path.resolve(import.meta.dirname, '..', '..');
 const context = 'Approved feature context';
-const feature = { context, id: 'F1', title: 'Feature', objective: 'Deliver feature', design_ref: 'sha256:' + createHash('sha256').update(context).digest('hex'), acceptance_criteria: ['Feature works'], baseline: 'a'.repeat(40), branch: 'feature/test' };
-const definition = (id = 'T1') => ({ id, title: id, objective: 'Deliver task', acceptance_criteria: ['Task works'] });
+const feature = { context, id: 'F1', title: 'Feature', objective: 'Deliver feature', design_ref: 'sha256:' + createHash('sha256').update(context).digest('hex'), requirements: [{ id: 'R1', text: 'Feature works' }], baseline: 'a'.repeat(40), branch: 'feature/test' };
+const definition = (id = 'T1') => ({ id, title: id, objective: 'Deliver task', acceptance_criteria: ['Task works'], requirements: [{ id: 'R1', roles: ['contribute', 'verify'] }] });
 const task = (id = 'T1', status = 'pending') => ({ ...definition(id), feature_id: 'F1', parent_id: null, status, dependencies: [], history: [] });
 const evidence = { feature_id: 'F1', task_id: 'T1', result: 'PASSED', source: 'conductor', reference: 'retained-result-1', summary: 'Verified criteria' };
 const params = operation => ({ operation, feature_id: 'F1',
@@ -18,7 +20,8 @@ const params = operation => ({ operation, feature_id: 'F1',
   ...(['block', 'fail', 'retry'].includes(operation) ? { reason: 'Explicit decision' } : {}),
   ...({ init: { payload: feature }, add: { payload: [definition()] }, complete: { payload: evidence }, decompose: { payload: [definition('child')] },
     'design-record': { payload: { summary: 'Approved', verification: 'Tests', approval: 'User confirmed', disposition: 'leaf' } },
-    'design-revise': { payload: { context, design_ref: feature.design_ref } },
+    'design-revise': { payload: { context, design_ref: feature.design_ref, requirements: feature.requirements } },
+    requirements: { payload: { ids: ['R1'], unmapped: true } },
     'design-reopen': { payload: { reason: 'Review finding' } },
     'checkpoint-record': { payload: { commit: 'a'.repeat(40), parent: 'b'.repeat(40), tree: 'c'.repeat(40), reference: 'sha256:' + 'd'.repeat(64) } },
     'delivery-record': { payload: { expected_revision: 0, event: { kind: 'initialized', context: {}, head: null, sequence: 0 } } },
@@ -31,13 +34,19 @@ const params = operation => ({ operation, feature_id: 'F1',
     'artifact-get': { payload: { reference: 'sha256:' + 'c'.repeat(64) } },
     'issue-resume': { payload: { reference: 'sha256:' + 'e'.repeat(64), handoff: 'sha256:' + 'f'.repeat(64) } } }[operation] ?? {}),
 });
-const success = data => ({ code: 0, stdout: JSON.stringify({ schema_version: 3, ...data, ...(data.feature ? {feature:{...data.feature,original_baseline:data.feature.baseline,direction_scope:'d'.repeat(64),head:data.feature.baseline,base:data.feature.baseline,history:[],workflow:{kind:'recursive-issues/v1',phase:'implement',root_id:'T1'}}} : {}) }), stderr: '' });
+const success = data => ({ code: 0, stdout: JSON.stringify({ schema_version: 3, ...data, ...(data.feature ? {feature:{...data.feature,original_baseline:data.feature.baseline,direction_scope:'d'.repeat(64),head:data.feature.baseline,base:data.feature.baseline,history:[],workflow:{kind:'recursive-issues/v2',phase:'implement',root_id:'T1'}}} : {}) }), stderr: '' });
 function response(operation) {
+  if (operation === 'requirements')
+    return { code: 0, stderr: '', stdout: JSON.stringify({ schema_version: 3, schema: 'scaffold.requirements/v1', feature: { id: 'F1', phase: 'design' },
+      coverage: { complete: false, problems: ['R1: missing verifier (no issue verifies it)'], plan_status: 'unrecorded', plan_digest: 'a'.repeat(64), recorded_plan_digest: null },
+      counts: { total: 1, mapped: 0, unmapped: 1, unmapped_ids: ['R1'] },
+      requirements: [{ id: 'R1', text: 'Feature works', mapped: false, missing: ['verify'], contributors: [], verifiers: [], problems: [] }] }) };
   if (operation === 'artifact-put') return { code: 0, stdout: JSON.stringify({ schema_version: 3, reference: 'sha256:' + 'c'.repeat(64) }), stderr: '' };
   if (operation === 'artifact-get') return { code: 0, stdout: JSON.stringify({ schema_version: 3, artifact: { receipt: 1 } }), stderr: '' };
   if (['summary', 'issue', 'select', 'design-select'].includes(operation)) {
-    const summary = { id: 'F1', design_ref: feature.design_ref, phase: 'implement', task_revision: 1, state_digest: 'a'.repeat(64), counts: { pending: 1 }, baseline: feature.baseline, branch: feature.branch };
-    return success({ summary, ...(operation === 'summary' ? {} : { context: { schema: 'scaffold.issue-context/v1', feature: summary, issue: { ...task(), constraints: [] }, ancestors: [], prerequisites: [], children: [] } }) });
+    const summary = { id: 'F1', design_ref: feature.design_ref, phase: 'implement', task_revision: 1, state_digest: 'a'.repeat(64), counts: { pending: 1 }, baseline: feature.baseline, branch: feature.branch,
+      coverage: { complete: true, problems: [], plan_status: 'unrecorded', plan_digest: 'a'.repeat(64), recorded_plan_digest: null }, requirements: { total: 1, mapped: 1, unmapped: 0, unmapped_ids: [] } };
+    return success({ summary, ...(operation === 'summary' ? {} : { context: { schema: 'scaffold.issue-context/v1', feature: summary, issue: { ...task(), constraints: [] }, ancestors: [], prerequisites: [], children: [], requirements: [{ id: 'R1', text: 'Feature works', roles: [], contributors: ['T1'], verifiers: ['T1'] }] } }) });
   }
   if (['start', 'complete', 'block', 'fail', 'retry'].includes(operation)) {
     return success({ task: task('T1', { start: 'in_progress', complete: 'completed', block: 'blocked', fail: 'failed', retry: 'pending' }[operation]) });
@@ -69,10 +78,12 @@ test('every operation constructs one exact CLI invocation and JSON stdin', async
         const expected = [operation, '--feature=F1'];
         if (request.task_id) expected.push('--task=T1');
         if (request.reason) expected.push('--reason=Explicit decision');
-        if (request.payload) expected.push('--input', '-');
+        // `requirements` is a flag-based query: ids and the unmapped filter are arguments, never stdin.
+        if (operation === 'requirements') expected.push('--requirement=R1', '--unmapped');
+        else if (request.payload) expected.push('--input', '-');
         assert.deepEqual(args, expected);
         assert.equal(options.cwd, dir);
-        assert.equal(options.input, request.payload ? JSON.stringify(request.payload) : '');
+        assert.equal(options.input, request.payload && operation !== 'requirements' ? JSON.stringify(request.payload) : '');
         return response(operation);
       },
     });
@@ -379,4 +390,83 @@ test('Pi policies allow only scoped state tracking and preserve separate executi
   }
   const pkg = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
   assert.equal(pkg.peerDependencies.typebox, '*');
+});
+
+test('feature requirements are stable-id records; legacy criteria and positional ids are refused', () => {
+  const legacy = { ...params('init').payload, acceptance_criteria: ['Feature works'] };
+  assert.throws(() => buildCommand({ ...params('init'), payload: legacy }), /requirements \[\{id, text, source\?\}\]/);
+  const { requirements: _omitted, ...bare } = feature;
+  assert.throws(() => buildCommand({ ...params('init'), payload: bare }), /requirements must be a nonempty array/);
+  for (const bad of [[{ id: '', text: 'x' }], [{ id: 'R 1', text: 'x' }], [{ id: 'R1', text: ' ' }],
+    [{ id: 'R1', text: 'a' }, { id: 'R1', text: 'b' }], [{ id: 'R1', text: 'a', status: 'waived' }]])
+    assert.throws(() => buildCommand({ ...params('init'), payload: { ...feature, requirements: bad } }), /requirement|Unexpected|must match/i);
+  const ok = [{ id: 'SA-1.AC2', text: 'b', source: 'SA-1 item 2' }, { id: 'SA-1.AC1', text: 'a' }];
+  // Order is Scaffold's concern (canonical sort by id); the adapter forwards exactly what the author gave.
+  assert.equal(buildCommand({ ...params('init'), payload: { ...feature, requirements: ok } }).input,
+    JSON.stringify({ ...feature, requirements: ok }));
+  assert.throws(() => buildCommand({ ...params('design-revise'), payload: { context, design_ref: feature.design_ref, acceptance_criteria: ['x'] } }), /no longer exist/);
+  assert.doesNotThrow(() => buildCommand({ ...params('design-revise'), payload: { context, design_ref: feature.design_ref, requirements: ok } }));
+});
+
+test('every added issue is mapped to requirements or justified, with actionable messages', () => {
+  const add = (extra) => () => buildCommand({ ...params('decompose'), payload: [{ ...definition('child'), requirements: undefined, ...extra }] });
+  assert.throws(add({}), /needs exactly one of requirements .* or requirements_rationale/);
+  assert.throws(add({ requirements: [{ id: 'R1', roles: ['contribute'] }], requirements_rationale: 'why' }), /exactly one of/);
+  // Each message names the issue, the requirement link and the offending value.
+  assert.throws(add({ requirements: [{ id: 'R1', roles: ['implement'] }] }),
+    /^Error: Task child link R1: invalid role "implement"; roles must be a nonempty unique list of: contribute, verify$/);
+  assert.throws(add({ requirements: [{ id: 'R1', roles: [] }] }), /Task child link R1: roles must be a nonempty/);
+  assert.throws(add({ requirements: [{ id: 'R1', roles: ['verify', 'verify'] }] }), /Task child link R1: duplicate role/);
+  assert.throws(add({ requirements: [{ id: 'R1', roles: ['verify'] }, { id: 'R1', roles: ['contribute'] }] }), /Task child: duplicate requirement link R1/);
+  // In a multi-issue batch the message identifies which issue and link to fix.
+  const batch = [
+    { ...definition('first'), requirements: [{ id: 'R1', roles: ['contribute'] }] },
+    { ...definition('second'), requirements: [{ id: 'R1', roles: ['verify'] }, { id: 'R2', roles: ['contribute', 'implement'] }] },
+  ];
+  assert.throws(() => buildCommand({ ...params('decompose'), payload: batch }), /Task second link R2: invalid role "implement"/);
+  assert.throws(add({ requirements_rationale: ' ' }), /requirements_rationale/);
+  assert.doesNotThrow(add({ requirements_rationale: 'Unblocks the contributor' }));
+  assert.doesNotThrow(add({ requirements: [{ id: 'R1', roles: ['verify', 'contribute'] }] }));
+});
+
+test('requirements queries accept only ids and unmapped and build flags', () => {
+  assert.deepEqual(buildCommand({ operation: 'requirements', feature_id: 'F1' }), { args: ['requirements', '--feature=F1'], input: '' });
+  assert.deepEqual(buildCommand({ operation: 'requirements', feature_id: 'F1', payload: { unmapped: true } }).args, ['requirements', '--feature=F1', '--unmapped']);
+  assert.throws(() => buildCommand({ operation: 'requirements', feature_id: 'F1', payload: { status: 'x' } }), /only \{ids/);
+  assert.throws(() => buildCommand({ operation: 'requirements', feature_id: 'F1', payload: { ids: [] } }), /only \{ids/);
+});
+
+test('a successful mutation whose coverage query fails reports unknown coverage and a retry', async t => {
+  const dir = await fixture(t);
+  const request = params('decompose');
+  const mutation = { ok: true, operation: 'decompose', feature_id: 'F1', task_id: 'T1', data: JSON.parse(response('decompose').stdout) };
+  const failed = await designCoverage(request, mutation, { directory: dir }, {
+    invokeScaffold: async () => ({ code: 1, stdout: '', stderr: JSON.stringify({ schema_version: 3, error: 'ledger locked' }) }),
+  });
+  assert.equal(failed.error.reason, 'COMMAND_FAILED');
+  assert.match(failed.error.message, /ledger locked/);
+  assert.deepEqual(failed.retry, { operation: 'requirements', feature_id: 'F1', payload: { unmapped: true } });
+  const compact = compactMutation(mutation, failed);
+  assert.equal(compact.ok, true, 'the mutation itself still succeeded');
+  assert.equal(compact.data.coverage.complete, null, 'unknown coverage is never reported as complete');
+  assert.match(compact.data.coverage.error.message, /ledger locked/);
+  assert.deepEqual(compact.data.coverage.retry, failed.retry);
+  assert.equal(compact.data.coverage.unmapped, undefined);
+
+  // A successful query reports the gaps; a non-design operation adds nothing.
+  const found = await designCoverage(request, mutation, { directory: dir }, { invokeScaffold: async () => response('requirements') });
+  assert.deepEqual(compactMutation(mutation, found).data.coverage,
+    { complete: false, problems: ['R1: missing verifier (no issue verifies it)'], unmapped: [{ id: 'R1', missing: ['verify'] }] });
+  assert.equal(await designCoverage(params('start'), mutation, { directory: dir }), undefined);
+});
+
+test('contracts.d.mts declares every runtime export and exactly the runtime operations', async () => {
+  const declarations = await readFile(path.join(root, 'src', 'lib', 'scaffold', 'contracts.d.mts'), 'utf8');
+  const runtime = await import('../../src/lib/scaffold/contracts.mjs');
+  const declared = new Set([...declarations.matchAll(/^export (?:const|function) (\w+)/gm)].map(m => m[1]));
+  assert.deepEqual(Object.keys(runtime).filter(name => !declared.has(name)), [], 'undeclared runtime exports');
+  assert.deepEqual([...declared].filter(name => !(name in runtime)), [], 'declared exports missing at runtime');
+  const union = declarations.match(/export type ScaffoldOperation =([^;]+);/)[1];
+  assert.deepEqual([...union.matchAll(/"([\w-]+)"/g)].map(m => m[1]).sort(), [...runtime.OPERATIONS].sort());
+  assert.match(declarations, /requirements\?: RequirementsView\["requirements"\]/);
 });

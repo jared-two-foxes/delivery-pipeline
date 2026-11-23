@@ -1,2 +1,4 @@
 node_modules/
 .ci-scaffold/
+__pycache__/
+*.pyc

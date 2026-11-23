@@ -31,7 +31,7 @@ correct, and nothing it produces is evidence of anything.
   see the answer in the code, either ask the question in a form that does not reveal it
   or drop it.
 - **Read-only.** Use `scaffold_tasks` only with read operations (`summary`,
-  `list`, a scoped `issue` query) and Git only to read (`diff`, `log`, `show`,
+  `list`, `requirements`, a scoped `issue` query) and Git only to read (`diff`, `log`, `show`,
   `rev-parse`, `ls-files`) plus file reads and searches. Never call
   `execute_and_review`, `run_feature_checks`, `validate_feature`,
   `review_changes`, any approval, checkpoint or recovery tool, and never
@@ -50,7 +50,8 @@ correct, and nothing it produces is evidence of anything.
    on exactly one feature). Otherwise **ask the user for the feature id before
    querying Scaffold**; do not guess one.
 2. Scaffold state from `scaffold_tasks` `list` and scoped `issue` queries: the
-   approved direction (`context`), the feature `acceptance_criteria` and `constraints`,
+   approved direction (`context`), the feature `requirements` (stable ids; the `requirements`
+   operation gives contributors, verifiers and evidence per id) and `constraints`,
    and for each issue its criteria, designs and contracts, delivery obligations and any
    amendments. Treat these as the *stated intent*.
 3. The implementation: the diff from the feature's original baseline to current `HEAD`,
@@ -79,7 +80,7 @@ Look for these in the implementation and in the gap between it and the stated in
   repeated (idempotency), reordered, interrupted, and time- or locale-dependent inputs.
 - **Seams between issues**: places where two issues' pieces meet and neither issue's own
   contract obviously covers the combination.
-- **Intent gaps**: an acceptance criterion, constraint or obligation with no obvious
+- **Intent gaps**: a requirement id, constraint or obligation with no obvious
   corresponding code, or code with no obvious corresponding criterion.
 
 Prefer fewer, sharper questions. Aim for roughly 15 to 40, most important first within
@@ -91,7 +92,7 @@ each group. Do not pad with generic questions that apply to any code (for exampl
 Every question must be anchored to something specific, or it is dropped:
 
 - a changed file and symbol or line range (`path:symbol` or `path:start-end`), and
-- the source of the concern: a feature criterion, constraint, issue id, obligation id,
+- the source of the concern: a feature requirement id, constraint, issue id, obligation id,
   or "no stated intent" for an implementation detail nobody specified.
 
 ## Output format

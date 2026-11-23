@@ -49,8 +49,8 @@ flowchart LR
 ```
 
 Note the order: the direction is recorded **before** the issue graph is designed, with no
-user approval step. The "direction" is the feature-level design context, objective, criteria
-and constraints. Issue designs are produced afterwards, inside that recorded scope, and the
+user approval step. The "direction" is the feature-level design context, objective, structured
+requirements (stable ids with text and source) and constraints. Issue designs are produced afterwards, inside that recorded scope, and the
 user reviews the finished design afterwards. Later departures use `approve_delivery_amendment`.
 
 | Stage | Skill | Native tool(s) | Code |

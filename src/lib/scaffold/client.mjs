@@ -3,21 +3,18 @@
 // lifecycle operations.
 import { realpath } from "node:fs/promises";
 import { invoke } from "./process.mjs";
-import { validateRequest, validateResponse } from "./contracts.mjs";
+import { scaffoldArguments, validateResponse } from "./contracts.mjs";
 
 /**
  * Run one Scaffold operation in `repository` and return its parsed response.
  * Throws an Error carrying `.code === "UNKNOWN_FEATURE"` when Scaffold has no such open feature.
  */
 export async function scaffoldCall(repository, params, options = {}) {
-  const { operation, feature_id, task_id, reason, payload } = validateRequest(params);
-  const args = [operation, "--feature=" + feature_id];
-  if (task_id !== undefined) args.push("--task=" + task_id);
-  if (reason !== undefined) args.push("--reason=" + reason);
-  if (payload !== undefined) args.push("--input", "-");
+  const { operation } = params;
+  const { args, input } = scaffoldArguments(params);
   const response = await (options.invokeScaffold ?? invoke)("scaffold", args, {
     cwd: await realpath(repository),
-    input: payload === undefined ? "" : JSON.stringify(payload),
+    input,
   });
   if (response.code !== 0) {
     let detail = "";

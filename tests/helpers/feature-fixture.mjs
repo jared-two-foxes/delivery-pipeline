@@ -96,9 +96,9 @@ export async function fixture(t) {
       design_ref: designRef,
       baseline: base,
       branch: "feature/test",
-      acceptance_criteria: [
-        "Producer and consumer interoperate",
-        "Errors handled",
+      requirements: [
+        { id: "R1", text: "Producer and consumer interoperate" },
+        { id: "R2", text: "Errors handled" },
       ],
     },
   });
@@ -116,6 +116,7 @@ export async function fixture(t) {
           title: id,
           objective: id,
           acceptance_criteria: ["Verified " + id],
+          requirements: [{ id: "R1", roles: ["contribute", "verify"] }, { id: "R2", roles: ["contribute", "verify"] }],
           dependencies,
         },
       ],

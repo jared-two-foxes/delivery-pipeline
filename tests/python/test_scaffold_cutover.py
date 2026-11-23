@@ -22,7 +22,9 @@ FEATURE = {
     "id": FEATURE_ID,
     "title": "Task-only cutover",
     "objective": "Verify one persistent graph across subprocess boundaries",
-    "acceptance_criteria": ["Graph completion requires designed, verified and checkpointed issues"],
+    "requirements": [
+        {"id": "R1", "text": "Graph completion requires designed, verified and checkpointed issues"}
+    ],
     "context": CONTEXT,
     "design_ref": "sha256:" + hashlib.sha256(CONTEXT.encode()).hexdigest(),
     "baseline": "a" * 40,
@@ -106,16 +108,18 @@ def test_ledger_lifecycle_persists_across_subprocesses_and_ignores_legacy_files(
 
     initialized = tasks(directory, "init", payload=FEATURE)
     assert initialized["schema_version"] == 3
-    assert initialized["feature"]["workflow"]["kind"] == "recursive-issues/v1"
+    assert initialized["feature"]["workflow"]["kind"] == "recursive-issues/v2"
     assert initialized["feature"]["workflow"]["phase"] == "design"
     [ledger] = (directory / ".scaffold" / "features").glob(FEATURE_ID + ".*/ledger.jsonl")
     assert (directory / ".scaffold" / ".tasks.lock").is_file()
 
     definitions = [
         {"id": "model", "title": "Model", "objective": "Build the model",
-         "acceptance_criteria": ["Model is verified"], "dependencies": []},
+         "acceptance_criteria": ["Model is verified"], "dependencies": [],
+         "requirements": [{"id": "R1", "roles": ["contribute"]}]},
         {"id": "api", "title": "API", "objective": "Use the model",
-         "acceptance_criteria": ["API is verified"], "dependencies": ["model"]},
+         "acceptance_criteria": ["API is verified"], "dependencies": ["model"],
+         "requirements": [{"id": "R1", "roles": ["verify"]}]},
     ]
     tasks(directory, "decompose", FEATURE_ID, definitions)
     for identifier in (FEATURE_ID, "model", "api"):

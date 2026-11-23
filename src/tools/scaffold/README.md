@@ -54,6 +54,20 @@ Delivery callers own Scaffold reads and writes and supply fresh structures to
 shared verification and authorization functions. Checkpoint creation lives in
 `src/tools/checkpoint/`; handoff coordination lives in Execution Recovery.
 
+### Structured requirements
+
+A feature's criteria are `requirements: [{id, text, source?}]` with stable, author-chosen ids
+(never list positions); the root issue's criteria are derived from them by Scaffold. Each issue
+added by `add`/`decompose` carries `requirements: [{id, roles: ["contribute"|"verify"]}]` or a
+`requirements_rationale`, and keeps its own task-local `acceptance_criteria`. `requirements`
+(optional `{ids, unmapped}`) is a read-only, flag-based query (`--requirement`, `--unmapped`);
+`summary` and scoped `issue`/`design-select` context carry coverage and the relevant requirements.
+After a design-phase mutation the compact response includes `coverage.unmapped`, so gaps are fixed
+before `design-finish` (which refuses with each missing requirement id and role). Pi and MCP hosts
+share this one contract. Legacy feature `acceptance_criteria`, positional ids and the previous
+workflow kind are refused, never translated; the ledger schema is unchanged (3) and the workflow
+kind is `recursive-issues/v2`.
+
 The tool itself never edits application source, invokes Conductor, automatically
 decomposes or sequences tasks, retries operations, or owns a second state store.
 Completion evidence is caller supplied, not authenticated. See [the Scaffold skill](../../../skills/scaffold/SKILL.md)

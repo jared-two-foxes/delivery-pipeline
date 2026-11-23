@@ -8,6 +8,7 @@ import { requireFeatureAuthorization } from "../scaffold/feature-authorization.m
 import { assertLatestAttempt } from "../../lib/verification/attempt-chain.mjs";
 import { validateBinding } from "../../lib/delivery-state/binding.mjs";
 import { deliveryContractItems } from "../../lib/delivery-state/delivery-context.mjs";
+import { scopedRequirements } from "./delivery-context.mjs";
 import { hash } from "../../lib/delivery-state/context-digest.mjs";
 import { taskReceipts } from "../../lib/evidence/attempts.mjs";
 import { issueFeature } from "../scaffold/adapter.mjs";
@@ -61,7 +62,7 @@ async function amendmentBasis(repository, args, options) {
   return {
     task,
     source: await snapshot(repository),
-    items: deliveryContractItems(feature, issue, task),
+    items: deliveryContractItems(feature, issue, task, await scopedRequirements(repository, task, options)),
     // Bound to the issue's current approved design as well as the feature: a redesign invalidates it.
     designDigest: hash(issue.designs?.at(-1) ?? null),
     // Re-checked after the confirmation. Retention cannot be atomic with an attempt starting, so applying

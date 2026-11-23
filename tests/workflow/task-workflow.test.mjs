@@ -51,13 +51,14 @@ const feature = {
   branch: "feature/test",
   context: designText,
   design_ref: "sha256:context",
-  acceptance_criteria: ["Consumer displays valid value"],
+  requirements: [{ id: "F3.display", text: "Consumer displays valid value" }],
 };
 const definition = (id, dependencies = []) => ({
   id,
   title: id,
   objective: "One bounded behavior: " + id,
   acceptance_criteria: [id + " handles valid and invalid values"],
+  requirements: [{ id: "F3.display", roles: ["contribute", "verify"] }],
   dependencies,
   constraints: ["Preserve existing interfaces"],
   context:
@@ -112,7 +113,7 @@ async function fixture(t, { withFeature = true } = {}) {
   git("commit", "-qm", "baseline");
   const ledger = withFeature
     ? await ledgerFeature(dir, { featureId: "F3", taskId: "model", objective: feature.objective,
-      criteria: feature.acceptance_criteria, designContext: designText, tasks: [{ id: "model", constraints: ["Preserve existing interfaces"] }] })
+      requirements: feature.requirements, designContext: designText, tasks: [{ id: "model", constraints: ["Preserve existing interfaces"] }] })
     : null;
   return {
     dir,

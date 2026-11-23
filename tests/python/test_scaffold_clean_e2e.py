@@ -52,7 +52,7 @@ def feature(identifier, baseline):
         "id": identifier,
         "title": "Clean integration " + identifier,
         "objective": "Verify task-only CLI reset behavior",
-        "acceptance_criteria": ["Existing source and evidence remain untouched"],
+        "requirements": [{"id": "R1", "text": "Existing source and evidence remain untouched"}],
         "context": context,
         "design_ref": "sha256:" + hashlib.sha256(context.encode()).hexdigest(),
         "baseline": baseline,
