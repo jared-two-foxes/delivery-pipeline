@@ -76,7 +76,7 @@ host:
 - Refer to another skill by name: ``the `implement-task` skill``. Do not write `/skill:implement-task` or
   `/delivery-pipeline:implement-task`.
 - Refer to tools by bare name: `execute_and_review`. Do not write Claude Code's
-  `mcp__plugin_delivery-pipeline_pidelivery__` prefix.
+  `mcp__plugin_delivery-pipeline_delivery__` prefix.
 - Say "the agent", not "Pi" or "Claude".
 - Put host-specific instructions in `pi/*/README.md` (Pi) or `docs/claude-code.md` (Claude Code), not in a
   skill.

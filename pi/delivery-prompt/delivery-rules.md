@@ -7,8 +7,8 @@ contracts, and /skill:scaffold owns persistent state.
 
 ## Tool names
 
-The delivery tools reach Pi through the delivery MCP server, so Pi lists them as `mcp__pidelivery__<tool>` (for example
-`mcp__pidelivery__execute_and_review`). These rules and the skills use the bare names; "native" means one of these delivery
+The delivery tools reach Pi through the delivery MCP server, so Pi lists them as `mcp__delivery__<tool>` (for example
+`mcp__delivery__execute_and_review`). These rules and the skills use the bare names; "native" means one of these delivery
 tools as opposed to a shell command. None of the approval tools (`approve_delivery_amendment`,
 `adopt_foreign_commits`, `accept_feature`, `approve_feature_direction`) shows a dialog: present the concrete change in chat,
 wait for the user's explicit yes, then call the tool.

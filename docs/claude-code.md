@@ -18,8 +18,8 @@ claude --plugin-dir /absolute/path/to/delivery-pipeline
 `onFailure: "block"`). Validate it with `claude plugin validate .`.
 
 Tool names come from Claude Code's plugin naming rule, `mcp__plugin_<plugin>_<server>__<tool>`, so
-`execute_and_review` is `mcp__plugin_delivery-pipeline_pidelivery__execute_and_review`. Pi's names differ
-(`mcp__pidelivery__...`). The skills are generated per host, so the skills refer to tools by their bare names and rely on the model matching them against the tool list; see "Skills" below.
+`execute_and_review` is `mcp__plugin_delivery-pipeline_delivery__execute_and_review`. Pi's names differ
+(`mcp__delivery__...`). The skills are generated per host, so the skills refer to tools by their bare names and rely on the model matching them against the tool list; see "Skills" below.
 
 Approvals (`approve_delivery_amendment`, `adopt_foreign_commits`, `accept_feature`, and the recovery confirmations of
 `abandon_inflight_attempt` and `reconcile_external_changes`) show no dialog. The agent states the concrete change in chat
@@ -30,7 +30,7 @@ stall the pipeline, so none is used.
 
 The skills in `../skills/` are shared with Pi and written host-neutrally: other skills are referred to by name and
 tools by bare name, so Claude Code loads them from the plugin root unchanged. Claude resolves a bare tool name such as
-`execute_and_review` to `mcp__plugin_delivery-pipeline_pidelivery__execute_and_review`, and a skill name such as
+`execute_and_review` to `mcp__plugin_delivery-pipeline_delivery__execute_and_review`, and a skill name such as
 `implement-task` to `delivery-pipeline:implement-task`. Users invoke them as `/delivery-pipeline:<skill>`.
 
 Not ported: `delivery-rules.md`. Pi injects it into the system prompt through the `delivery-prompt` extension and

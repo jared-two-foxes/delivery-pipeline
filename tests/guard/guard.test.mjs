@@ -306,8 +306,8 @@ test("the guard hook is registered so that it fails CLOSED and covers every way 
 
 test("the MCP entry launches the server from inside the plugin, so the plugin is self-contained", () => {
   const { mcpServers } = json(".mcp.json");
-  assert.deepEqual(Object.keys(mcpServers), ["pidelivery"]);
-  const server = mcpServers.pidelivery;
+  assert.deepEqual(Object.keys(mcpServers), ["delivery"]);
+  const server = mcpServers.delivery;
   assert.equal(server.command, "node");
   for (const arg of server.args) {
     assert.ok(arg.startsWith("${CLAUDE_PLUGIN_ROOT}/"), "paths must be plugin-relative (a path that escapes the plugin root is rejected)");
@@ -350,7 +350,7 @@ test("Pi: a relative path is resolved against the session directory, so another 
 
 test("Pi: read-only built-ins and unknown tools are never touched", (t) => {
   const dir = repo(t);
-  for (const tool of ["read", "grep", "find", "ls", "write_plan", "scaffold_tasks", "execute_and_review", "mcp__pidelivery__execute_and_review", "lsp", undefined]) {
+  for (const tool of ["read", "grep", "find", "ls", "write_plan", "scaffold_tasks", "execute_and_review", "mcp__delivery__execute_and_review", "lsp", undefined]) {
     assert.equal(piCall(tool, { path: "x", command: "rm x" }, dir).decision, "pass", String(tool));
   }
   assert.equal(piGuardVerdict(undefined, { cwd: dir }).decision, "pass");

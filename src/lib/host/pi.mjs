@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { missingDependencies } from "./dependencies.mjs";
 import { describeToolCall, piGuardVerdict } from "../guard/pi.mjs";
 
-export const MCP_SERVER_NAME = "pidelivery";
+export const MCP_SERVER_NAME = "delivery";
 
 // One real startup check per server per process: seven registrations in one Pi session must not spawn seven.
 const startupChecks = new Map();
