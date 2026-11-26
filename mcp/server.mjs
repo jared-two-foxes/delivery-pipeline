@@ -55,7 +55,7 @@ export function createValidator() {
 }
 
 export function createDeliveryServer({ cwd = process.cwd(), tools = deliveryTools(), heartbeatMs } = {}) {
-  const server = new Server({ name: "pi-delivery", version: pluginVersion() }, { capabilities: { tools: {} } });
+  const server = new Server({ name: "delivery", version: pluginVersion() }, { capabilities: { tools: {} } });
   const list = mcpToolList(tools);
   const call = createMcpCaller(tools, { cwd: path.resolve(cwd), validate: createValidator(), heartbeatMs });
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: list }));

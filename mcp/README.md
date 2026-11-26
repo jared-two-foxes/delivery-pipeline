@@ -17,9 +17,22 @@ node mcp/start.mjs           # stdio; runs in the current directory, which must 
 `start.mjs` is the entry point to give a host. If the dependencies are missing it prints the one-line fix on
 stderr and exits 1, rather than failing with a module-resolution stack trace.
 
-Claude Code: `claude mcp add delivery-pipeline -- node /absolute/path/to/mcp/start.mjs`, run from the repository
+Claude Code: `claude mcp add delivery -- node /absolute/path/to/mcp/start.mjs`, run from the repository
 you are delivering in. VS Code: add the same command to `.vscode/mcp.json` (`"type": "stdio"`).
 The external CLIs (`scaffold`, Conductor, Executor, Review) must be on `PATH`, as they are for Pi.
+
+## Using it from Codex
+
+Register the local stdio server once from any directory:
+
+```sh
+codex mcp add delivery -- node /absolute/path/to/delivery-pipeline/mcp/start.mjs
+```
+
+Leave `cwd` unset so Codex starts the server in the chat's project or worktree. For long workflows,
+set `tool_timeout_sec = 3600` under `[mcp_servers.delivery]` in your user-level Codex config.
+If you registered the server under the old `pidelivery` name, move its settings to `delivery`
+and update any permissions keyed to the old tool prefix.
 
 ## Using it from Pi
 
@@ -38,13 +51,13 @@ fallback and no environment switch.
   the model), `timeout: 3600` (Pi's 60 s default would cut off a 30-minute workflow), and `cwd: "."` (resolved
   against Pi's session directory, i.e. the repository being delivered). The server also sends a progress
   heartbeat every 15 s to clients that ask for progress; Pi resets its timeout on progress.
-- **Tool names differ.** MCP tools reach the model as `mcp__pidelivery__<tool>` (for example
-  `mcp__pidelivery__execute_and_review`), including the approval tools. `delivery-rules.md`
+- **Tool names differ.** MCP tools reach the model as `mcp__delivery__<tool>` (for example
+  `mcp__delivery__execute_and_review`), including the approval tools. `delivery-rules.md`
   tells the model about the prefix; the skills still use bare names, as they do for Claude Code. Whether a
   model maps them reliably in a long real session has not been verified.
 
 Verified against real Pi 1.5.2 without a model (extensions loaded explicitly, with the server's transport still
-opt-in at that time): the server registers and connects; Pi's tool list becomes 14 `mcp__pidelivery__*` tools
+opt-in at that time): the server registers and connects; Pi's tool list becomes 14 `mcp__delivery__*` tools
 plus the native approval tools; the server runs in the session directory. **Not verified:** an actual tool call
 through Pi's MCP client (needs a model), and approvals and long runs in a live session.
 
