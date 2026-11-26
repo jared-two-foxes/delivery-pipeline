@@ -3,7 +3,7 @@
 A Claude Code plugin, rooted at the repository root (`.claude-plugin/plugin.json`), that does two things:
 
 1. **Serves the delivery tools** (`scaffold_tasks`, `execute_and_review`, checkpoints, validation, recovery,
-   review) through the MCP server in `../mcp`, using `.mcp.json`.
+   review) through the MCP server in `../mcp`, declared in `plugin.json`. There is deliberately no root `.mcp.json`: Claude Code would also load it as a project server in this repository, where `${CLAUDE_PLUGIN_ROOT}` is unset, and that duplicate fails to start.
 2. **Guards the repository while a delivery is active** with a `PreToolUse` hook (`guard.mjs`): direct source
    edits are blocked and shell commands are restricted, so changes can only arrive through `execute_and_review`.
 

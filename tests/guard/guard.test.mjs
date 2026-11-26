@@ -305,7 +305,7 @@ test("the guard hook is registered so that it fails CLOSED and covers every way 
 });
 
 test("the MCP entry launches the server from inside the plugin, so the plugin is self-contained", () => {
-  const { mcpServers } = json(".mcp.json");
+  const { mcpServers } = json(".claude-plugin/plugin.json");
   assert.deepEqual(Object.keys(mcpServers), ["delivery"]);
   const server = mcpServers.delivery;
   assert.equal(server.command, "node");
