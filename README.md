@@ -5,12 +5,13 @@ approval, then delivers each issue through tools that apply exact operations, ru
 review and make verified Git checkpoints. [Scaffold](https://github.com/jared-two-foxes/scaffold) keeps the
 task graph and an append-only ledger. A guard stops the agent editing source directly while a delivery is active.
 
-It runs in three hosts from one set of tool definitions:
+It runs across hosts from one set of tool definitions:
 
 | Host | How | Read |
 |---|---|---|
 | **Pi** | Install as a Pi package | below |
 | **Claude Code** | Plugin: MCP server + `PreToolUse` guard | [`docs/claude-code.md`](docs/claude-code.md) |
+| **Codex Cloud** | Shared environment with Delivery MCP and skills | [Setup](#set-up-codex-cloud) |
 | **Any MCP host** (e.g. VS Code) | stdio MCP server | [`mcp/README.md`](mcp/README.md) |
 
 How it fits together, and what is and is not enforced: [`docs/architecture.md`](docs/architecture.md).
@@ -34,6 +35,31 @@ External tools must be on `PATH`: `scaffold`, `conductor` (v2), `executor` and `
 
 The delivery guard is active only in repositories that have `.scaffold/features/*`. `PI_DELIVERY_GUARD=off`
 disables it; see [`pi/delivery-guard/README.md`](pi/delivery-guard/README.md).
+
+## Set up Codex Cloud
+
+Add this repository to the shared environment and run the setup script from its checkout as the task user.
+
+```sh
+bash scripts/cloud-env-setup.sh --codex
+```
+
+Setup requires Node.js, npm, Python with `venv`, Git, and a native build toolchain for Cargo. If Cargo is
+missing, setup installs Rust via rustup. The environment needs access to the Git repositories and package
+registries used during setup. The script registers the `delivery` stdio server and links the repository's
+skills under `~/.agents/skills`. The registration uses the checkout's absolute path, so keep the checkout at
+the same mount path in sessions using the published environment. The `PreToolUse` edit guard is part of
+the Claude Code plugin.
+
+The MCP server receives the installed tools on its `PATH`. Setup also links the executables into
+`~/.local/bin` for new shell sessions, preserving existing commands at that location.
+Configure the selected [review provider's credentials](skills/review/SKILL.md) separately in the shared
+environment. For OpenAI, bind `OPENAI_API_KEY` and allow access to `api.openai.com`.
+
+After publishing, check `command -v scaffold conductor executor review-cli` and `codex mcp get delivery`,
+then try a Delivery MCP tool in a new session. When
+PostgreSQL 16 is installed, setup starts a local instance for SQLx tests. To start it after a resume, run
+`bash scripts/cloud-env-setup.sh --start-codex-postgres`.
 
 ## Install in other agents
 

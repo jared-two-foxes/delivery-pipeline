@@ -1,13 +1,107 @@
 #!/usr/bin/env bash
-# Setup script for the "delivery-pipeline" Claude Code cloud environment.
+# Setup script for the "delivery-pipeline" cloud environment.
+# For Codex Cloud, run this checked-in script with --codex as the task user.
 # Paste into the environment's setup script field (or run as root on a fresh container).
 # Runs only on fresh container builds, not on resume.
 set -e
 export PATH="$HOME/.cargo/bin:$PATH"
+codex_tools_dir="$HOME/.local/share/delivery-pipeline"
+
+setup_codex() {
+  local repo_dir tools_dir=$codex_tools_dir bin_dir="$HOME/.local/bin"
+  local rustup_script skill target required_tool
+  repo_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+  for required_tool in codex node npm python3; do
+    if ! command -v "$required_tool" >/dev/null; then
+      echo "Delivery setup requires '$required_tool' on PATH." >&2
+      return 1
+    fi
+  done
+  mkdir -p "$tools_dir" "$bin_dir" "$HOME/.agents/skills"
+
+  if ! command -v cargo >/dev/null; then
+    rustup_script=$(mktemp)
+    if ! curl -fsSL https://sh.rustup.rs -o "$rustup_script" \
+      || ! sh "$rustup_script" -y --profile minimal --no-modify-path; then
+      rm -f -- "$rustup_script"
+      return 1
+    fi
+    rm -f -- "$rustup_script"
+  fi
+
+  install_rust_clis "$tools_dir"
+  for required_tool in conductor executor review-cli; do
+    link_codex_cli "$tools_dir/bin/$required_tool" "$bin_dir/$required_tool"
+  done
+  python3 -m venv "$tools_dir/venv"
+  "$tools_dir/venv/bin/python" -m pip install "git+https://github.com/jared-two-foxes/scaffold.git"
+  link_codex_cli "$tools_dir/venv/bin/scaffold" "$bin_dir/scaffold"
+  export PATH="$tools_dir/bin:$tools_dir/venv/bin:$bin_dir:$PATH"
+  npm ci --prefix "$repo_dir"
+  node "$repo_dir/mcp/start.mjs" --check
+  codex mcp add delivery --env "PATH=$PATH" -- "$(command -v node)" "$repo_dir/mcp/start.mjs"
+
+  for skill in "$repo_dir"/skills/*/SKILL.md; do
+    skill=$(dirname -- "$skill")
+    target="$HOME/.agents/skills/${skill##*/}"
+    if [ ! -e "$target" ] && [ ! -L "$target" ]; then
+      ln -s -- "$skill" "$target"
+    fi
+  done
+
+  start_codex_pg "$tools_dir/postgres" || echo "WARNING: local PostgreSQL 16 setup failed" >&2
+  echo "Delivery setup complete. Registered MCP server and installed conductor, executor, review-cli, and scaffold."
+}
+
+link_codex_cli() {
+  if [ ! -x "$1" ]; then
+    echo "Delivery setup expected an executable at '$1'." >&2
+    return 1
+  fi
+  if [ -e "$2" ] || [ -L "$2" ]; then
+    if [ "$1" -ef "$2" ]; then
+      return 0
+    fi
+    if [ -x "$2" ]; then
+      echo "Delivery setup kept existing '$2'. MCP will use '$1'." >&2
+      return 0
+    fi
+    echo "Delivery setup cannot link '$2' because that path already exists." >&2
+    return 1
+  fi
+  ln -s -- "$1" "$2"
+}
+
+install_rust_clis() {
+  cargo install --root "$1" --force --git https://github.com/jared-two-foxes/conductor.git
+  cargo install --root "$1" --force --git https://github.com/jared-two-foxes/review.git review-cli
+  cargo install --root "$1" --force --git https://github.com/jared-two-foxes/executor.git
+}
+
+start_codex_pg() {
+  local pgbin=/usr/lib/postgresql/16/bin pgdata=$1
+  [ -x "$pgbin/initdb" ] || return 1
+  "$pgbin/pg_isready" -q -h localhost && return 0
+  if [ ! -f "$pgdata/PG_VERSION" ]; then
+    "$pgbin/initdb" -D "$pgdata" -U postgres -A trust || return 1
+  fi
+  PGHOST=localhost "$pgbin/pg_ctl" -D "$pgdata" -l "$pgdata/server.log" \
+    -o "-h localhost -k '$pgdata'" -w start
+}
+
+if [ "${1:-}" = --codex ]; then
+  set -E
+  trap 'status=$?; echo "Delivery Codex setup failed at line $LINENO (exit $status)." >&2' ERR
+  setup_codex
+  exit
+fi
+if [ "${1:-}" = --start-codex-postgres ]; then
+  start_codex_pg "$codex_tools_dir/postgres"
+  exit
+fi
+
 # Rust CLIs -> /usr/local/bin
-cargo install --root /usr/local --force --git https://github.com/jared-two-foxes/conductor.git
-cargo install --root /usr/local --force --git https://github.com/jared-two-foxes/review.git review-cli
-cargo install --root /usr/local --force --git https://github.com/jared-two-foxes/executor.git
+install_rust_clis /usr/local
 # Scaffold straight from GitHub
 pip install "git+https://github.com/jared-two-foxes/scaffold.git"
 # Repo dependencies for npm test, wherever the checkout is
