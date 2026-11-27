@@ -36,6 +36,16 @@ External tools must be on `PATH`: `scaffold`, `conductor` (v2), `executor` and `
 The delivery guard is active only in repositories that have `.scaffold/features/*`. `PI_DELIVERY_GUARD=off`
 disables it; see [`pi/delivery-guard/README.md`](pi/delivery-guard/README.md).
 
+### Signed checkpoint commits
+
+Verified-task checkpoints are created with `git commit-tree`, which ignores `commit.gpgsign`, so they are
+unsigned and GitHub shows them as "Unverified". Set `PI_DELIVERY_SIGN_COMMITS=1` in the MCP server's
+environment to sign them with the repository's git signing config (`user.signingkey`, `gpg.format`,
+`gpg.ssh.program`). The signing key's email must match a verified email on your GitHub account, and the
+key must be registered as a signing key there. Only the checkpoint commit on the feature branch is signed;
+internal recovery snapshot refs are not. If signing fails (missing key, agent unavailable), the checkpoint
+fails rather than falling back to an unsigned commit. Unset by default.
+
 ## Set up Codex Cloud
 
 Add this repository to the shared environment and run the setup script from its checkout as the task user.
