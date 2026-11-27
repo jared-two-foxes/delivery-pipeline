@@ -6,6 +6,7 @@ import { mkdtemp, writeFile, readFile, rm, mkdir, readdir } from "node:fs/promis
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { git } from "../../src/lib/git/tree.mjs";
+import { signCheckpointArgs } from "../../src/tools/checkpoint/commit.mjs";
 import { executeAndReview as executeTaskAttempt } from "../helpers/conductor-v2.mjs";
 import { readEvidence, retainEvidence } from "../../src/lib/evidence/store.mjs";
 import { snapshot } from "../../src/lib/git/snapshot.mjs";
@@ -165,6 +166,36 @@ test("two dependent tasks have separate verification baselines, commits, content
   const again = await f.checkpoint(two);
   assert.equal(again.commit, second.commit, JSON.stringify(again));
   assert.equal(f.g("rev-list", "--count", f.base + "..HEAD"), "2");
+});
+
+test("PI_DELIVERY_SIGN_COMMITS opts in to signing the branch checkpoint commit only", async (t) => {
+  assert.deepEqual(signCheckpointArgs({}), []);
+  assert.deepEqual(signCheckpointArgs({ PI_DELIVERY_SIGN_COMMITS: "0" }), []);
+  assert.deepEqual(signCheckpointArgs({ PI_DELIVERY_SIGN_COMMITS: "1" }), ["-S"]);
+  assert.deepEqual(signCheckpointArgs({ PI_DELIVERY_SIGN_COMMITS: "true" }), ["-S"]);
+
+  // A fake gpg stands in for the signing program; git only needs a signature on stdout and SIG_CREATED on stderr.
+  const fake = await mkdtemp(path.join(tmpdir(), "pi-fake-gpg-"));
+  t.after(() => rm(fake, { recursive: true, force: true }));
+  const program = path.join(fake, "gpg");
+  await writeFile(program, "#!/bin/sh\ncat >/dev/null\necho '[GNUPG:] SIG_CREATED D 1 8 00 0 0 0 0' >&2\n" +
+    "printf -- '-----BEGIN PGP SIGNATURE-----\\n\\nZmFrZQ==\\n-----END PGP SIGNATURE-----\\n'\n", { mode: 0o755 });
+  const signed = async (flag) => {
+    const f = await fixture(t);
+    f.g("config", "gpg.program", program);
+    f.g("config", "user.signingkey", "FAKEKEY");
+    const previous = process.env.PI_DELIVERY_SIGN_COMMITS;
+    if (flag) process.env.PI_DELIVERY_SIGN_COMMITS = flag; else delete process.env.PI_DELIVERY_SIGN_COMMITS;
+    try {
+      const result = await f.checkpoint(await f.verify());
+      assert.equal(result.ok, true, JSON.stringify(result));
+      return f.g("cat-file", "commit", result.commit);
+    } finally {
+      if (previous === undefined) delete process.env.PI_DELIVERY_SIGN_COMMITS; else process.env.PI_DELIVERY_SIGN_COMMITS = previous;
+    }
+  };
+  assert.doesNotMatch(await signed(undefined), /^gpgsig /m);
+  assert.match(await signed("1"), /^gpgsig /m);
 });
 
 test("missing, tampered, unsuccessful, mismatched and legacy receipts never commit", async (t) => {

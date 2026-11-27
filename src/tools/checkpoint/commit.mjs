@@ -17,6 +17,13 @@ import { snapshot } from '../../lib/git/snapshot.mjs';
 const requireValue = (ok, message) => { if (!ok) throw new Error(message); };
 const sha = x => /^[a-f0-9]{40}$/.test(x ?? '');
 
+// Opt-in: PI_DELIVERY_SIGN_COMMITS=1 signs the checkpoint commit that lands on the branch, using the
+// repository's own git signing config (user.signingkey, gpg.format, gpg.ssh.program). `commit-tree`
+// ignores commit.gpgsign, so without this flag checkpoints are unsigned and GitHub shows "Unverified".
+// Internal recovery/index snapshot commits are never signed. A signing failure fails the checkpoint.
+export const signCheckpointArgs = (env = process.env) =>
+  /^(1|true|yes|on)$/i.test(env.PI_DELIVERY_SIGN_COMMITS ?? '') ? ['-S'] : [];
+
 // Only a trusted UI confirmation callback can create a grant. No model-supplied
 // approval flag or persisted conversation text is interpreted as authorization.
 export function checkpointAuthorization(confirm) {
@@ -129,12 +136,13 @@ export async function checkpointVerifiedTask(args, { feature } = {}, context = {
       'Repository changed during checkpoint authorization');
     await options.interrupt?.('beforeCommit'); // deterministic failure injection for tests only
     // A private index stages only the exact Git tree in the receipt. No hooks,
-    // filters, signing programs or source writes are run while creating the commit.
+    // filters or source writes are run while creating the commit; a signing program runs only when
+    // PI_DELIVERY_SIGN_COMMITS opts in.
     await withTreeIndex(repository, record.after.tree, async (_env, privateIndex) => {
       await options.interrupt?.('afterStaging');
       if (!commit) {
         const date = record.recordedAt;
-        commit = git(repository, ['commit-tree', record.after.tree, '-p', record.args.baseRef], {
+        commit = git(repository, ['commit-tree', ...signCheckpointArgs(), record.after.tree, '-p', record.args.baseRef], {
           input: message, env: { GIT_AUTHOR_DATE: date, GIT_COMMITTER_DATE: date },
         });
         const indexSnapshot = git(repository, ['commit-tree', indexTree, '-p', record.args.baseRef], {
