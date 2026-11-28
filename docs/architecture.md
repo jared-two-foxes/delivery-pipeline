@@ -68,7 +68,7 @@ records for the completing attempt. Final validation requires every requirement 
 | Final gate | `feature-delivery` | `run_feature_checks` | `src/tools/feature-validation` |
 | Feature questions (manual) | `feature-questions` | none (read-only) | — |
 | Standalone review | `review` | `review_changes` | `src/tools/review` |
-| PR vs ticket criteria | `pr-criteria-review` | `review_changes`, GitHub PR tools, Linear read | skill text |
+| PR vs ticket criteria | `pr-review` | `review_changes`, GitHub PR tools, Linear read | skill text |
 
 ### Every registered tool
 
