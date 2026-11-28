@@ -16,7 +16,7 @@ implementation correctness.
 | `/skill:implement-task` | Execute, check, review, correct and checkpoint **one existing eligible issue** with authentic receipts | Yes, within its approved scope |
 | `/skill:feature-delivery` | Ensure the feature is prepared; orchestrate dependent issues through `implement-task`, recover graph-level discoveries and run the final mechanical build/test gate (`run_feature_checks`) | Yes, through task execution |
 | `/skill:feature-questions` | Manual only. Read-only: list the contract, precondition, postcondition and edge-case questions a finished feature's implementation should answer, tied to Scaffold state. Asks, never answers | No |
-| `/skill:pr-review` | Given a PR, its repository and a Linear ticket: extract the ticket's criteria, run `review_changes` per criterion against the PR change set, then post inline review comments and a summary comment on the PR. Never approves or merges | No (writes PR comments only) |
+| `/skill:ticket-review` | Given a PR, its repository and a Linear ticket: extract the ticket's criteria, run `review_changes` per criterion against the PR change set, then post inline review comments and a summary comment on the PR. Never approves or merges | No (writes PR comments only) |
 | `/skill:scaffold` | Reference for the native `scaffold_tasks` lifecycle and state contract | No independent execution |
 
 A standalone design is a document/contract, **not** a new Scaffold feature or

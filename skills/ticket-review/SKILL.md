@@ -1,5 +1,5 @@
 ---
-name: pr-review
+name: ticket-review
 description: >
   Review a pull request against the acceptance criteria of a Linear ticket. Given a PR,
   the repository it belongs to and a Linear ticket, extract the ticket's criteria, run
@@ -140,7 +140,7 @@ the review to be posted (this skill's purpose), proceed; if they asked only to
 ### Idempotency
 
 Begin every comment this skill posts with a hidden marker:
-`<!-- pr-review ticket=<ID> head=<short-sha> -->`.
+`<!-- ticket-review ticket=<ID> head=<short-sha> -->`.
 Before posting, list the PR's existing reviews and comments with `pull_request_read`. If a
 prior run for the same ticket and head SHA exists, report it and ask whether to
 post again rather than duplicating comments. A prior run on an older head SHA is fine;
@@ -155,7 +155,7 @@ people's comments.
    RIGHT side for head code). Comment body:
 
    ```
-   <!-- pr-review ticket=SA-585 head=abc1234 -->
+   <!-- ticket-review ticket=SA-585 head=abc1234 -->
    **[AC2] Medium, blocking**: <message>
 
    **Suggestion:** <recommendation>
@@ -175,7 +175,7 @@ After the review is submitted, read it back (`pull_request_read` for the review'
 comments) to get each inline comment's URL, then post one summary with `add_issue_comment`:
 
 ```
-<!-- pr-review ticket=SA-585 head=abc1234 -->
+<!-- ticket-review ticket=SA-585 head=abc1234 -->
 ## Review against SA-585
 
 Reviewed `<merge-base-short>..<head-short>` against <N> criteria from <ticket URL>.
